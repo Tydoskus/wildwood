@@ -156,6 +156,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     storage: dependencies.storage,
     send: sendCombatBatch,
     simulatedSeconds: () => gameSimulatedSeconds?.() ?? 0,
+    claimsPaused: () => dependencies.reducers.worldEntryBlocked(),
   });
   const progressByIdentity = new Map<string, PlayerProgress>();
   const researchByIdentity = new Map<string, PlayerResearch>();
@@ -367,6 +368,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   }
 
   function flush(force = false) {
+    // Also the periodic save's tick: a page that lost the session to another device stops its clock here.
+    enemyLoot.syncControl();
     flushStoreWrite();
     void flushEnemyLoot(force);
     void cutscenes.flush();

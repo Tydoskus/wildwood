@@ -284,6 +284,21 @@ it("charges each sealed report the game time simulated since the previous one", 
   simulated = 90.0004; await queue.flush(true);
   expect(f.send.mock.calls.map(([request]) => [request.count, request.simulatedMillis])).toEqual([[1, 30_000], [1, 30_000], [100, 0], [50, 30_000]]);
 });
+it("never claims the time another device held the session", async () => {
+  const f = fixture(); let simulated = 0, blocked = false;
+  const queue = createRegularEnemyLootQueue({ ...f.options, simulatedSeconds: () => simulated, claimsPaused: () => blocked });
+  queue.begin();
+  simulated = 10; queue.engaged(); queue.record("cloudspire", "Spitter");
+  // The phone takes the session at 20 s; this page's autofarm keeps fighting for ten minutes.
+  simulated = 20; blocked = true; queue.engaged();
+  for (let t = 30; t <= 620; t += 10) { simulated = t; queue.engaged(); }
+  // It takes the session back, fights on, and reports.
+  simulated = 630; blocked = false; queue.engaged();
+  simulated = 640; queue.record("cloudspire", "Spitter");
+  simulated = 650; await queue.flush(true);
+  // The first kill's 20 s up to the takeover, then only the 20 s since it came back.
+  expect(f.send.mock.calls.map(([request]) => [request.count, request.simulatedMillis])).toEqual([[1, 20_000], [1, 20_000]]);
+});
 it("seals every pending batch of a flush together, so the ones behind the first are not sent on the round trip", async () => {
   const f = fixture(); let simulated = 0;
   // Each reply takes half a second of game time to come back.

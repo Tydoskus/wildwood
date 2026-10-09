@@ -51,6 +51,8 @@ export function createRegularEnemyLootQueue(options: {
   send: (request: EnemyLootRequest) => Promise<boolean | "discard" | "throttled">;
   /** Seconds of game simulation run so far on this page; monotonic. */
   simulatedSeconds?: () => number;
+  /** True while another device or tab holds the session: this page cannot report, so its play time is not this account's. */
+  claimsPaused?: () => boolean;
 }) {
   let owner = "", key = "", epoch = 0;
   // Where the last sealed report's simulated time ended. Set at the first
@@ -68,6 +70,8 @@ export function createRegularEnemyLootQueue(options: {
   // the game time reports claim.
   let engagedAtSimulatedSeconds: number | null = null;
   const begunOwners = new Set<string>();
+  // The game keeps running on a page that lost the session, and its clock with it.
+  let paused = false;
   const simulatedSecondsNow = () => {
     let seconds = 0;
     try { seconds = options.simulatedSeconds?.() ?? 0; } catch {}
@@ -196,6 +200,22 @@ export function createRegularEnemyLootQueue(options: {
     lastSealedSimulatedSeconds = Math.max(lastSealedSimulatedSeconds ?? now, now);
     engagedAtSimulatedSeconds = null;
   }
+  /**
+   * Another device took the session, or this page took it back. Either way the
+   * time so far ends here: kills already made keep theirs, and the time the
+   * other device was the one reporting is never claimed twice. The account's
+   * clock counted it there, and claiming it again here made the server scale
+   * this page's next reports down.
+   */
+  function syncControl() {
+    let blocked = false;
+    try { blocked = Boolean(options.claimsPaused?.()); } catch {}
+    if (blocked === paused) return;
+    paused = blocked;
+    if (owner && state?.batches.some(batch => !batch.sealed)) { sealPending(state); persist(); }
+    lastSealedSimulatedSeconds = simulatedSecondsNow();
+    engagedAtSimulatedSeconds = null;
+  }
   /** Where the next report's game time starts: the last seal, or shortly before the first fight after it. */
   function claimStart(now: number) {
     const sealedAt = lastSealedSimulatedSeconds ?? now;
@@ -204,6 +224,7 @@ export function createRegularEnemyLootQueue(options: {
   }
   function flush(drain = false): Promise<boolean> {
     if (owner !== options.identity()) begin();
+    syncControl();
     if (inFlight) {
       const runEpoch = epoch;
       return drain ? inFlight.then(ok => ok && epoch === runEpoch ? flush(true) : false) : inFlight;
@@ -274,6 +295,7 @@ export function createRegularEnemyLootQueue(options: {
     hasPending: () => Boolean(state?.batches.length || adopted.length),
     record(mapId: string, enemy: string, autoFarm = false) {
       if (owner !== options.identity()) begin();
+      syncControl();
       if (!owner || !state || !killReportMap(mapId) || !enemy) return;
       const tail = state.batches.at(-1);
       let target = tail;
@@ -297,7 +319,9 @@ export function createRegularEnemyLootQueue(options: {
       persist();
     },
     /** The player is fighting: an attack or a hit taken. Cheap enough to call on every one. */
-    engaged() { engagedAtSimulatedSeconds ??= simulatedSecondsNow(); },
+    engaged() { syncControl(); if (!paused) engagedAtSimulatedSeconds ??= simulatedSecondsNow(); },
+    /** Checks whether this page still holds the session; cheap, for a periodic timer. */
+    syncControl,
     reset() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; inFlight = null; if (owner) { state = empty(); persist(); } },
     clear() { cancelBossRetry(); bossRetryDelay = 2_000; epoch++; owner = ""; state = null; adopted = []; key = ""; inFlight = null; },
   };
