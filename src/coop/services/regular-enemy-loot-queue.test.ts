@@ -136,6 +136,27 @@ it('persists a throttle across refreshes and ignores repeated forced drains unti
   } finally { vi.useRealTimers(); }
 });
 
+it('keeps a throttle that arrives after a reconnect began a new session', async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture();
+    let reply!: (value: 'throttled') => void;
+    const send = vi.fn((_r: EnemyLootRequest): Promise<boolean | 'throttled'> => new Promise(resolve => { reply = resolve; }));
+    const queue = createRegularEnemyLootQueue({ ...f.options, send });
+    queue.begin(); queue.record('water_reach', 'Spitter');
+    const first = queue.flush(true);
+    queue.begin();                                        // the socket dropped and came back mid-send
+    reply('throttled'); expect(await first).toBe(false);
+    for (let i = 0; i < 10; i++) { queue.begin(); expect(await queue.flush(true)).toBe(false); }
+    const reload = createRegularEnemyLootQueue({ ...f.options, send }); reload.begin();
+    expect(await reload.flush(true)).toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30_000); send.mockResolvedValue(true);
+    expect(await queue.flush(true)).toBe(true);
+    expect(send).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); }
+});
+
 it('respects an adopted orphan throttle before draining either stream', async () => {
   vi.useFakeTimers();
   try {

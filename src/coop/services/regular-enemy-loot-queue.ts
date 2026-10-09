@@ -76,6 +76,10 @@ export function createRegularEnemyLootQueue(options: {
   let state: State | null = null;
   let adopted: { key: string; state: State }[] = [];
   let inFlight: Promise<boolean> | null = null;
+  // The server's report budget is the account's, so a "catching up" reply
+  // holds every report for that account, whichever epoch sent it: one that
+  // lands after a reconnect's begin() still has to stop the next flush.
+  let throttledOwner = "", throttledUntilMs = 0;
   let bossRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let bossRetryDelay = 2_000;
   function cancelBossRetry() {
@@ -99,7 +103,14 @@ export function createRegularEnemyLootQueue(options: {
   }
   const empty = (): State => ({ streamId: crypto.randomUUID(), nextSequence: 1, batches: [] });
   // The server budget belongs to the account, including adopted tab streams.
-  const retryAt = () => Math.max(state?.retryAtMs ?? 0, ...adopted.map(orphan => orphan.state.retryAtMs ?? 0));
+  const retryAt = () => Math.max(state?.retryAtMs ?? 0, owner && owner === throttledOwner ? throttledUntilMs : 0,
+    ...adopted.map(orphan => orphan.state.retryAtMs ?? 0));
+  function noteThrottle(throttled: string) {
+    throttledOwner = throttled;
+    throttledUntilMs = wallClockNowMs() + 30_000;
+    // Saved with this page's stream too, so a reload right after waits as well.
+    if (owner === throttled && state) { state.retryAtMs = Math.max(state.retryAtMs ?? 0, throttledUntilMs); persist(); }
+  }
   function write(storageKey: string, value: State) {
     value.touchedAtMs = wallClockNowMs();
     try { options.storage.setItem(storageKey, JSON.stringify(value)); } catch {}
@@ -220,6 +231,7 @@ export function createRegularEnemyLootQueue(options: {
         write(storageKey, stream);
         let accepted: boolean | "discard" | "throttled" = false;
         try { accepted = await withRequestDeadline(options.send({ streamId: stream.streamId, sequence: BigInt(batch.sequence), mapId: batch.mapId, count: batch.count, enemies: batch.enemies, autoFarm: Boolean(batch.autoFarm), simulatedMillis: batch.simulatedMillis ?? 0 }), ENEMY_DEFEAT_BATCH_TIMEOUT_MS); } catch {}
+        if (accepted === "throttled") noteThrottle(runOwner);
         if (epoch !== runEpoch || options.identity() !== runOwner) return false;
         if (accepted === "throttled") { stream.retryAtMs = wallClockNowMs() + 30_000; write(storageKey, stream); return false; }
         if (!accepted) return false;

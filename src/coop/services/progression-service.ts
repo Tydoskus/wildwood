@@ -335,6 +335,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     return enemyLoot.flush(force);
   }
 
+  let lastThrottleDiagnosticAt = Number.NEGATIVE_INFINITY;
   async function sendCombatBatch(request: EnemyLootRequest): Promise<boolean | "discard" | "throttled"> {
     if (!dependencies.worldEntryReady() || !dependencies.hydrationReady() || dependencies.reducers.worldEntryBlocked() || resetPending) return false;
     // The cadence runs from reports that go out, so a flush that could not send
@@ -352,7 +353,16 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       recordConnectionDiagnostic("rewards-discarded", { detail: `${request.mapId}: ${request.count} kills: ${result.error}` });
       return "discard";
     }
-    if (!result.ok && /Enemy rewards are catching up/.test(result.error ?? "")) return "throttled";
+    if (!result.ok && /Enemy rewards are catching up/.test(result.error ?? "")) {
+      // An honest tab never gets here, so say who did and in what state; once
+      // per wait, since the queue holds every report for that long anyway.
+      const now = monotonicNowMs();
+      if (now - lastThrottleDiagnosticAt >= 30_000) {
+        lastThrottleDiagnosticAt = now;
+        recordConnectionDiagnostic("rewards-throttled", { detail: `${request.mapId}: ${request.count} kills, report ${request.sequence}${request.autoFarm ? ", autofarm" : ""}` });
+      }
+      return "throttled";
+    }
     return result.ok;
   }
 
