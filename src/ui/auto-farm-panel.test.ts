@@ -92,13 +92,13 @@ it('opens on an even split, moves each slider on its own with its share of 100% 
   expect(s.farm.state().active).toBe(true);
   expect(s.pause).not.toHaveBeenCalledWith(true);
   expect(s.document.querySelector('.farm-close')!.textContent).toBe('Stop');
-  expect(s.document.querySelector('.farm-start')!.textContent).toBe('Done');
+  expect(s.document.querySelector('.farm-start')!.textContent).toBe('Go');
   s.click('.farm-close');
   expect(s.farm.state().active).toBe(false);
   expect(!s.content.hidden).toBe(false);
 });
 
-it('opened while farming, Done keeps farming, applying slider changes; the window shows the live switch lines', () => {
+it('opened while farming, Go keeps farming, applying slider changes; the window shows the live switch lines', () => {
   const s = setup(true, 'endless_1');
   s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
   s.click('.farm-toggle');
@@ -109,7 +109,7 @@ it('opened while farming, Done keeps farming, applying slider changes; the windo
   s.click('.farm-toggle');
   expect(!s.content.hidden).toBe(true);
   expect(s.pause).not.toHaveBeenCalled();
-  // Done with nothing changed: still farming, same shares.
+  // Go with nothing changed: still farming, same shares.
   s.click('.farm-start');
   expect(!s.content.hidden).toBe(false);
   expect(s.farm.state()).toMatchObject({ active: true, shares: { [keys[0]]: 25 } });

@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.26": [
+    "The Auto Farm window's buttons while farming are Stop and Go",
+  ],
   "0.901.25": [
     "After a reconnect, a tab waits out \"Enemy rewards are catching up\" instead of resending its kills straight away",
   ],
@@ -3065,6 +3068,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.26": "2026-10-09",
   "0.901.25": "2026-10-09",
   "0.901.24": "2026-10-08",
   "0.901.23": "2026-10-08",

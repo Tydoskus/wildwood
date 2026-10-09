@@ -188,12 +188,12 @@ export function createAutoFarmPanel(options: {
       button.setAttribute('aria-checked', String((button.dataset.pull === 'on') === pulling));
       button.disabled = pullOff;
     }
-    // While farming the window is a look and a change: Stop ends the farm, Done keeps it going with what is set.
+    // While farming the window is a look and a change: Stop ends the farm, Go keeps it going with what is set.
     const live = farming();
     // Opened it is a window like any other: Back closes it, so Escape does too (desktop-hotkeys).
     const backLabel = live ? 'Stop' : 'Back';
     if (backButton.textContent !== backLabel) backButton.textContent = backLabel;
-    if (startButton.textContent !== (live ? 'Done' : 'Start')) startButton.textContent = live ? 'Done' : 'Start';
+    if (startButton.textContent !== (live ? 'Go' : 'Start')) startButton.textContent = live ? 'Go' : 'Start';
     const reason = options.unavailable();
     const empty = !options.farm.choices().length;
     startButton.disabled = empty || nothingSet() || Boolean(reason);
@@ -370,7 +370,7 @@ export function createAutoFarmPanel(options: {
     if (event.key === 'Escape' && !content.hidden) { event.preventDefault(); back(); }
   });
   startButton.addEventListener('click', () => {
-    // Done while farming: farming goes on, restarted only if the sliders changed.
+    // Go while farming: farming goes on, restarted only if the sliders changed.
     if (farming() && sameShares(draft, options.farm.savedShares())) { close(); return; }
     if (options.farm.start(draft)) close();
     else updateSelection();
