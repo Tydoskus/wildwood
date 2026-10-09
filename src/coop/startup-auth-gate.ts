@@ -60,13 +60,24 @@ function startupElements(documentValue: Document): StartupAuthElements {
     const detail = documentValue.createElement("span");
     detail.textContent = "Google and Spacetime Email links can open different characters.";
     hint.replaceChildren("Use your original sign-in method.", detail);
+    // Behind a Sign-in Help line, so the card does not read as a wall of
+    // account rules to someone who only wants to play (Ryan).
+    hint.hidden = true;
+    const help = documentValue.createElement("button");
+    help.id = "accountSignInHelp"; help.className = "account-sign-in-help"; help.type = "button";
+    help.textContent = "Sign-in Help";
+    help.setAttribute("aria-expanded", "false");
+    help.setAttribute("aria-controls", hint.id);
+    help.addEventListener("click", () => {
+      hint.hidden = !hint.hidden;
+      help.setAttribute("aria-expanded", String(!hint.hidden));
+    });
     // Inside the card with the rest of the sign-in copy. Before it existed
     // this sat loose above the button, which is where it lands if the markup
     // ever drops the card.
     const card = documentValue.querySelector(".account-note-card");
-    if (card) card.append(hint);
-    else signInButton.before(hint);
-    signInButton.setAttribute("aria-describedby", hint.id);
+    if (card) card.append(help, hint);
+    else signInButton.before(help, hint);
   }
   const muteButton = documentValue.getElementById("signInMuteButton");
   if (muteButton && !documentValue.getElementById("signInDiscordLink")) {
