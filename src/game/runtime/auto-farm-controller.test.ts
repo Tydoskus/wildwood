@@ -288,13 +288,26 @@ describe('autofarm', () => {
     // Town: no enemies.
     s.enemies.length = 0; s.spawnSites.length = 0; s.setMap('home');
     s.farm.refresh(); s.advance(1_000); s.farm.refresh();
-    expect(s.farm.state()).toMatchObject({ active: false, status: 'Farming resumes on a map with enemies' });
+    expect(s.farm.state()).toMatchObject({ active: false, waiting: true, status: 'Farming resumes on a map with enemies' });
     expect(s.farm.movement({ x: 1, y: 0, source: 'touch' }, 1 / 60)).toEqual({ x: 1, y: 0, source: 'touch' });
     // Through a portal to a map with the stat again: it picks the farm back up.
     s.farm.travelStarted(); s.setMap('forest'); s.enemies.push(bramble); s.add('Bramble', 1500, 500);
     s.farm.refresh(); s.advance(1_000); s.farm.refresh();
     expect(s.farm.state().active).toBe(true);
     expect(s.tick().x).toBeGreaterThan(0);
+  });
+
+  it('stays stopped when the player stops it while it waits to carry on after a map change', () => {
+    const s = setup(); const bramble = s.add('Bramble', 1500, 500);
+    s.farm.start('Bramble'); s.farm.travelStarted();
+    s.enemies.length = 0; s.spawnSites.length = 0; s.setMap('home');
+    s.farm.refresh(); s.advance(1_000); s.farm.refresh();
+    expect(s.farm.state().waiting).toBe(true);
+    s.farm.stop();
+    expect(s.farm.state()).toMatchObject({ active: false, waiting: false });
+    s.setMap('forest'); s.enemies.push(bramble); s.add('Bramble', 1500, 500);
+    s.farm.refresh(); s.advance(1_000); s.farm.refresh();
+    expect(s.farm.state().active).toBe(false);
   });
 
   it('retains the selected camp through disconnects and reacquires a fresh world after reconnecting', () => {

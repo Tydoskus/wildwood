@@ -500,3 +500,19 @@ it('the opened window takes its own touches: the HUD passes them through, and th
   const rule = css.slice(css.indexOf('#autoFarmSheet.is-window {'), css.indexOf('}', css.indexOf('#autoFarmSheet.is-window {')));
   expect(rule).toContain('pointer-events: auto');
 });
+
+it('shows On with Stop while it waits to carry on after a map change, and Stop cancels the carry-on', () => {
+  const s = setup();
+  // The controller's own test covers getting here; this is how the panel shows it.
+  let waiting = true;
+  const real = { state: s.farm.state, stop: s.farm.stop };
+  s.farm.state = () => ({ ...real.state(), active: false, waiting });
+  s.farm.stop = (...args) => { waiting = false; real.stop(...args); };
+  s.panel.refresh();
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Autofarm: On');
+  s.click('.farm-toggle');
+  expect(s.document.querySelector('.farm-close')!.textContent).toBe('Stop');
+  s.click('.farm-close');
+  expect(waiting).toBe(false);
+  expect(s.document.querySelector('.farm-badge')!.textContent).toBe('Autofarm: Off');
+});

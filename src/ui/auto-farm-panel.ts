@@ -110,7 +110,8 @@ export function createAutoFarmPanel(options: {
   const statsRow = element('.farm-stats-heading');
   const startButton = element<HTMLButtonElement>('.farm-start');
   const backButton = element<HTMLButtonElement>('.farm-close');
-  const farming = () => options.farm.state().active;
+  // Waiting to carry on after a map change counts: it starts again by itself, so it shows On and Stop cancels it.
+  const farming = () => { const state = options.farm.state(); return state.active || Boolean(state.waiting); };
   const selection = element('.farm-selection');
   const emptyNote = element('.farm-empty');
   const helpToggle = element<HTMLButtonElement>('.farm-help-toggle');
@@ -313,7 +314,7 @@ export function createAutoFarmPanel(options: {
   }
 
   /** The card's whole label, collapsed or open: "Autofarm: On" or "Autofarm: Off" (Ryan). */
-  const badgeText = () => `Autofarm: ${options.farm.state().active ? 'On' : 'Off'}`;
+  const badgeText = () => `Autofarm: ${farming() ? 'On' : 'Off'}`;
 
   function refresh() {
     options.farm.refresh();

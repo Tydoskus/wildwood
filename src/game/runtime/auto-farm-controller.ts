@@ -575,7 +575,8 @@ export function createAutoFarmController(options: {
   }
 
   return { start, stop, defeated, refresh, choices, movement, travelStarted,
-    state: () => ({ active, selected, selectedLabel, shares: { ...shares }, phase, advance, fightBosses,
+    /** `waiting`: stopped for travel, and starting again on the next map with enemies. The player can still Stop it. */
+    state: () => ({ active, waiting: !active && Boolean(pendingResume), selected, selectedLabel, shares: { ...shares }, phase, advance, fightBosses,
       status: active && !recovering && options.paused() ? 'Paused' : status }),
     /** The camp being farmed; null at the boss or on the way out, so the boss and anything in the way are fair game. */
     targetType: () => active && !manualControl && phase === 'farm' ? selectedType : null,
