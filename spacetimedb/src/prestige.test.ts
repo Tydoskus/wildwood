@@ -104,6 +104,22 @@ it("carries guest prestige and unspent points into a linked account", () => {
   expect(f.db.playerPrestige.identity.find(guest)).toBeNull();
 });
 
+it("carries a guest's paused research into a linked account", () => {
+  const f = crystalFixture();
+  const guest = identity("2");
+  f.db.playerProgress.identity.delete(f.ctx.sender);
+  f.progress(guest);
+  f.seed("playerBalanceVersion", { identity: guest, version: ATTACK_BALANCE_VERSION });
+  f.seed("pausedResearch", { key: `${guest.toHexString()}:foraging`, identity: guest, researchId: "foraging", targetRank: 2, remainingMicros: 9_000_000n, pausedAt: f.ctx.timestamp });
+  f.seed("accountLink", { code: "pause-link", guest, createdAt: f.ctx.timestamp });
+  f.ctx.senderAuth = { jwt: { issuer: SPACETIME_AUTH_ISSUER, audience: [SPACETIME_AUTH_CLIENT_ID] } };
+
+  f.run(server.claimGuestAccount, { code: "pause-link" });
+
+  expect(f.db.pausedResearch.key.find(`${f.ctx.sender.toHexString()}:foraging`)).toMatchObject({ identity: f.ctx.sender, targetRank: 2, remainingMicros: 9_000_000n });
+  expect(f.db.pausedResearch.key.find(`${guest.toHexString()}:foraging`)).toBeFalsy();
+});
+
 it("merges guest perk ranks and refunds any ranks above the cap", () => {
   const f = crystalFixture();
   const guest = identity("2");
@@ -171,6 +187,19 @@ it("survives the player's own progress reset", () => {
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 2, perkPoints: 2, peakPower: 5, prestigedAt: f.ctx.timestamp });
   f.run(server.resetPlayerProgress, {});
   expect(prestigeRow(f)).toMatchObject({ level: 2, perkPoints: 2 });
+});
+
+it("refuses a save reset during a Reflect Only or Aggro run, which dropping out would undo", () => {
+  for (const table of ["playerPrestigeChallenge", "playerAggroChallenge"] as const) {
+    const f = crystalFixture();
+    f.patch("playerProgress", { damage: 1_000 });
+    f.seed(table, { identity: f.ctx.sender, active: true, completed: 0 });
+    expect(() => f.run(server.resetPlayerProgress, {})).toThrow("Drop out of the challenge before resetting your save.");
+    expect(f.db.playerProgress.identity.find(f.ctx.sender)?.damage).toBe(1_000);
+    f.db[table].identity.update({ identity: f.ctx.sender, active: false, completed: 0 });
+    f.run(server.resetPlayerProgress, {});
+    expect(f.db.playerProgress.identity.find(f.ctx.sender)?.damage).not.toBe(1_000);
+  }
 });
 
 it("pays ten percent more stat per kill for each prestige level", () => {

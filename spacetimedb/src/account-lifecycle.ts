@@ -10,7 +10,7 @@ import { mergeEquipmentLocks, removeEquipmentLocks } from "./equipment-locks";
 // deps so the moved code reads exactly as it did.
 import { SenderError } from "spacetimedb/server";
 import { removePlayerJoinDate, syncPlayerJoinDate } from "./mailbox";
-import { removePausedResearch } from "./research-pause";
+import { movePausedResearch, removePausedResearch } from "./research-pause";
 import { removeStreamCursors } from "./regular-enemy-loot";
 import {
   ATTACK_BALANCE_VERSION,
@@ -283,6 +283,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     } else if (guestActiveResearch) {
       removeResearchCompletionSchedules(ctx, link.guest);
     }
+    movePausedResearch(ctx, link.guest, ctx.sender);
 
     for (const guestUpgrade of [...ctx.db.playerItemUpgrade.byIdentity.filter(link.guest) as Iterable<any>]) {
       // Rows are keyed by slot now, so this merges a guest's tiers into

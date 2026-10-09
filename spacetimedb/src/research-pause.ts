@@ -53,3 +53,16 @@ export function takePausedResearch(ctx: any, identity: any, researchId: string, 
 export function removePausedResearch(ctx: any, identity: any) {
   for (const row of [...ctx.db.pausedResearch.identity.filter(identity)] as any[]) ctx.db.pausedResearch.key.delete(row.key);
 }
+
+/**
+ * A guest's paused research, carried to the account claiming the guest's save.
+ * The guest's ranks replace the account's (claimGuestAccountFor), so its
+ * shelved timers replace the account's too.
+ */
+export function movePausedResearch(ctx: any, from: any, to: any) {
+  removePausedResearch(ctx, to);
+  for (const row of [...ctx.db.pausedResearch.identity.filter(from)] as any[]) {
+    ctx.db.pausedResearch.key.delete(row.key);
+    ctx.db.pausedResearch.insert({ ...row, key: pausedResearchKey(to, row.researchId), identity: to });
+  }
+}

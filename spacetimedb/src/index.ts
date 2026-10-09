@@ -5560,6 +5560,8 @@ const prestige = createPrestige({
 export const resetPlayerProgress = spacetimedb.reducer({}, (ctx) => {
   const activePlayer = requireControllingPlayer(ctx);
   if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel before resetting progress.");
+  // In a challenge the main run is set aside, and dropping out brings it back over a reset of the challenge run.
+  if (ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)?.active || ctx.db.playerAggroChallenge.identity.find(ctx.sender)?.active) throw new SenderError("Drop out of the challenge before resetting your save.");
   resetProgressToDefaults(ctx, activePlayer);
 });
 // Bodies live in prestige.ts; this is the schema-facing declaration.

@@ -49,6 +49,14 @@ describe("swapping characters between logins", () => {
     expect([...f.db.moderationAction.iter()].filter((row: any) => row.action === "Character moved to this login")).toHaveLength(2);
   });
 
+  it("carries paused research with the character", () => {
+    const f = fixture();
+    f.seed("pausedResearch", { key: `${hex(vis)}:foraging`, identity: vis, researchId: "foraging", targetRank: 3, remainingMicros: 5_000_000n, pausedAt: new Timestamp(1n) });
+    f.swap();
+    expect(f.db.pausedResearch.key.find(`${hex(moth)}:foraging`)).toMatchObject({ identity: moth, targetRank: 3, remainingMicros: 5_000_000n });
+    expect(f.db.pausedResearch.key.find(`${hex(vis)}:foraging`)).toBeFalsy();
+  });
+
   it("swaps back when run again", () => {
     const f = fixture();
     f.swap();

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.27": [
+    "Paused research comes with your character when you link a guest save or move to another login",
+    "Reset Save asks you to drop out of a Reflect Only or Aggro run first, since dropping out brought the old run back",
+  ],
   "0.901.26": [
     "The Auto Farm window's buttons while farming are Stop and Go",
     "The sign-in card is shorter: which login to use is under Sign-in Help",
@@ -3070,6 +3074,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.27": "2026-10-09",
   "0.901.26": "2026-10-09",
   "0.901.25": "2026-10-09",
   "0.901.24": "2026-10-08",
