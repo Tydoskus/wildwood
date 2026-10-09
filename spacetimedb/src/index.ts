@@ -1806,18 +1806,26 @@ export default spacetimedb;
 
 // Row-level visibility. Subscription filters are the client's own choice, so
 // without these a modified client could read where an invisible player (a
-// developer, often) is standing, or anyone's quests, drops and movement
-// frames. Rules on one table are OR'd: a row reaches its owner, and a
-// presence row reaches everyone only while its player is visible.
+// developer, often) is standing, or anyone's quests and drops. Rules on one
+// table are OR'd: a row reaches its owner, and a presence row reaches everyone
+// only while its player is visible.
+//
+// player_motion_detail_frame has no rule. Its 3 Hz rows, one per observer, were
+// checked against every connected player's subscription instead of only their
+// recipient's: evaluated queries ran 40-50 times the matched ones from 0.877 on.
+// A frame holds only visible players, and only a visible observer gets one, so
+// it shows nothing the map frames do not.
 export const visiblePlayerRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player WHERE is_visible = true");
 export const ownPlayerRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player WHERE identity = :sender");
 export const visibleMotionIdentityRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_identity WHERE is_visible = true");
 export const ownMotionIdentityRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_identity WHERE identity = :sender");
 export const visibleMapMarkerRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE is_visible = true");
 export const ownMapMarkerRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_map_marker WHERE identity = :sender");
-export const ownMotionDetailFrames = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_motion_detail_frame WHERE recipient = :sender");
 export const ownDailyQuestRow = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_daily_quest WHERE identity = :sender");
 export const ownItemDropRows = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM player_item_drop WHERE identity = :sender");
+// A shared duel message is between its two players: no one else may read who sent what to whom.
+export const sentDuelMessages = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM social_duel_message WHERE sender = :sender");
+export const receivedDuelMessages = spacetimedb.clientVisibilityFilter.sql("SELECT * FROM social_duel_message WHERE recipient = :sender");
 
 export type ModuleViewCtx = import("spacetimedb/server").ViewCtx<InferSchema<typeof spacetimedb>>;
 export type ModuleReducerCtx = ReducerCtx<InferSchema<typeof spacetimedb>>;
