@@ -1,6 +1,7 @@
+import { challengeMinimumInterval } from "./prestige-challenge";
 import { describe, expect, it } from "vitest";
 import {
-  addSoulKills, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
+  addSoulKills, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, withoutSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
 } from "./soul-dimension";
 import { MIN_ATTACK_INTERVAL } from "./rules";
 import { decodePlayerMapFrame, decodePlayerMotionFrame, encodePlayerMapFrame, encodePlayerMotionFrame } from "./player-motion-frame";
@@ -53,6 +54,18 @@ describe("soul stats", () => {
     const challenge = { ...run, attackRate: MIN_ATTACK_INTERVAL * .8 };
     expect(withSoulStats(challenge, { attackSpeed: 1 }).attackRate).toBe(challenge.attackRate);
     expect(withSoulStats(run, null)).toBe(run);
+  });
+
+  it("let attack speed reach the cap Reflect Only wins raise, and undo exactly under it", () => {
+    // Two wins: the base cap plus a whole attack a second, and a run already at the base cap.
+    const cap = challengeMinimumInterval({ active: false, completed: 2 });
+    const run = { damage: 10, maxHp: 100, armor: 5, regen: 1, attackRate: MIN_ATTACK_INTERVAL };
+    const boosted = withSoulStats(run, { attackSpeed: .5 }, cap);
+    expect(1 / boosted.attackRate).toBeCloseTo(1 / MIN_ATTACK_INTERVAL + .5);
+    expect(withSoulStats(run, { attackSpeed: 100 }, cap).attackRate).toBeCloseTo(cap);
+    expect(withoutSoulStats(boosted, { attackSpeed: .5 }, 9, cap).attackRate).toBeCloseTo(MIN_ATTACK_INTERVAL);
+    // At the higher cap it cannot be undone exactly, so the saved interval stands.
+    expect(withoutSoulStats({ ...run, attackRate: cap }, { attackSpeed: 100 }, .7, cap).attackRate).toBe(.7);
   });
 });
 

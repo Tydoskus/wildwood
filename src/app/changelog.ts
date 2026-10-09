@@ -4,6 +4,8 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Reset Save asks you to drop out of a Reflect Only or Aggro run first, since dropping out brought the old run back",
     "The Auto Farm card and the stat and quest trackers stay where you put them when the browser comes back from the background",
     "Auto Farm shows On, with Stop, while it waits to carry on after a map change, so stopping it there keeps it stopped",
+    "Soul Attack Speed reaches the higher attack speed cap Reflect Only wins give, and the profile lists what it really adds",
+    "Taking your game back from another device no longer counts the time it waited, which cut its first kill rewards",
   ],
   "0.901.26": [
     "The Auto Farm window's buttons while farming are Stop and Go",

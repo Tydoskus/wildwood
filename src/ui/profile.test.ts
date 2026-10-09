@@ -1,3 +1,4 @@
+import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../shared/research";
 import { FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, STARTER_BOW, WOOD_FULL_HELM, WOODEN_ARMOR } from "../../shared/items";
@@ -339,6 +340,22 @@ it("adds the soul stats in play to each row's base, before the multipliers, and 
   expect(row(soul, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+0.10×" });
   // None to add: the rows are as they were.
   expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL, undefined, 0, null, 1, null)).toEqual(plain);
+});
+
+it("counts soul attack speed up to a Reflect winner's raised cap, and lists only what it adds", () => {
+  const profile = {
+    progress: { ...progress(), attackRate: MIN_ATTACK_INTERVAL },
+    research: createEmptyResearchRanks(), itemUpgradeLevels: {},
+  } as Parameters<typeof profileStatDisplayRows>[0];
+  const twoWins = challengeMinimumInterval({ active: false, completed: 2 });
+  const attack = (cap: number, attackSpeed: number) => profileStatDisplayRows(profile, () => "0%", cap, undefined, 0, null, 1, { attackSpeed })
+    .find(row => row.kind === "attack")!;
+  // At the base cap already: two wins leave room for the whole half attack a second.
+  expect(attack(twoWins, .5)).toMatchObject({ total: `${(1 / MIN_ATTACK_INTERVAL + .5).toFixed(2)}/s` });
+  expect(attack(twoWins, .5).sources).toEqual([{ label: "Soul", value: "+0.500/s" }]);
+  // More than fits: only what fits, marked Max.
+  expect(attack(twoWins, 5).sources).toEqual([{ label: "Soul", value: "+1.000/s (Max)" }]);
+  expect(attack(MIN_ATTACK_INTERVAL, .5).sources).toEqual([]);
 });
 
 describe("another player's soul stats", () => {

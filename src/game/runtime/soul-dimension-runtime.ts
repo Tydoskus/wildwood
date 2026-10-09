@@ -46,6 +46,8 @@ export function createSoulDimensionRuntime(deps: {
   /** The player as combat has them now: weapon damage a second, health, armor, regen. */
   strength: () => SoulStrength;
   logPickup?: (label: string, color: string) => void;
+  /** The player's fastest attack interval: Reflect Only wins raise the cap, and soul attack speed may reach it. */
+  attackCap?: () => number;
 }) {
   let filledTier = -1;
   let strengthClock = 0;
@@ -138,14 +140,14 @@ export function createSoulDimensionRuntime(deps: {
     },
     /** Saved progress with the soul stats added: what the player's stats load from. Nothing is added in a challenge. */
     withSoul<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(progress: T | null): T | null {
-      return progress ? withSoulStats(progress, inPlay()) : progress;
+      return progress ? withSoulStats(progress, inPlay(), deps.attackCap?.()) : progress;
     },
     /**
      * The player's stats with the soul's share taken back out: what a save stores. Saving them as they are
      * stored the soul stats as the run's, and loading added them again, so every save added them once more.
      */
     withoutSoul<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(stats: T, savedAttackRate: number): T {
-      return withoutSoulStats(stats, inPlay(), savedAttackRate);
+      return withoutSoulStats(stats, inPlay(), savedAttackRate, deps.attackCap?.());
     },
     critDamage: () => inPlay().critDamage,
     inPlay,

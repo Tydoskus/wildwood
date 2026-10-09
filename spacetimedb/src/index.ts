@@ -81,7 +81,7 @@ import { HOME_EXTERIOR_MAP_ID, HOME_TRAVEL_PORTAL } from "../../shared/home";
 import { withinStationReach } from "./door-reach";
 import { isTownMap, registerTown, TOWN_ARRIVAL, TOWN_BENCH_POSITION, TOWN_MAP_ID, townPortalUsePoints } from "./town";
 import { enterGuildHall, guildHallMember, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
-import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulReturnOpenFor, soulStatsFor, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
+import { isSoulMap, noteEnemyDefeats, registerSoulDimension, requireSoulDimensionOpen, soulDimensionOpenFor, soulDimensionTables, soulReturnOpenFor, soulAttackCapFor, soulStatsFor, SOUL_ARRIVAL, SOUL_TOWN_PORTAL, wideMotionMap, withSoulStats, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow, deleteSnapshotRow } from "./snapshot-row-writes";
 import { compressLegacyMapPower } from "../../shared/map-power-rescale";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -2402,7 +2402,7 @@ function powerForProgress(progress: { maxHp: number; damage: number; attackRate:
 
 function effectivePowerStatsForProgress(ctx: any, progress: any) {
   return effectivePlayerPowerStats(
-    withSoulStats(progress, soulStatsFor(ctx, progress.identity)),
+    withSoulStats(progress, soulStatsFor(ctx, progress.identity), soulAttackCapFor(ctx, progress.identity)),
     ctx.db.playerResearch.identity.find(progress.identity),
     (itemId) => itemUpgradeLevelFor(ctx, progress.identity, itemId),
   );
@@ -2410,7 +2410,7 @@ function effectivePowerStatsForProgress(ctx: any, progress: any) {
 
 function effectivePowerForProgress(ctx: any, progress: any) {
   return effectivePlayerPower(
-    withSoulStats(progress, soulStatsFor(ctx, progress.identity)),
+    withSoulStats(progress, soulStatsFor(ctx, progress.identity), soulAttackCapFor(ctx, progress.identity)),
     ctx.db.playerResearch.identity.find(progress.identity),
     (itemId) => itemUpgradeLevelFor(ctx, progress.identity, itemId),
   );
@@ -5992,7 +5992,7 @@ function guildFighterFor(ctx: ModuleReducerCtx, identity: Identity): DuelFighter
     damage: weapon ? duelDamage(ctx, identity, progress.damage) : 0,
     armor: researchedArmor(ctx, identity, progress.armor),
     regen: researchedRegen(ctx, identity, progress.regen),
-    attackRate: weapon ? attackIntervalForProgress(withSoulStats(progress, soulStatsFor(ctx, identity))) : 31,
+    attackRate: weapon ? attackIntervalForProgress(withSoulStats(progress, soulStatsFor(ctx, identity), soulAttackCapFor(ctx, identity))) : 31,
   };
 }
 

@@ -126,13 +126,13 @@ export function createCombatReport(deps: CombatReportDeps) {
       // enemy, so they widen reach; the Split Shot arrow rolls the bow's skills
       // too, so the two reaches multiply.
       const bowSkills = bowSkillRollFor(ctx, ctx.sender, loadout.weapon);
-      return { saved, earned, statsFor, armorFor, soul, gear: {
+      return { saved, earned, statsFor, armorFor, soul, minInterval, gear: {
         loadout, critical, swing: prestigeSwingMultiplier(ranks),
         // Projectile count is not a kill reward, so the saved row holds for the whole report.
         armed,
         projectiles: !armed || itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
         // Reflect returns the hit before armor, so armor raises what it adds.
-        reach: prestigeReachMultiplier(ranks, armorFor(statsFor(withSoulStats(saved, soul)).armor).reduction)
+        reach: prestigeReachMultiplier(ranks, armorFor(statsFor(withSoulStats(saved, soul, minInterval)).armor).reduction)
           * bowSkillReachMultiplier(bowSkills),
         reflects: prestigePerkValue(ranks, "riposte") > 0,
         secondWind: prestigePerkValue(ranks, "secondWind"),
@@ -143,9 +143,9 @@ export function createCombatReport(deps: CombatReportDeps) {
     return {
       /** Preview this entry on top of previously accepted rewards. */
       preview(reward: EnemyStatReward) {
-        const { saved, earned, gear, statsFor, armorFor, soul } = report();
+        const { saved, earned, gear, statsFor, armorFor, soul, minInterval } = report();
         if (!saved) return { dps: 0, attackInterval: 1 };
-        const progress = withSoulStats(earned!.preview(reward), soul);
+        const progress = withSoulStats(earned!.preview(reward), soul, minInterval);
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
         const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval : 0;
@@ -181,8 +181,8 @@ export function createCombatReport(deps: CombatReportDeps) {
        * nothing, and the levels are memoised by slot, so this is exact.
        */
       powerFields(progress: any) {
-        const { statsFor, soul } = report();
-        const powerLevel = statsFor ? playerPowerForStats(statsFor(withSoulStats(progress, soul))) : 0;
+        const { statsFor, soul, minInterval } = report();
+        const powerLevel = statsFor ? playerPowerForStats(statsFor(withSoulStats(progress, soul, minInterval))) : 0;
         return { power: legacyU32Power(powerLevel), powerLevel };
       },
     };

@@ -103,17 +103,19 @@ export function cleanSoulStats(soul: Partial<SoulStats> | null | undefined): Sou
 
 /**
  * A run's base stats with the soul's added: what every combat read starts
- * from. Attack speed adds attacks a second and stops at the usual cap, but
- * never slows an interval a challenge already set below it.
+ * from. Attack speed adds attacks a second and stops at the player's cap,
+ * `minInterval`: the usual one, or the higher one Reflect Only wins earn
+ * (challengeMinimumInterval). Capping at the usual one wasted soul attack
+ * speed on every Reflect winner, while the profile still listed all of it.
  */
 export function withSoulStats<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(
-  progress: T, soul: Partial<SoulStats> | null | undefined,
+  progress: T, soul: Partial<SoulStats> | null | undefined, minInterval = MIN_ATTACK_INTERVAL,
 ): T {
   if (!soul) return progress;
   const clean = cleanSoulStats(soul);
   if (!clean.damage && !clean.maxHp && !clean.armor && !clean.regen && !clean.attackSpeed) return progress;
   const interval = progress.attackRate > 0 ? progress.attackRate : 1;
-  const faster = clean.attackSpeed > 0 ? Math.max(MIN_ATTACK_INTERVAL, 1 / (1 / interval + clean.attackSpeed)) : interval;
+  const faster = clean.attackSpeed > 0 ? Math.max(minInterval, 1 / (1 / interval + clean.attackSpeed)) : interval;
   return {
     ...progress,
     damage: progress.damage + clean.damage,
@@ -130,7 +132,7 @@ export function withSoulStats<T extends { damage: number; maxHp: number; armor: 
  * Attack speed at the cap cannot be undone exactly; then the run's saved interval, `savedAttackRate`, stands.
  */
 export function withoutSoulStats<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(
-  progress: T, soul: Partial<SoulStats> | null | undefined, savedAttackRate: number,
+  progress: T, soul: Partial<SoulStats> | null | undefined, savedAttackRate: number, minInterval = MIN_ATTACK_INTERVAL,
 ): T {
   if (!soul) return progress;
   const clean = cleanSoulStats(soul);
@@ -138,7 +140,7 @@ export function withoutSoulStats<T extends { damage: number; maxHp: number; armo
   let attackRate = progress.attackRate;
   if (clean.attackSpeed > 0) {
     const slower = 1 / progress.attackRate - clean.attackSpeed;
-    attackRate = progress.attackRate > MIN_ATTACK_INTERVAL + 1e-9 && slower > 0 ? 1 / slower : savedAttackRate;
+    attackRate = progress.attackRate > minInterval + 1e-9 && slower > 0 ? 1 / slower : savedAttackRate;
   }
   return {
     ...progress,
