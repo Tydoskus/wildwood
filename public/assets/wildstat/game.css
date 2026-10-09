@@ -2607,7 +2607,10 @@
   }
 
   .account-choice-modal p.account-sign-in-hint {
-    width: min(360px, calc(100vw - 64px));
+    /* The card's width inside the card; the cap is for the fallback above the
+       button. A fixed width ran past the card's edge on phones. */
+    width: auto;
+    max-width: min(360px, calc(100vw - 64px));
     margin: 8px auto 0;
     color: #fff;
     font-size: 13px;
