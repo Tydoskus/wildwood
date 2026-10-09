@@ -215,7 +215,9 @@
 .farm-segment.is-off { opacity: .45; }
 .farm-sheet .farm-segment button:disabled { cursor: default; }
 .farm-segment.is-off button[aria-checked="true"] { box-shadow: inset 0 -2px var(--muted); }
-/* The Aggro picker's Target row: the same segment, since that window replaces this one during a run. */
+/* During an Aggro run the window opens the picker from this row; display: flex above would override hidden. */
+.farm-aggro-row[hidden] { display: none; }
+/* The Aggro picker's Target row: the same segment as the window's, which it mirrors. */
 .aggro-pick-target { --muted: #bdbdbd; --farm-line: rgba(255,255,255,.13); font: 900 13px/1.35 var(--font-rounded); }
 .aggro-pick-window .farm-segment button { margin: 0; }
 .aggro-pick-window .farm-segment button:active { transform: none; }

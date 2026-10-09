@@ -10,6 +10,7 @@ import { soulCampName, SOUL_ENEMY_SPECIES } from '../game/soul-world';
 import { SOUL_MAP_ID, SOUL_STAT_DETAILS, type SoulStatId } from '../../shared/soul-dimension';
 import { researchStatRewardMultiplier } from '../../shared/research';
 import { prestigeStatMultiplier } from '../../shared/prestige';
+import { AGGRO_GROUPS, writeAggroPicks } from '../game/runtime/aggro-picks';
 
 let destroy: (() => void) | undefined;
 afterEach(() => { destroy?.(); destroy = undefined; vi.unstubAllGlobals(); });
@@ -313,18 +314,34 @@ it('has no Push setting, and keeps Pull Whole Group and Target under More', () =
   expect(more.querySelector('.farm-target')).not.toBeNull();
   expect([...s.document.querySelectorAll('.farm-body > [data-switch]')].map(entry => entry.getAttribute('data-switch'))).toEqual(['advance', 'bosses']);
 });
-it('during an Aggro run the button opens the group picker, whose Target is the farm window\'s own', () => {
+it('during an Aggro run the button opens the farm window, with Stop, and Chasing Groups opens the picker', () => {
   let active = true;
-  const s = setup(false, 'forest', {}, memoryStorage(), { aggro: () => ({ active, completed: 0 }), identity: () => 'me' });
+  // Picks already made, so the picker does not open by itself.
+  const storage = memoryStorage();
+  vi.stubGlobal('localStorage', storage);
+  writeAggroPicks('me', AGGRO_GROUPS);
+  const s = setup(false, 'forest', {}, storage, { aggro: () => ({ active, completed: 0 }), identity: () => 'me' });
+  s.farm.start(s.farm.savedShares());
   s.click('.farm-toggle');
-  expect(!s.content.hidden).toBeFalsy();
+  expect(!s.content.hidden).toBe(true);
+  expect(s.document.querySelector<HTMLElement>('.aggro-pick-overlay')?.hidden ?? true).toBe(true);
+  expect(s.document.querySelector('.farm-close')!.textContent).toBe('Stop');
+  expect(s.document.querySelector<HTMLElement>('.farm-aggro-row')!.hidden).toBe(false);
+  // Chasing Groups trades the window for the picker, whose Target is the window's own.
+  s.click('.farm-aggro-pick');
+  expect(!s.content.hidden).toBe(false);
   expect(s.document.querySelector<HTMLElement>('.aggro-pick-overlay')!.hidden).toBe(false);
   s.click('.aggro-pick-target [data-priority="lowest"]');
   expect(s.farm.priority()).toBe('lowest');
-  // After the run, the farm window shows the same choice.
+  s.click('.aggro-pick-done');
+  // Stop ends it in a run, as anywhere. (F's capture-phase listener is beyond linkedom.)
+  s.click('.farm-toggle');
+  s.click('.farm-close');
+  expect(s.farm.state().active).toBe(false);
+  // After the run, no Chasing Groups row.
   active = false;
   s.click('.farm-toggle');
-  expect(!s.content.hidden).toBe(true);
+  expect(s.document.querySelector<HTMLElement>('.farm-aggro-row')!.hidden).toBe(true);
   expect(s.document.querySelector('#autoFarmSheet .farm-target [data-priority="lowest"]')!.getAttribute('aria-checked')).toBe('true');
 });
 it('in the Soul Dimension draws a slider per soul stat present, in its soul colour, with its flat reward', () => {

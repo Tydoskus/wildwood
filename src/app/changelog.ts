@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.28": [
+    "In an Aggro run the Auto Farm button opens the Auto Farm window, with Stop; Chasing Groups in it picks who chases you, and F works",
+    "A death in an Aggro run stops Auto Farm, so it no longer farms back to what killed it and starts the run over again",
+  ],
   "0.901.27": [
     "Paused research comes with your character when you link a guest save or move to another login",
     "Reset Save asks you to drop out of a Reflect Only or Aggro run first, since dropping out brought the old run back",
@@ -3078,6 +3082,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.28": "2026-10-09",
   "0.901.27": "2026-10-09",
   "0.901.26": "2026-10-09",
   "0.901.25": "2026-10-09",

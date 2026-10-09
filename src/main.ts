@@ -683,7 +683,7 @@ import {
     playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,
-    recordDeath: () => { if (!inTutorial()) void coop?.recordPlayerDeath?.(); },
+    recordDeath: () => { if (coop?.aggroChallenge?.()?.active) autoFarm.stop("Autofarm stopped: a death restarts the Aggro run"); if (!inTutorial()) void coop?.recordPlayerDeath?.(); },
     endGame,
   });
 

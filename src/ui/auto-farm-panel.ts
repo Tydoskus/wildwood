@@ -90,6 +90,7 @@ export function createAutoFarmPanel(options: {
     + `<span class="farm-switch-copy"><span class="farm-switch-label">Fight Bosses</span><small id="autoFarmBossLine" class="farm-boss-status"></small></span><span class="farm-knob" aria-hidden="true"></span></button>`
     + powerSlider('farm-boss-power', 'Fight At', 'Of Boss Power', 'Fight Bosses At This Much Of Their Power')
     + `<div class="farm-more">`
+    + `<div class="farm-setting farm-aggro-row" hidden><span class="farm-setting-label">Chasing Groups</span><div class="farm-segment"><button type="button" class="farm-aggro-pick">Choose</button></div></div>`
     + segment('Pull Whole Group', 'autoFarmPullLabel', 'farm-pull', `<button type="button" role="radio" data-pull="off">Off</button><button type="button" role="radio" data-pull="on">On</button>`)
     + segment('Target', 'autoFarmTargetLabel', 'farm-target', AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join(''))
     + `</div></div>`
@@ -110,6 +111,7 @@ export function createAutoFarmPanel(options: {
   const statsRow = element('.farm-stats-heading');
   const startButton = element<HTMLButtonElement>('.farm-start');
   const backButton = element<HTMLButtonElement>('.farm-close');
+  const aggroRow = element('.farm-aggro-row');
   // Waiting to carry on after a map change counts: it starts again by itself, so it shows On and Stop cancels it.
   const farming = () => { const state = options.farm.state(); return state.active || Boolean(state.waiting); };
   const selection = element('.farm-selection');
@@ -276,7 +278,7 @@ export function createAutoFarmPanel(options: {
     sheet.classList.toggle('is-window', expanded);
     backdrop.hidden = !expanded;
     // The "?" is the window's, not the small card's.
-    helpToggle.hidden = !expanded || aggroRun();
+    helpToggle.hidden = !expanded;
     toggle.setAttribute('aria-expanded', String(expanded));
     caret.textContent = expanded ? '▾' : '▸';
     movable.place();
@@ -321,8 +323,8 @@ export function createAutoFarmPanel(options: {
     // A run lacking its picked groups on this map gets the picker, which stays until they are picked.
     const groups = mapGroups(), needed = aggroPicksNeeded(options.aggro?.());
     if (aggroRun() && options.visible() && groups.length && !picker.isOpen() && picker.lacking(needed, groups)) picker.open(needed, groups);
-    helpToggle.hidden = content.hidden || aggroRun();
-    if (aggroRun() && !content.hidden) { setHelpOpen(false); setExpanded(false); }
+    helpToggle.hidden = content.hidden;
+    aggroRow.hidden = !aggroRun();
     const visible = options.visible();
     const wasHidden = sheet.hidden;
     sheet.hidden = !visible;
@@ -340,8 +342,7 @@ export function createAutoFarmPanel(options: {
   }
 
   const movable = installMovableHudCard({ panel: sheet, handle: toggle, storage, positionKey: AUTO_FARM_POSITION_KEY, movable: () => content.hidden, toggle: () => {
-    // In an Aggro run the button picks or switches the groups that chase you.
-    if (aggroRun()) { const groups = mapGroups(); if (groups.length) picker.open(aggroPicksNeeded(options.aggro?.()), groups); return; }
+    // An Aggro run's window is the same one, with Stop; its chasing groups are a button inside it.
     if (content.hidden) open(); else close();
   } });
   backButton.addEventListener('click', () => {
@@ -349,6 +350,12 @@ export function createAutoFarmPanel(options: {
     back();
   });
   helpToggle.addEventListener('click', () => { if (content.hidden) open(); setHelpOpen(help.hidden); });
+  aggroRow.querySelector('button')!.addEventListener('click', () => {
+    const groups = mapGroups();
+    if (!groups.length) return;
+    close();
+    picker.open(aggroPicksNeeded(options.aggro?.()), groups);
+  });
   for (const button of priorityButtons) button.addEventListener('click', () => {
     const choice = AUTO_FARM_PRIORITIES.find(entry => entry.id === button.dataset.priority);
     if (choice) options.farm.setPriority(choice.id);
@@ -377,15 +384,15 @@ export function createAutoFarmPanel(options: {
     else updateSelection();
   });
   /**
-   * F starts Auto Farm with the sliders last set, or stops it. Not while typing,
-   * under another window, or in an Aggro run (its picker owns the button). With
-   * nothing to farm here it opens the window, which says why.
+   * F starts Auto Farm with the sliders last set, or stops it, in an Aggro run
+   * too. Not while typing or under another window. With nothing to farm here
+   * it opens the window, which says why.
    */
   const onKey = (event: KeyboardEvent) => {
     if (event.code !== 'KeyF' || event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
     const target = event.target as HTMLElement | null;
     if (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')) return;
-    if (!options.visible() || aggroRun()) return;
+    if (!options.visible()) return;
     const top = topBackButton(document);
     if (top && top !== backButton) return;
     event.preventDefault();

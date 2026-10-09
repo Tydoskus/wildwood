@@ -3,14 +3,14 @@ import { REWARD_DATA, type RewardType } from "../game/enemies";
 import { AUTO_FARM_PRIORITIES, type AutoFarmPriority } from "../game/runtime/auto-farm-priority";
 
 /**
- * The Aggro picker: during a run the autofarm button opens it, and it opens on
+ * The Aggro picker: Chasing Groups in the Auto Farm window opens it, and it opens on
  * its own whenever this map lacks the run's count of picked groups (a run that
  * predates picks, or a pick this map does not have, such as Atk Speed where no
  * enemy pays it). It offers only this map's groups, has no Back, and closes
  * once the run's count is picked; the picks are saved for the maps after.
- * It also holds Target (autofarm's stored choice): the button never opens the
- * autofarm window during a run, and with every group chasing at once, which
- * one is shot first is the run's one targeting decision. It applies on tap.
+ * It also holds Target (autofarm's stored choice): with every group chasing at
+ * once, which one is shot first is the run's one targeting decision. It
+ * applies on tap.
  */
 /** An Off / On row in the picker's own segment style. */
 const onOff = (name: string, label: string) => `<div class="farm-setting aggro-pick-target"><span id="aggroPick-${name}" class="farm-setting-label">${label}</span>`
@@ -57,7 +57,7 @@ export function createAggroPickPrompt(doc: Document, deps: {
         <h2 id="aggroPickTitle" class="window-banner window-banner--gray"><span>Aggro</span></h2>
         <p class="aggro-picks-label"></p>
         <div class="aggro-picks-chips" role="group" aria-label="Groups that chase you"></div>
-        <p class="aggro-pick-note">They chase you on every map. Tap the autofarm button to switch them.</p>
+        <p class="aggro-pick-note">They chase you on every map. Switch them from Chasing Groups in the Auto Farm window.</p>
         ${deps.priority ? `<div class="farm-setting aggro-pick-target"><span id="aggroPickTargetLabel" class="farm-setting-label">Target</span>`
           + `<div class="farm-segment farm-target" role="radiogroup" aria-labelledby="aggroPickTargetLabel">`
           + AUTO_FARM_PRIORITIES.map(entry => `<button type="button" role="radio" data-priority="${entry.id}">${entry.label}</button>`).join("")
