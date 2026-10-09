@@ -12,6 +12,7 @@ import { soulCampName, soulCampStat, soulRewardText, soulStatOfCampName, SOUL_EN
 import { mapSpawnCamps, type MapId, type SpawnSite } from "../world";
 import type { MapPortal } from "./map-controller";
 import type { EnemyState, PlayerState } from "./types";
+import { createSoulDefenseForce } from "./soul-defense-force";
 
 export type SoulDimensionSource = {
   localIdentity?: () => string | undefined;
@@ -48,8 +49,15 @@ export function createSoulDimensionRuntime(deps: {
   logPickup?: (label: string, color: string) => void;
   /** The player's fastest attack interval: Reflect Only wins raise the cap, and soul attack speed may reach it. */
   attackCap?: () => number;
+  /** For the Soul Defense Force (soul-defense-force.ts). */
+  damagePlayer?: (damage: number, source: EnemyState) => void;
+  message?: (text: string, color: string) => void;
+  burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
+  sendToTown?: () => Promise<boolean>;
 }) {
   let filledTier = -1;
+  const defenseForce = createSoulDefenseForce({ identity: () => deps.source()?.localIdentity?.(), player: deps.player, enemies: deps.enemies,
+    strength: deps.strength, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown });
   let strengthClock = 0;
   /** Soul kills this client has made since the server's soul row last changed: shown and fought with at once. */
   let pending: SoulStats = cleanSoulStats(null);
@@ -120,10 +128,11 @@ export function createSoulDimensionRuntime(deps: {
   return {
     update(dt: number) {
       deps.townMap.secondaryPortal = access() === "open" ? TOWN_PORTAL : undefined;
-      if (!isSoulMap(deps.currentMapId())) { filledTier = -1; return; }
+      if (!isSoulMap(deps.currentMapId())) { filledTier = -1; defenseForce.update(dt, false); return; }
       // A map load empties the site list; a new tier wakes new camps.
       const currentTier = tier();
       if (currentTier !== filledTier || (!deps.spawnSites.length && currentTier > 0)) fillCamps(currentTier);
+      defenseForce.update(dt, currentTier > 0);
       strengthClock -= dt;
       if (strengthClock <= 0) { strengthClock = STRENGTH_REFRESH_SECONDS; refreshWaitingDefinitions(); }
     },
@@ -134,6 +143,7 @@ export function createSoulDimensionRuntime(deps: {
     /** A soul kill: counted and shown at once, until the server's row catches up (combat adds it to the player itself). */
     soulKill(stat: SoulStatId) {
       soulStats();
+      defenseForce.countKill();
       pending = addSoulKills(pending, stat, 1);
       const detail = SOUL_STAT_DETAILS[stat];
       deps.logPickup?.(`${soulRewardText(stat)} Soul ${detail.label}`, detail.color);
@@ -150,6 +160,10 @@ export function createSoulDimensionRuntime(deps: {
       return withoutSoulStats(stats, inPlay(), savedAttackRate, deps.attackCap?.());
     },
     critDamage: () => inPlay().critDamage,
+    /** The Soul Defense Force's kill (nothing paid or reported), its blame for a death, and the Town trip after the respawn. */
+    defeated: defenseForce.defeated,
+    playerDied: defenseForce.playerDied,
+    afterRespawn: defenseForce.afterRespawn,
     inPlay,
     soulStats,
     rewardKills,

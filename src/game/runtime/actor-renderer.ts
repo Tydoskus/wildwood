@@ -680,7 +680,8 @@ export function createActorRenderer(options: {
 
     const base = enemy.definition ?? ENEMY_TYPES[enemy.type];
     const sourceSprite = options.enemySprites[enemy.type];
-    const sprite = enemy.generatedBoss && sourceSprite ? { ...sourceSprite, size: sourceSprite.size * 2.4 } : sourceSprite;
+    const spriteScale = enemy.generatedBoss ? 2.4 : enemy.spriteScale ?? 1;
+    const sprite = spriteScale !== 1 && sourceSprite ? { ...sourceSprite, size: sourceSprite.size * spriteScale } : sourceSprite;
     const layers = sprite?.layers;
     const image = sprite?.image;
     const imageReady = Boolean(image?.complete && image.naturalWidth > 0);

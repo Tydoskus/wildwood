@@ -199,7 +199,7 @@ import {
   const deathScreen = createDeathScreenController({
     screen: gameOverEl,
     countdown: deathCountdownEl,
-    onRespawn: () => startGame(false, false),
+    onRespawn: () => { startGame(false, false); void soulDimension.afterRespawn(); },
   });
 
   const mapMusic = createMapMusicController(MUSIC_VOLUME_KEY, SFX_VOLUME_KEY);
@@ -637,7 +637,7 @@ import {
   });
 
   playerCombat = createPlayerCombatController({
-    onEnemyDefeated: () => onboarding?.enemyDefeated() ?? false, soulStatOf: enemy => soulDimension.soulStatOf(enemy), onSoulKill: stat => soulDimension.soulKill(stat),
+    onEnemyDefeated: enemy => soulDimension.defeated(enemy) || (onboarding?.enemyDefeated() ?? false), soulStatOf: enemy => soulDimension.soulStatOf(enemy), onSoulKill: stat => soulDimension.soulKill(stat),
     player, enemies, spawnSites, projectileStore, bosses,
     nowSeconds: () => session?.gameTime() ?? 0,
     serverNowMs: () => coop?.serverNowMs?.() ?? Date.now(),
@@ -683,7 +683,7 @@ import {
     playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,
-    recordDeath: () => { if (coop?.aggroChallenge?.()?.active) autoFarm.stop("Autofarm stopped: a death restarts the Aggro run"); if (!inTutorial()) void coop?.recordPlayerDeath?.(); },
+    recordDeath: () => { soulDimension.playerDied(); if (coop?.aggroChallenge?.()?.active) autoFarm.stop("Autofarm stopped: a death restarts the Aggro run"); if (!inTutorial()) void coop?.recordPlayerDeath?.(); },
     endGame,
   });
 
@@ -808,7 +808,7 @@ import {
     pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "town", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name, guildHall: () => guildHall.hallMap() });
   const soulDimension = createSoulDimension({ source: () => coop, player, enemies, spawnSites, decor, currentMapId: () => currentMapId, spawnFromSite, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), townMap: MAP_CONFIG.town,
-    strength: () => ({ dps: playerCombat.expectedDps(), maxHp: player.maxHp, armor: effectiveArmor(), regen: regenerationPerSecond() }), logPickup,
+    strength: () => ({ dps: playerCombat.expectedDps(), maxHp: player.maxHp, armor: effectiveArmor(), regen: regenerationPerSecond() }), logPickup, damagePlayer: (damage, source) => playerCombat.damagePlayer(damage, source), message: showMessage, burst: spawnBurst, sendToTown: () => mapController.teleportHome(),
     attackCap: () => challengeMinimumInterval(coop?.aggroChallenge?.()?.active ? null : coop?.prestigeChallenge?.()), travel: mapController.travelFromHome, clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms) });
   const guildHall = createGuildHall({ source: () => coop, player, decor, currentMapId: () => currentMapId, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms),
     travel: mapId => { autoFarm.stop("Autofarm stopped for the Guild Hall"); return mapController.teleportToMap(mapId, async () => Boolean(await coop?.changeMap?.(mapId, player.x, player.y))); } });

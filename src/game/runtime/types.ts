@@ -69,6 +69,8 @@ export type EnemyState = Circle & {
   hideStatus?: boolean;
   definition?: EnemyDefinition;
   generatedBoss?: boolean;
+  /** Drawn this many times its kind's size (the Soul Defense Force); generated bosses have their own. */
+  spriteScale?: number;
   isBoss?: false;
   type: EnemyKind;
   siteId: number;

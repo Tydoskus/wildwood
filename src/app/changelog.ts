@@ -2,6 +2,8 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.28": [
     "In an Aggro run the Auto Farm button opens the Auto Farm window, with Stop; Chasing Groups in it picks who chases you, and F works",
     "A death in an Aggro run stops Auto Farm, so it no longer farms back to what killed it and starts the run over again",
+    "The profile says Soul Attack Speed is Already At Max when your attack speed has no room left, instead of +0.000/s",
+    "Something in the Soul Dimension is keeping count",
   ],
   "0.901.27": [
     "Paused research comes with your character when you link a guest save or move to another login",
