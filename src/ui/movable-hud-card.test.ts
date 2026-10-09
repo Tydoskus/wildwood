@@ -123,3 +123,19 @@ it('hands the keyboard back to the world after a click or drag on the card, so a
   await new Promise(resolve => setTimeout(resolve, 0));
   expect(keep).not.toHaveBeenCalled();
 });
+
+it('goes back where the player put it after the browser comes back from the background with a short window', () => {
+  const s = setup(JSON.stringify({ x: 300, y: 500 }));
+  expect(s.panel.style.top).toBe('500px');
+  // Restoring from the background, the window is briefly short, then its real size again.
+  vi.stubGlobal('innerHeight', 300);
+  s.event(s.window, 'resize');
+  expect(s.panel.style.top).toBe('252px');
+  vi.stubGlobal('innerHeight', 0);
+  s.event(s.window, 'resize');
+  expect(s.panel.style.top).toBe('252px');
+  vi.stubGlobal('innerHeight', 600);
+  s.event(s.window, 'resize');
+  expect(s.panel.style.top).toBe('500px');
+  expect(JSON.parse(s.values.get('position')!)).toEqual({ x: 300, y: 500 });
+});

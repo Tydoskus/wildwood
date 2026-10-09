@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.27": [
     "Paused research comes with your character when you link a guest save or move to another login",
     "Reset Save asks you to drop out of a Reflect Only or Aggro run first, since dropping out brought the old run back",
+    "The Auto Farm card and the stat and quest trackers stay where you put them when the browser comes back from the background",
   ],
   "0.901.26": [
     "The Auto Farm window's buttons while farming are Stop and Go",

@@ -33,17 +33,30 @@ export function installMovableHudCard(options: {
   const save = () => {
     try { options.storage()?.setItem(options.positionKey, JSON.stringify(position)); } catch { /* Keep it for this session. */ }
   };
-  function place() {
-    if (!movable() || panel.hidden || panel.offsetWidth === 0 || panel.offsetHeight === 0) return;
-    const bounds = panel.getBoundingClientRect();
-    const desired = position ?? { x: bounds.left, y: bounds.top };
-    // On screen and clear of the toolbar, whatever the window was resized to.
+  /** Where a card at `desired` fits: on screen and clear of the toolbar, whatever the window is now. */
+  function clamp(desired: Position): Position {
     const toolbarTop = panel.ownerDocument.getElementById('toolbar')?.getBoundingClientRect().top;
     const floor = toolbarTop && toolbarTop > panel.offsetHeight + 16 ? Math.min(window.innerHeight, toolbarTop) : window.innerHeight;
-    const x = Math.max(8, Math.min(desired.x, window.innerWidth - panel.offsetWidth - 8));
-    const y = Math.max(8, Math.min(desired.y, floor - panel.offsetHeight - 8));
+    return {
+      x: Math.max(8, Math.min(desired.x, window.innerWidth - panel.offsetWidth - 8)),
+      y: Math.max(8, Math.min(desired.y, floor - panel.offsetHeight - 8)),
+    };
+  }
+  /**
+   * Draws the card where the player put it, pulled on screen if the window is
+   * smaller. The pull is only drawn, never kept: Firefox on Android reports a
+   * tiny window for a moment when it comes back from the background, and
+   * keeping the pull sent the card to the top for good.
+   */
+  function place() {
+    if (!movable() || panel.hidden || panel.offsetWidth === 0 || panel.offsetHeight === 0) return;
+    // A window this small is one still being restored; the next resize is the real one.
+    if (window.innerWidth < 120 || window.innerHeight < 120) return;
+    if (!position) for (const property of ['left', 'top', 'right', 'bottom', 'transform']) panel.style.removeProperty(property);
+    const bounds = panel.getBoundingClientRect();
+    const desired = position ?? { x: bounds.left, y: bounds.top };
+    const { x, y } = clamp(desired);
     if (!position && x === desired.x && y === desired.y) return;
-    position = { x, y };
     panel.style.left = `${x}px`;
     panel.style.top = `${y}px`;
     panel.style.right = 'auto';
@@ -71,7 +84,7 @@ export function installMovableHudCard(options: {
     if (!drag || drag.id !== event.pointerId) return;
     if (Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) > 6) drag.moved = true;
     if (!drag.moved) return;
-    position = { x: event.clientX - drag.offset.x, y: event.clientY - drag.offset.y };
+    position = clamp({ x: event.clientX - drag.offset.x, y: event.clientY - drag.offset.y });
     panel.classList.add('is-dragging');
     place();
   });
@@ -96,7 +109,7 @@ export function installMovableHudCard(options: {
     if (!delta) return;
     event.preventDefault();
     const bounds = panel.getBoundingClientRect();
-    position = { x: bounds.left + delta[0], y: bounds.top + delta[1] };
+    position = clamp({ x: bounds.left + delta[0], y: bounds.top + delta[1] });
     place(); save();
   });
   // A gesture starting in the world stays there when it crosses the card.
