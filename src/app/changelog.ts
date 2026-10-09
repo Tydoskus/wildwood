@@ -1,7 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.26": [
     "The Auto Farm window's buttons while farming are Stop and Go",
-    "The sign-in card's text fits inside the card on phones",
+    "The sign-in card's text is shorter and fits inside the card on phones",
   ],
   "0.901.25": [
     "After a reconnect, a tab waits out \"Enemy rewards are catching up\" instead of resending its kills straight away",

@@ -59,7 +59,7 @@ function startupElements(documentValue: Document): StartupAuthElements {
     hint.id = "accountSignInHint"; hint.className = "account-sign-in-hint";
     const detail = documentValue.createElement("span");
     detail.textContent = "Google and Spacetime Email links can open different characters.";
-    hint.replaceChildren("Already have an account? Use your original sign-in method.", detail);
+    hint.replaceChildren("Use your original sign-in method.", detail);
     // Inside the card with the rest of the sign-in copy. Before it existed
     // this sat loose above the button, which is where it lands if the markup
     // ever drops the card.
