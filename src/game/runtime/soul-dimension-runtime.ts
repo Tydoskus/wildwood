@@ -51,7 +51,7 @@ export function createSoulDimensionRuntime(deps: {
   attackCap?: () => number;
   /** For the Soul Defense Force (soul-defense-force.ts). */
   damagePlayer?: (damage: number, source: EnemyState) => void;
-  message?: (text: string, color: string) => void;
+  message?: (text: string, color: string, seconds?: number) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   sendToTown?: () => Promise<boolean>;
 }) {

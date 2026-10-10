@@ -94,11 +94,12 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
   let rewardDisplayMode: "total" | "base" = "total";
   let completionToastId = 0;
 
-  function showMessage(text: string, color = "#fff") {
+  /** `seconds` on screen: a quick note by default, longer for one that must be read. */
+  function showMessage(text: string, color = "#fff", seconds = 1.45) {
     elements.message.textContent = text;
     elements.message.style.color = color;
     elements.message.style.opacity = "1";
-    messageClock = 1.45;
+    messageClock = seconds;
   }
 
   function updateMessage(dt: number) {

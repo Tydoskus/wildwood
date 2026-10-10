@@ -72,7 +72,9 @@ it("sends the player it killed to the Town after the respawn, once, retrying whi
   s.sendToTown.mockResolvedValueOnce(false).mockResolvedValueOnce(false);
   expect(await s.force.afterRespawn()).toBe(true);
   expect(s.sendToTown).toHaveBeenCalledTimes(3);
-  expect(s.message).toHaveBeenCalledWith(`The ${SOUL_DEFENSE_FORCE_NAME} defeated you`, expect.any(String));
+  // Said once in the Town, for long enough to read: before the trip, the fade hid it.
+  expect(s.message).toHaveBeenLastCalledWith(`The ${SOUL_DEFENSE_FORCE_NAME} defeated you`, expect.any(String), 4);
+  expect(s.message.mock.invocationCallOrder.at(-1)!).toBeGreaterThan(s.sendToTown.mock.invocationCallOrder.at(-1)!);
   expect(await s.force.afterRespawn()).toBe(false);
   expect(s.sendToTown).toHaveBeenCalledTimes(3);
   // A death far from it is not its doing.
