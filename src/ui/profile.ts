@@ -9,7 +9,7 @@ import { formatCompactNumber, formatRate } from "./number-format";
 import { paysSpeedRating } from "../game/combat";
 import { speedFromAttacksPerSecond } from "../../shared/attack-speed-rating";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
-import { cleanSoulStats, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
+import { cleanSoulStats, SOUL_ATTACK_SPEED_CEILING, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 
 export function formatPlayedTime(seconds: number) {
@@ -141,9 +141,6 @@ export function profileStatDisplayRows(
   // so each row's base includes them and its sources say how much was soul.
   const soul = cleanSoulStats(soulStats);
   const progress = withSoulStats(profile.progress, soul, minAttackInterval);
-  // What soul attack speed adds once the cap is counted: all of it, or what fits under the cap.
-  const soulAttackSpeed = soul.attackSpeed > 0
-    ? 1 / Math.max(minAttackInterval, progress.attackRate) - 1 / Math.max(minAttackInterval, profile.progress.attackRate) : 0;
   const ranks = research ?? profile.research ?? createEmptyResearchRanks();
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const effective = effectiveProfileStats({ ...progress, attackRate: Math.max(minAttackInterval, progress.attackRate) }, ranks, profile.itemUpgradeLevels);
@@ -210,9 +207,9 @@ export function profileStatDisplayRows(
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
       ...(speedRating === null ? {} : { expandedDetail: `(${speedRating >= 1_000 ? formatCompactNumber(speedRating) : Number(speedRating.toPrecision(3))} Attack Speed)` }),
-      // The soul's own attack speed, as earned (a fresh unlock's few thousandths included), marked Max
-      // when the attack speed cap leaves no room for all of it (Ryan).
-      sources: soulSource(soul.attackSpeed, value => `${value >= .001 ? value.toFixed(3) : Number(value.toPrecision(2))}/s${soulAttackSpeed < soul.attackSpeed - 1e-6 ? " (Max)" : ""}`),
+      // The soul's own attack speed, as earned (a fresh unlock's few thousandths included), marked Max once
+      // it is all there is: enough for a fresh character to reach the highest cap (Ryan).
+      sources: soulSource(soul.attackSpeed, value => `${value >= .001 ? value.toFixed(3) : Number(value.toPrecision(2))}/s${value >= SOUL_ATTACK_SPEED_CEILING - 1e-9 ? " (Max)" : ""}`),
     },
     {
       kind: "range", label: "Attack Range:", base: statValue(baseRange),

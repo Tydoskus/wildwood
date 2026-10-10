@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.45": [
+    "Soul Attack Speed keeps growing until it alone would take a fresh character to the highest attack speed cap, and only then says Max",
+  ],
   "0.901.44": [
     "Aggro and Reflect Only buttons no longer stay greyed out after a connection drop",
   ],
@@ -3148,6 +3151,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.45": "2026-10-10",
   "0.901.44": "2026-10-10",
   "0.901.43": "2026-10-10",
   "0.901.42": "2026-10-09",

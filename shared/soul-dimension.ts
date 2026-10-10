@@ -15,7 +15,8 @@
  *   they spawn, and pay a flat reward that never grows.
  */
 import { armorDamageReduction } from "./combat";
-import { MIN_ATTACK_INTERVAL, TUTORIAL_FOREST_MAP_ID } from "./rules";
+import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL, TUTORIAL_FOREST_MAP_ID } from "./rules";
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "./prestige-challenge";
 import { CAMPAIGN_GATEWAYS } from "./map-gateways";
 import designs from "./map-designs.json";
 import { TOWN_MAP_ID } from "./town";
@@ -85,11 +86,19 @@ export function soulStatValue(soul: Partial<SoulStats> | null | undefined, stat:
   const value = Number(soul?.[SOUL_STAT_FIELD[stat]] ?? 0);
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
+/**
+ * The most soul attack speed there is: what takes a fresh character (DEFAULT_ATTACK_INTERVAL) to the highest
+ * attack speed cap, Reflect Only's four wins included (Ryan). Kills earn it up to here and never past it; it
+ * counts in play only up to the player's own cap.
+ */
+export const SOUL_ATTACK_SPEED_CEILING = 1 / CHALLENGE_ABSOLUTE_MIN_INTERVAL - 1 / DEFAULT_ATTACK_INTERVAL;
+
 /** Soul stats after `count` kills of one soul enemy. Flat: the reward never grows. */
 export function addSoulKills(soul: Partial<SoulStats> | null | undefined, stat: SoulStatId, count: number): SoulStats {
   const next = { ...EMPTY_SOUL_STATS, ...cleanSoulStats(soul) };
   const field = SOUL_STAT_FIELD[stat];
   next[field] += SOUL_STAT_DETAILS[stat].reward * Math.max(0, Math.floor(count));
+  next.attackSpeed = Math.min(next.attackSpeed, SOUL_ATTACK_SPEED_CEILING);
   return next;
 }
 export function cleanSoulStats(soul: Partial<SoulStats> | null | undefined): SoulStats {
@@ -98,6 +107,7 @@ export function cleanSoulStats(soul: Partial<SoulStats> | null | undefined): Sou
     const value = Number(soul?.[key] ?? 0);
     clean[key] = Number.isFinite(value) ? Math.max(0, value) : 0;
   }
+  clean.attackSpeed = Math.min(clean.attackSpeed, SOUL_ATTACK_SPEED_CEILING);
   return clean;
 }
 

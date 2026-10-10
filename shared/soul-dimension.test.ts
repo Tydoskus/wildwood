@@ -1,9 +1,9 @@
-import { challengeMinimumInterval } from "./prestige-challenge";
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL, challengeMinimumInterval } from "./prestige-challenge";
 import { describe, expect, it } from "vitest";
 import {
-  addSoulKills, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, withoutSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
+  addSoulKills, cleanSoulStats, EMPTY_SOUL_STATS, SOUL_ATTACK_SPEED_CEILING, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, withoutSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
 } from "./soul-dimension";
-import { MIN_ATTACK_INTERVAL } from "./rules";
+import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
 import { decodePlayerMapFrame, decodePlayerMotionFrame, encodePlayerMapFrame, encodePlayerMotionFrame } from "./player-motion-frame";
 
 const each = (count: number) => ({ damage: count, health: count, armor: count, regen: count, speed: count });
@@ -117,4 +117,13 @@ describe("wide motion frames", () => {
     const map = decodePlayerMapFrame(encodePlayerMapFrame([{ networkId: 9, x: 777_777.7, y: 3 }], true), 1)[0];
     expect(map.x).toBeCloseTo(777_777.7, 1);
   });
+});
+
+it("earns soul attack speed up to what caps a fresh character at the highest cap, and never past it", () => {
+  // A fresh character at 1.56s, plus the ceiling, attacks exactly at the highest cap.
+  expect(1 / DEFAULT_ATTACK_INTERVAL + SOUL_ATTACK_SPEED_CEILING).toBeCloseTo(1 / CHALLENGE_ABSOLUTE_MIN_INTERVAL);
+  const near = { ...EMPTY_SOUL_STATS, attackSpeed: SOUL_ATTACK_SPEED_CEILING - .0005 };
+  expect(addSoulKills(near, "attackSpeed", 10).attackSpeed).toBe(SOUL_ATTACK_SPEED_CEILING);
+  expect(cleanSoulStats({ attackSpeed: 50 }).attackSpeed).toBe(SOUL_ATTACK_SPEED_CEILING);
+  expect(addSoulKills(EMPTY_SOUL_STATS, "attackSpeed", 3).attackSpeed).toBeCloseTo(.003);
 });

@@ -8,6 +8,7 @@ import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { trimSoulCritDamage } from "../../shared/critical-damage";
 import { storedPrestigePerkRanks } from "./prestige";
 import {
+  SOUL_ATTACK_SPEED_CEILING,
   addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier,
   SOUL_STAT_ORDER, SOUL_REWARD_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
 } from "../../shared/soul-dimension";
@@ -186,7 +187,7 @@ export function mergeSoulDimensionRows(ctx: any, from: any, into: any) {
     const target = ctx.db.playerSoulStats.identity.find(into);
     const a = cleanSoulStats(soul), b = cleanSoulStats(target);
     const next = { identity: into, damage: a.damage + b.damage, maxHp: a.maxHp + b.maxHp, armor: a.armor + b.armor, regen: a.regen + b.regen,
-      attackSpeed: a.attackSpeed + b.attackSpeed, critDamage: trimmedSoulCritDamage(ctx, into, a.critDamage + b.critDamage),
+      attackSpeed: Math.min(SOUL_ATTACK_SPEED_CEILING, a.attackSpeed + b.attackSpeed), critDamage: trimmedSoulCritDamage(ctx, into, a.critDamage + b.critDamage),
       kills: soul.kills + (target?.kills ?? 0n) };
     if (target) ctx.db.playerSoulStats.identity.update(next); else ctx.db.playerSoulStats.insert(next);
   }

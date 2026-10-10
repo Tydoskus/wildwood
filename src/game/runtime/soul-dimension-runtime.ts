@@ -1,6 +1,6 @@
 import {
   addSoulKills, cleanSoulStats, EMPTY_REWARD_KILLS, isSoulMap, soulDimensionAccess, soulEnemyStats, soulTier,
-  withSoulStats, withoutSoulStats, EMPTY_SOUL_STATS, SOUL_CAMPS, SOUL_STAT_DETAILS,
+  withSoulStats, withoutSoulStats, EMPTY_SOUL_STATS, SOUL_ATTACK_SPEED_CEILING, SOUL_CAMPS, SOUL_STAT_DETAILS,
   type RewardKillCounts, type SoulStatId, type SoulStats, type SoulStrength,
 } from "../../../shared/soul-dimension";
 import { TOWN_SOUL_PORTAL } from "../../../shared/town";
@@ -84,7 +84,7 @@ export function createSoulDimensionRuntime(deps: {
     const base = cleanSoulStats(server);
     return {
       damage: base.damage + pending.damage, maxHp: base.maxHp + pending.maxHp, armor: base.armor + pending.armor,
-      regen: base.regen + pending.regen, attackSpeed: base.attackSpeed + pending.attackSpeed,
+      regen: base.regen + pending.regen, attackSpeed: Math.min(SOUL_ATTACK_SPEED_CEILING, base.attackSpeed + pending.attackSpeed),
       critDamage: deps.critDamageParts ? trimSoulCritDamage(base.critDamage + pending.critDamage, deps.critDamageParts()) : base.critDamage + pending.critDamage,
     };
   }
