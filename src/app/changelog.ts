@@ -1,8 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.36": [
+    "Offline progress covers up to 8 hours, and up to 12 with Offline Time research",
+  ],
   "0.901.35": [
     "Tapping a name in the leaderboard or private chat search on a phone picks it",
     "Ping improvement",
-    "Offline progress covers up to 8 hours, and up to 12 with Offline Time research",
   ],
   "0.901.34": [
     "Ping updates about once a second while you play, from the last three seconds instead of five",
@@ -3114,6 +3116,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.36": "2026-10-09",
   "0.901.35": "2026-10-09",
   "0.901.34": "2026-10-09",
   "0.901.33": "2026-10-09",
