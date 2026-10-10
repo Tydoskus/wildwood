@@ -16,4 +16,5 @@ export default __t.row({
   secondWind: __t.u32().name("second_wind"),
   longShot: __t.u32().name("long_shot"),
   fleetFoot: __t.u32().name("fleet_foot"),
+  quickDraw: __t.u32().name("quick_draw"),
 });

@@ -118,6 +118,7 @@ export type PlayerPrestigePerks = {
   secondWind?: number;
   longShot?: number;
   fleetFoot?: number;
+  quickDraw?: number;
 };
 
 export type UpgradeBenchSlot = 1 | 2 | 3;

@@ -1,12 +1,11 @@
 // Regular-enemy report validation. Boss combat runs on the client and clears
 // only unlock gates (boss-gates.ts); the retained IDs below serve old migrations.
-import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
 import { preparePlayerPowerStats, playerPowerForStats, legacyU32Power } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, itemDefinition } from "../../shared/items";
 import { createEnemyRewardAccumulator, type EnemyStatReward } from "../../shared/enemy-reward-accumulator";
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
-import { WORLD_REFLECT_SHARE, preArmorFactor, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { WORLD_REFLECT_SHARE, playerAttackCap, preArmorFactor, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { armorDamageReduction } from "../../shared/combat";
 import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { soulStatsFor, withSoulStats } from "./soul-dimension";
@@ -95,7 +94,9 @@ export function createCombatReport(deps: CombatReportDeps) {
       const soul = soulStatsFor(ctx, ctx.sender);
       const loadout = saved ? damageLoadout(ctx, saved, research) : null;
       const challenge = ctx.db.playerPrestigeChallenge.identity.find(ctx.sender);
-      const minInterval = challengeMinimumInterval(ctx.db.playerAggroChallenge.identity.find(ctx.sender)?.active ? null : challenge);
+      // Reflect Only wins and Quick Draw set the attack speed cap (none of either in play during an Aggro run).
+      const ranks = prestigePerkRanks(ctx, ctx.sender);
+      const minInterval = playerAttackCap(ctx.db.playerAggroChallenge.identity.find(ctx.sender)?.active ? null : challenge, ranks);
       const earned = saved ? createEnemyRewardAccumulator(saved, statMultiplier, minInterval) : null;
       const statsFor = saved ? preparePlayerPowerStats(saved, research, loadout?.levelFor) : null;
       // Armor rewards can change the nonlinear reduction inside a report.
@@ -118,7 +119,6 @@ export function createCombatReport(deps: CombatReportDeps) {
       // and no more than the critical damage cap lets a hit deal.
       // Keen Edge grants crit on its own, so a player with no crit research can
       // still be critting; the bound has to know that or it clips them.
-      const ranks = prestigePerkRanks(ctx, ctx.sender);
       // Crit kills inside the report raise the run's rating, so the multiplier is read per entry.
       const crits = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0;
       const critical = (rating = 0) => crits

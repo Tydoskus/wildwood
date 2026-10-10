@@ -1,4 +1,4 @@
-import { challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "../../shared/prestige-challenge";
 import { mergeEquipmentLocks, removeEquipmentLocks } from "./equipment-locks";
 // Guest-to-account claiming and identity removal: the claimGuestAccount body
 // that folds a guest save into its signed-in identity, the helpers that erase
@@ -229,7 +229,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     const nextProgress = {
       ...guestProgress,
       identity: ctx.sender,
-      attackRate: Math.max(challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(link.guest)), Math.min(DEFAULT_ATTACK_INTERVAL, guestAttackRate)),
+      attackRate: Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, Math.min(DEFAULT_ATTACK_INTERVAL, guestAttackRate)),
       cosmeticItemsJson: JSON.stringify([...new Set([
         ...cosmeticUnlocks(accountProgress?.cosmeticItemsJson),
         ...cosmeticUnlocks(guestProgress.cosmeticItemsJson),

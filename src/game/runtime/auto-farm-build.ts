@@ -1,5 +1,5 @@
 import { effectivePlayerPowerStats, unroundedPlayerPower, type PlayerPowerProgress, type PlayerPowerResearch, type PlayerPowerStats } from '../../../shared/player-power';
-import { addAttackSpeedRating } from '../../../shared/stat-rating';
+import { addAttackSpeedRating, attackCapInterval, type AttackCapArg } from '../../../shared/stat-rating';
 import type { FarmEvaluation, FarmReward } from './auto-farm-plan';
 import { isProceduralMap, proceduralMapNumber } from '../../../shared/procedural-maps';
 import { MAP_IDS as CAMPAIGN_MAP_IDS } from '../../../shared/rules';
@@ -16,7 +16,8 @@ export function createFarmEvaluator(deps: {
   research: () => PlayerPowerResearch | null | undefined;
   upgradeLevel: (itemId: string) => number;
   rewardMultiplier: () => number;
-  minAttackInterval: () => number;
+  /** The attack speed cap (stat-rating.ts AttackCap). */
+  minAttackInterval: () => AttackCapArg;
   criticalChance: () => number;
   /** The crit multiplier, with this much more crit rating when asked (a crit reward's worth). */
   criticalMultiplier: (extraRating?: number) => number;
@@ -47,7 +48,7 @@ export function createFarmEvaluator(deps: {
     dps() {
       const stats = build();
       const chance = Math.min(1, Math.max(0, deps.criticalChance()));
-      return stats.damage * (1 + chance * (Math.max(1, deps.criticalMultiplier()) - 1)) / Math.max(deps.minAttackInterval(), stats.attackRate);
+      return stats.damage * (1 + chance * (Math.max(1, deps.criticalMultiplier()) - 1)) / Math.max(attackCapInterval(deps.minAttackInterval()), stats.attackRate);
     },
   };
 }

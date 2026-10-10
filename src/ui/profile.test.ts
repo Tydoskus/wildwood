@@ -182,10 +182,10 @@ describe("profile stat display", () => {
     const attack = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find((row) => row.kind === "attack");
 
     expect(attack).toMatchObject({
-      base: "2.63/s (Max)",
+      base: "3.00/s (Max)",
       equationOperator: "×",
       multiplier: "1.00",
-      total: "2.63/s",
+      total: "3.00/s",
       sources: [],
     });
   });
@@ -384,7 +384,7 @@ it("adds soul attack speed rating to the run's, under a Reflect winner's raised 
   const reflected = profileStatDisplayRows(reflectProfile, () => "0%", twoWins, undefined, 0, null, 1, { attackSpeed: 100 }).find(row => row.kind === "attack")!;
   expect(reflected.total).toBe(`${(attacksPerSecondForRating(100) + 1).toFixed(2)}/s`);
   // A rating so high it reads as the cap: Max.
-  expect(attack(MIN_ATTACK_INTERVAL, 1e300).base).toBe("2.63/s (Max)");
+  expect(attack(MIN_ATTACK_INTERVAL, 1e300).base).toBe("3.00/s (Max)");
 });
 
 describe("another player's soul stats", () => {

@@ -1,5 +1,5 @@
 import { SOUL_STAT_DETAILS, soulEnemyId, type SoulStatId } from "../../../shared/soul-dimension";
-import { addAttackSpeedRating, cleanRating } from "../../../shared/stat-rating";
+import { addAttackSpeedRating, cleanRating, type AttackCapArg } from "../../../shared/stat-rating";
 import { compareAutoFarmTargets, farmGroupMatches, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
@@ -128,7 +128,8 @@ export function createPlayerCombatController(options: {
   equippedChest: () => string;
   equippedChestUpgradeLevel?: () => number;
   healthMultiplierBonus: () => number;
-  minAttackInterval: number | (() => number);
+  /** The attack speed cap: Reflect Only wins and Quick Draw (stat-rating.ts AttackCap). */
+  minAttackInterval: AttackCapArg | (() => AttackCapArg);
   effectiveArmor: () => number;
   isDueling: () => boolean;
   scheduleEnemyRespawn: (site: SpawnSite) => void;

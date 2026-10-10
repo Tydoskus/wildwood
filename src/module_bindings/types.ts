@@ -2162,6 +2162,7 @@ export const PlayerPrestigeExpansionPerk = __t.object("PlayerPrestigeExpansionPe
   secondWind: __t.u32(),
   longShot: __t.u32(),
   fleetFoot: __t.u32(),
+  quickDraw: __t.u32(),
 });
 export type PlayerPrestigeExpansionPerk = __Infer<typeof PlayerPrestigeExpansionPerk>;
 

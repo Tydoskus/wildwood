@@ -1,4 +1,4 @@
-import { challengeMinimumInterval, CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "../../shared/prestige-challenge";
+import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 import { criticalDamageBonuses } from "../../shared/critical-damage";
 import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND } from "../../shared/rules";
 import {
@@ -10,8 +10,9 @@ import { updateSnapshotRow } from "./snapshot-row-writes";
 import { readPlayerProgress } from "./wide-stats";
 import { repinMapBalances } from "./map-balance";
 
-/** The most soul attack speed there was before ratings: a fresh character to the highest cap. */
-const LEGACY_SOUL_ATTACK_SPEED_CEILING = 1 / CHALLENGE_ABSOLUTE_MIN_INTERVAL - 1 / DEFAULT_ATTACK_INTERVAL;
+/** The base cap before 0.901.47 (it is 3 now), and the most soul attack speed there was: a fresh character to the highest cap then. */
+const LEGACY_BASE_CAP = 2.625;
+const LEGACY_SOUL_ATTACK_SPEED_CEILING = LEGACY_BASE_CAP + 2 - 1 / DEFAULT_ATTACK_INTERVAL;
 const finite = (value: unknown) => Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
 const research = (ctx: any, identity: any) => criticalDamageBonuses({
   researchRank: ctx.db.playerResearch.identity.find(identity)?.criticalDamage, perks: storedPrestigePerkRanks(ctx, identity),
@@ -36,7 +37,8 @@ export function trimStoredSoulCritDamage(ctx: any) {
  *
  * - Soul attack speed was attacks a second added to the run's. It becomes the
  *   rating that gives exactly that much from a fresh start, so every run after
- *   a prestige starts as fast as it did (the cap and above: the rating's top).
+ *   a prestige starts at least as fast as it did (the cap and above: the
+ *   rating's top; the base cap rose from 2.625 to 3 in the same release).
  * - The run's attack interval stays. Where soul and run combined on the rating
  *   come out slower than they added up to before, the run's interval is
  *   raised until they match.
@@ -70,7 +72,8 @@ function keepAttackSpeed(ctx: any, identity: any, oldSoul: number, soulRating: n
   const progress = readPlayerProgress(ctx, identity);
   if (!progress || !(progress.attackRate > 0)) return;
   const minInterval = challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(identity));
-  const had = Math.min(1 / minInterval, 1 / progress.attackRate + oldSoul) - reflectAttackBonus(minInterval);
+  // What run and soul gave before, under the old 2.625 base cap and the same Reflect Only wins.
+  const had = Math.min(LEGACY_BASE_CAP + reflectAttackBonus(minInterval), 1 / progress.attackRate + oldSoul) - reflectAttackBonus(minInterval);
   const needed = attackSpeedRatingFor(had);
   const run = attackSpeedRatingForInterval(progress.attackRate, minInterval);
   if (run + soulRating >= needed || soulRating >= RATING_MAX) return;

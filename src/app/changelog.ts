@@ -7,6 +7,8 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Crit research and Keen Edge still count, as a share closer to 100× on top of your rating",
     "Enemies in every camp are spread evenly",
     "Nobody loses attack speed or crit damage in the switch",
+    "The base attack speed cap is 3 attacks a second, up from 2.625",
+    "New prestige perk Quick Draw: +0.2 to the attack speed cap a rank, up to +1.0",
   ],
   "0.901.46": [
     "Chat bubbles stay visible on phones with high contrast turned on",

@@ -6,7 +6,7 @@ import { CRITICAL_DAMAGE_BASE, criticalDamage } from "../../shared/critical-dama
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber, formatRate } from "./number-format";
-import { attackSpeedLabel, attackSpeedRatingForInterval, critDamageLabel } from "../../shared/stat-rating";
+import { attackCapInterval, attackSpeedLabel, attackSpeedRatingForInterval, critDamageLabel, type AttackCapArg } from "../../shared/stat-rating";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
 import { cleanSoulStats, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
@@ -129,7 +129,7 @@ const soulSource = (amount: number, format: (value: number) => string): ProfileS
 export function profileStatDisplayRows(
   profile: PlayerProfileData,
   armorReduction: (armor: number) => string,
-  minAttackInterval: number,
+  attackCap: AttackCapArg,
   research?: PlayerResearch,
   prestigeLevel = profile.prestigeLevel ?? 0,
   perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
@@ -139,7 +139,8 @@ export function profileStatDisplayRows(
   // Soul stats add to the run's base before any multiplier, as combat adds them,
   // so each row's base includes them and its sources say how much was soul.
   const soul = cleanSoulStats(soulStats);
-  const progress = withSoulStats(profile.progress, soul, minAttackInterval);
+  const progress = withSoulStats(profile.progress, soul, attackCap);
+  const minAttackInterval = attackCapInterval(attackCap);
   const ranks = research ?? profile.research ?? createEmptyResearchRanks();
   const statValue = (value: number) => Math.abs(value) >= 1_000_000 ? formatCompactNumber(value) : Math.round(value).toLocaleString();
   const effective = effectiveProfileStats({ ...progress, attackRate: Math.max(minAttackInterval, progress.attackRate) }, ranks, profile.itemUpgradeLevels);
@@ -163,7 +164,7 @@ export function profileStatDisplayRows(
   // Attack Speed is a rating on a curve that only closes in on the cap (shared/stat-rating.ts): the
   // expanded line names the rating behind the rate, as Armor names its Block, and "(Max)" shows once
   // the rate reads the same as the cap.
-  const speedRating = attackSpeedRatingForInterval(baseAttackInterval, minAttackInterval);
+  const speedRating = attackSpeedRatingForInterval(baseAttackInterval, attackCap);
   const ratingText = (rating: number) => rating >= 1_000 ? formatCompactNumber(rating) : Number(rating.toPrecision(3)).toString();
   const baseAttackSpeed = attackSpeedLabel(1 / baseAttackInterval, 1 / minAttackInterval);
   const attackSpeed = `${(1 / effective.attackRate).toFixed(2)}/s`;
@@ -301,14 +302,14 @@ export function renderProfileStats(
   profile: PlayerProfileData,
   statGrid: HTMLElement,
   armorReduction: (armor: number) => string,
-  minAttackInterval: number,
+  attackCap: AttackCapArg,
   research?: PlayerResearch,
   prestigeLevel = profile.prestigeLevel ?? 0,
   perks: Partial<PrestigePerkRanks> | null | undefined = profile.prestigePerks,
   guildBonus = 1,
   soulStats: Partial<SoulStats> | null = null,
 ) {
-  const stats = profileStatDisplayRows(profile, armorReduction, minAttackInterval, research, prestigeLevel, perks, guildBonus, soulStats);
+  const stats = profileStatDisplayRows(profile, armorReduction, attackCap, research, prestigeLevel, perks, guildBonus, soulStats);
   const expandedKinds = statGrid.dataset.identity === profile.identity
     ? new Set([...statGrid.querySelectorAll<HTMLElement>('[aria-expanded="true"]')].map((row) => row.dataset.stat))
     : new Set<string>();

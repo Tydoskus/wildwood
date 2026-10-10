@@ -7,6 +7,8 @@ export const prestigeExpansion = table({ name: "prestige_expansion", public: tru
 });
 export const playerPrestigeExpansionPerk = table({ name: "player_prestige_expansion_perk", public: true }, {
   identity: t.identity().primaryKey(), bossSlayer: t.u32(), secondWind: t.u32(), longShot: t.u32(), fleetFoot: t.u32(),
+  // Quick Draw (0.901.47): appended with a default, so existing rows migrate; the publish breaks clients once (they reload anyway).
+  quickDraw: t.u32().default(0),
 });
 
 type Context = Pick<GameReducerContext, "db" | "timestamp">;

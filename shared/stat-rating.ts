@@ -8,7 +8,7 @@ import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MIN_ATTACK_INTERV
  * (1 + rating / 100) is one "level", and each level closes a fixed share of
  * what is left to the cap:
  *
- *   attacks/s = 2.625 - (2.625 - 0.641) x 0.95 ^ level    (5% closer a level)
+ *   attacks/s = 3     - (3     - 0.641) x 0.95 ^ level    (5% closer a level)
  *   crit      = 100   - (100   - 1.05 ) x 0.97 ^ level    (3% closer a level)
  *
  * Each map's attack speed and crit camps pay so that a map's worth of kills
@@ -19,8 +19,8 @@ import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MIN_ATTACK_INTERV
  *
  * The run's rating resets on prestige like any stat; the Soul Dimension's adds
  * to it and is kept. Reflect Only wins add their attacks a second on top and
- * raise the cap by as much (prestige-challenge.ts), so the curve is the same
- * shape under every cap.
+ * raise the cap by as much (prestige-challenge.ts); Quick Draw (a prestige
+ * perk) raises the cap the curve closes in on (AttackCap below).
  */
 export const RATING_UNIT = 100;
 /** Ratings stop here: far past where either curve shows its cap. */
@@ -30,7 +30,6 @@ export const CRIT_DAMAGE_CLOSER = .03;
 export const CRIT_DAMAGE_START = 1.05;
 export const CRIT_DAMAGE_TARGET = 100;
 export const ATTACK_SPEED_START = 1 / DEFAULT_ATTACK_INTERVAL;
-const ATTACK_SPEED_GAP = MAX_BASE_ATTACKS_PER_SECOND - ATTACK_SPEED_START;
 const CRIT_GAP = CRIT_DAMAGE_TARGET - CRIT_DAMAGE_START;
 
 export function cleanRating(rating: unknown) {
@@ -48,36 +47,62 @@ export function ratingForLevels(levels: number) {
 
 // ---- Attack speed ----
 
-/** Attacks a second a rating gives, before Reflect Only's bonus. */
-export function attacksPerSecondForRating(rating: unknown) {
-  return MAX_BASE_ATTACKS_PER_SECOND - ATTACK_SPEED_GAP * (1 - ATTACK_SPEED_CLOSER) ** ratingLevels(rating);
+/**
+ * The attack speed cap a player plays under. `minInterval` is Reflect Only's
+ * (challengeMinimumInterval): each win in play adds 0.5 attacks a second to
+ * the curve and raises the cap as much. `raise` is Quick Draw's (prestige
+ * perk): attacks a second the curve itself closes in on, the cap raised, no
+ * flat bonus. A bare number is a `minInterval` with no raise.
+ */
+export type AttackCap = { minInterval: number; raise: number };
+export type AttackCapArg = number | AttackCap | null | undefined;
+function capParts(cap: AttackCapArg) {
+  const minInterval = typeof cap === "number" ? cap : cap?.minInterval ?? MIN_ATTACK_INTERVAL;
+  const raise = typeof cap === "object" && cap ? Math.max(0, Number.isFinite(cap.raise) ? cap.raise : 0) : 0;
+  const bonus = reflectAttackBonus(minInterval), curveCap = MAX_BASE_ATTACKS_PER_SECOND + raise;
+  return { curveCap, bonus, fastest: 1 / (curveCap + bonus) };
+}
+/** The fastest interval under this cap: Reflect Only's wins and Quick Draw both in. */
+export function attackCapInterval(cap: AttackCapArg) {
+  return capParts(cap).fastest;
+}
+
+/** Attacks a second a rating gives, before Reflect Only's bonus, on a curve to `curveCap` (3, plus Quick Draw). */
+export function attacksPerSecondForRating(rating: unknown, curveCap = MAX_BASE_ATTACKS_PER_SECOND) {
+  return curveCap - (curveCap - ATTACK_SPEED_START) * (1 - ATTACK_SPEED_CLOSER) ** ratingLevels(rating);
 }
 /** The rating that gives these attacks a second (the cap and above: RATING_MAX). */
-export function attackSpeedRatingFor(attacksPerSecond: number) {
+export function attackSpeedRatingFor(attacksPerSecond: number, curveCap = MAX_BASE_ATTACKS_PER_SECOND) {
   if (!(attacksPerSecond > ATTACK_SPEED_START)) return 0;
-  if (attacksPerSecond >= MAX_BASE_ATTACKS_PER_SECOND) return RATING_MAX;
-  return ratingForLevels(Math.log((MAX_BASE_ATTACKS_PER_SECOND - attacksPerSecond) / ATTACK_SPEED_GAP) / Math.log(1 - ATTACK_SPEED_CLOSER));
+  if (attacksPerSecond >= curveCap) return RATING_MAX;
+  return ratingForLevels(Math.log((curveCap - attacksPerSecond) / (curveCap - ATTACK_SPEED_START)) / Math.log(1 - ATTACK_SPEED_CLOSER));
 }
 /** Reflect Only's attacks a second, read from the cap they set (challengeMinimumInterval). */
 export function reflectAttackBonus(minInterval = MIN_ATTACK_INTERVAL) {
   return Number.isFinite(minInterval) && minInterval > 0 ? Math.max(0, 1 / minInterval - MAX_BASE_ATTACKS_PER_SECOND) : 0;
 }
-/** The attack interval a rating gives, Reflect Only's bonus (`minInterval`) included. */
-export function attackIntervalForRating(rating: unknown, minInterval = MIN_ATTACK_INTERVAL) {
-  return Math.max(minInterval, 1 / (attacksPerSecondForRating(rating) + reflectAttackBonus(minInterval)));
+/** The attack interval a rating gives under `cap`, Reflect Only's bonus included. */
+export function attackIntervalForRating(rating: unknown, cap: AttackCapArg = MIN_ATTACK_INTERVAL) {
+  const { curveCap, bonus, fastest } = capParts(cap);
+  return Math.max(fastest, 1 / (attacksPerSecondForRating(rating, curveCap) + bonus));
 }
 /**
  * The rating behind an attack interval as progress stores it (Reflect Only's
  * bonus in it). Progress keeps the interval, so every reward reads it back.
  */
-export function attackSpeedRatingForInterval(interval: number, minInterval = MIN_ATTACK_INTERVAL) {
+export function attackSpeedRatingForInterval(interval: number, cap: AttackCapArg = MIN_ATTACK_INTERVAL) {
   if (!(interval > 0) || !Number.isFinite(interval)) return 0;
-  return attackSpeedRatingFor(1 / interval - reflectAttackBonus(minInterval));
+  const { curveCap, bonus } = capParts(cap);
+  return attackSpeedRatingFor(1 / interval - bonus, curveCap);
 }
 /** The attack interval after `amount` more rating. Never slower than it was. */
-export function addAttackSpeedRating(interval: number, amount: number, minInterval = MIN_ATTACK_INTERVAL) {
-  const next = attackIntervalForRating(attackSpeedRatingForInterval(interval, minInterval) + Math.max(0, Number(amount) || 0), minInterval);
+export function addAttackSpeedRating(interval: number, amount: number, cap: AttackCapArg = MIN_ATTACK_INTERVAL) {
+  const next = attackIntervalForRating(attackSpeedRatingForInterval(interval, cap) + Math.max(0, Number(amount) || 0), cap);
   return interval > 0 && Number.isFinite(interval) ? Math.min(interval, next) : next;
+}
+/** The same rating under another cap: a Quick Draw rank bought or respecced moves the curve under the run. */
+export function attackIntervalUnderNewCap(interval: number, from: AttackCapArg, to: AttackCapArg) {
+  return attackIntervalForRating(attackSpeedRatingForInterval(interval, from), to);
 }
 
 // ---- Critical damage ----

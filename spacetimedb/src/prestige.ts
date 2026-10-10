@@ -1,11 +1,13 @@
-import { challengeActive, challengeWinReady, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
+import { challengeActive, challengeWinReady, reflectRewardsInPlay, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
+import { attackIntervalUnderNewCap } from "../../shared/stat-rating";
+import { updateSnapshotRow } from "./snapshot-row-writes";
 import { guildQuestBonusFor } from "./daily-quests";
 import { challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
 import { playerPowerForStats } from "../../shared/player-power";
 import { PRESTIGE_CAP_HINT, PRESTIGE_PERK_POINTS_PER_LEVEL, prestigeCapped, prestigeCampaignTarget, prestigeCampaignComplete, prestigeEndlessRequirement, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
-import { PRESTIGE_PERK_IDS, isPrestigePerkId, prestigePerkMaxRank, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { PRESTIGE_PERK_IDS, isPrestigePerkId, playerAttackCap, prestigePerkMaxRank, type PrestigePerkRanks } from "../../shared/prestige-perks";
 import { PRESTIGE_EXPANSION_PERK_IDS } from "../../shared/prestige-expansion";
 import { prestigeExpanded } from "./prestige-expansion";
 import { readPlayerProgress } from "./wide-stats";
@@ -41,16 +43,32 @@ export function storedPrestigePerkRanks(ctx: any, identity: any): PrestigePerkRa
   const row = ctx.db.playerPrestigePerk.identity.find(identity);
   const expansion = prestigeExpanded(ctx) ? ctx.db.playerPrestigeExpansionPerk.identity.find(identity) : null;
   return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
-    bossSlayer: expansion?.bossSlayer ?? 0, secondWind: expansion?.secondWind ?? 0, longShot: expansion?.longShot ?? 0, fleetFoot: expansion?.fleetFoot ?? 0 };
+    bossSlayer: expansion?.bossSlayer ?? 0, secondWind: expansion?.secondWind ?? 0, longShot: expansion?.longShot ?? 0, fleetFoot: expansion?.fleetFoot ?? 0,
+    quickDraw: expansion?.quickDraw ?? 0 };
 }
 
 /** Preserve the original public row's wire shape; expansion ranks live beside it. */
 export function writePrestigePerkRanks(ctx: any, identity: any, ranks: PrestigePerkRanks) {
   const original = { identity, keenEdge: ranks.keenEdge, doubleStrike: ranks.doubleStrike, splitShot: ranks.splitShot, riposte: ranks.riposte };
-  const expanded = { identity, bossSlayer: ranks.bossSlayer, secondWind: ranks.secondWind, longShot: ranks.longShot, fleetFoot: ranks.fleetFoot };
+  const expanded = { identity, bossSlayer: ranks.bossSlayer, secondWind: ranks.secondWind, longShot: ranks.longShot, fleetFoot: ranks.fleetFoot, quickDraw: ranks.quickDraw };
   for (const [table, row] of [[ctx.db.playerPrestigePerk, original], [ctx.db.playerPrestigeExpansionPerk, expanded]]) {
     if (table.identity.find(identity)) table.identity.update(row); else table.insert(row);
   }
+}
+
+/**
+ * Perk ranks written, and the run's attack interval moved to the new Quick Draw cap at the same rating
+ * (stat-rating.ts): the cap the curve closes in on changed under it. Spending and respeccing are refused
+ * during a challenge, so the ranks in play are the ranks stored.
+ */
+function writeRanksKeepingAttackRating(ctx: any, identity: any, before: PrestigePerkRanks, after: PrestigePerkRanks) {
+  writePrestigePerkRanks(ctx, identity, after);
+  if (before.quickDraw === after.quickDraw) return;
+  const progress = readPlayerProgress(ctx, identity);
+  if (!progress) return;
+  const challenge = reflectRewardsInPlay(ctx, identity);
+  const attackRate = attackIntervalUnderNewCap(progress.attackRate, playerAttackCap(challenge, before), playerAttackCap(challenge, after));
+  if (attackRate !== progress.attackRate) updateSnapshotRow(ctx, "playerProgress", { ...progress, attackRate });
 }
 
 export type PrestigeDeps = {
@@ -128,7 +146,7 @@ export function createPrestige(deps: PrestigeDeps) {
     if (ranks[perk] >= prestigePerkMaxRank(perk, ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)?.completed ?? 0)) {
       throw new SenderError(perk === "riposte" ? "Reflect is at its cap. Each Reflect Only win raises it by one." : "That perk is already at its highest rank.");
     }
-    writePrestigePerkRanks(ctx, ctx.sender, { ...ranks, [perk]: ranks[perk] + 1 });
+    writeRanksKeepingAttackRating(ctx, ctx.sender, ranks, { ...ranks, [perk]: ranks[perk] + 1 });
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints - 1 });
     deps.refreshPerkEffects(ctx, activePlayer);
   }
@@ -148,7 +166,7 @@ export function createPrestige(deps: PrestigeDeps) {
     const ranks = storedPrestigePerkRanks(ctx, ctx.sender);
     const spent = PRESTIGE_PERK_IDS.reduce((sum, perk) => sum + ranks[perk], 0);
     if (!current || spent < 1) throw new SenderError("No perk points to respec.");
-    writePrestigePerkRanks(ctx, ctx.sender, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);
+    writeRanksKeepingAttackRating(ctx, ctx.sender, ranks, Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks);
     ctx.db.playerPrestige.identity.update({ ...current, perkPoints: current.perkPoints + spent });
     deps.refreshPerkEffects(ctx, activePlayer);
     return spent;

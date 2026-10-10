@@ -1,5 +1,4 @@
-import { countRewardKills } from "./soul-dimension";
-import { challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { countRewardKills, soulAttackCapFor } from "./soul-dimension";
 import { table, t } from "spacetimedb/server";
 import { offlineProgressEnabled } from "./offline-preference";
 import {
@@ -227,7 +226,7 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
   }
   // Crit kills add to the run's rating, which a row read without it would otherwise write over.
   const rated = { ...progress, critRating: progress.critRating ?? readCritRating(ctx, ctx.sender) };
-  const next = applyEnemyRewards(rated, grant.outcome.rewards, ports.statMultiplier(ctx, ctx.sender), challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
+  const next = applyEnemyRewards(rated, grant.outcome.rewards, ports.statMultiplier(ctx, ctx.sender), soulAttackCapFor(ctx, ctx.sender));
   storeOfflineGrant(ctx, ctx.sender, grant, {
     damage: next.damage - progress.damage,
     health: next.maxHp - progress.maxHp,

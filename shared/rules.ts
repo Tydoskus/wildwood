@@ -80,7 +80,11 @@ export const KILL_REPORT_REFILL_SECONDS = 3;
  * 10 seconds is simply the respawn, and the ad pays Gems instead.
  */
 export const REGULAR_ENEMY_RESPAWN_SECONDS = 10;
-export const MAX_BASE_ATTACKS_PER_SECOND = 2.625;
+/** The base attack speed cap: 2.625 until 0.901.47, 3 since (Ryan). Reflect Only wins and Quick Draw raise it. */
+export const MAX_BASE_ATTACKS_PER_SECOND = 3;
+/** Quick Draw (prestige perk): the attack speed cap, 0.2 attacks a second higher a rank, five ranks. */
+export const QUICK_DRAW_CAP_PER_RANK = .2;
+export const QUICK_DRAW_MAX_CAP_RAISE = 1;
 export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;
 // Scalable combat stats are f64 (player_wide_stats past f32's range, 0.855),
@@ -221,7 +225,7 @@ export function numberedMapName(mapId: string, name: string) {
   return index < 0 ? name : `${name.replace(/ - \d+$/, "")} - ${index + 1}`;
 }
 
-export const PROTOCOL_VERSION = 111;
+export const PROTOCOL_VERSION = 112;
 // Add a previous version only after reviewing wire/schema and security compatibility.
 // Flat equipment changes combat DPS and boss-claim validation. Percentage-based
 // clients must update together with the servers, even though the wire is unchanged.

@@ -1,5 +1,5 @@
 {
-  "protocolVersion": 111,
+  "protocolVersion": 112,
   "tables": {
     "active_item_upgrade_slot_three": [
       "identity:identity",
@@ -878,7 +878,8 @@
       "bossSlayer:u32",
       "secondWind:u32",
       "longShot:u32",
-      "fleetFoot:u32"
+      "fleetFoot:u32",
+      "quickDraw:u32"
     ],
     "player_prestige_perk": [
       "identity:identity",

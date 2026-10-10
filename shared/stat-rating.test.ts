@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  RATING_MAX, addAttackSpeedRating, attackIntervalForRating, attackSpeedLabel, attackSpeedRatingForInterval, attacksPerSecondForRating,
+  RATING_MAX, addAttackSpeedRating, attackCapInterval, attackIntervalForRating, attackIntervalUnderNewCap, attackSpeedLabel, attackSpeedRatingForInterval, attacksPerSecondForRating,
   critBonusLevels, critDamageForLevels, ratingForLevels, ratingLevels, ratingMapWorthKills, ratingRewardPerKill,
 } from "./stat-rating";
 import { criticalDamage } from "./critical-damage";
 import { challengeMinimumInterval } from "./prestige-challenge";
-import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND as CAP } from "./rules";
+import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND as CAP, MIN_ATTACK_INTERVAL } from "./rules";
+import { playerAttackCap } from "./prestige-perks";
 import { applyEnemyRewards } from "./enemy-defeats";
 import { withSoulStats, withoutSoulStats } from "./soul-dimension";
 
@@ -46,6 +47,21 @@ describe("stat ratings", () => {
     expect(attackSpeedRatingForInterval(1 / CAP)).toBe(RATING_MAX);
   });
 
+  it("raises the cap the curve closes in on with Quick Draw, adding nothing at no rating", () => {
+    const cap = playerAttackCap(null, { quickDraw: 5 });
+    expect(cap.raise).toBeCloseTo(1);
+    expect(1 / attackIntervalForRating(0, cap)).toBeCloseTo(START, 9);
+    expect(1 / attackIntervalForRating(ratingForLevels(10), cap)).toBeCloseTo(4 - (4 - START) * .95 ** 10, 9);
+    expect(attackCapInterval(cap)).toBeCloseTo(1 / 4, 9);
+    // Reflect Only's wins still add their half attack a second on top.
+    const both = playerAttackCap({ active: false, completed: 2 }, { quickDraw: 5 });
+    expect(1 / attackIntervalForRating(0, both)).toBeCloseTo(START + 1, 9);
+    expect(attackCapInterval(both)).toBeCloseTo(1 / 5, 9);
+    // A rank respecced keeps the rating and moves the interval to the old cap's curve.
+    const interval = attackIntervalForRating(ratingForLevels(10), cap);
+    expect(attackIntervalUnderNewCap(interval, cap, MIN_ATTACK_INTERVAL)).toBeCloseTo(attackIntervalForRating(ratingForLevels(10)), 9);
+  });
+
   it("applies speed and crit rewards as ratings", () => {
     const next = applyEnemyRewards({ damage: 1, maxHp: 1, armor: 0, regen: 0, attackRate: DEFAULT_ATTACK_INTERVAL, critRating: 50 },
       [{ type: "speed", amount: 25, count: 4 }, { type: "crit", amount: 25, count: 2 }], 1);
@@ -72,7 +88,7 @@ describe("stat ratings", () => {
   });
 
   it("says Max once the rate reads the same as the cap", () => {
-    expect(attackSpeedLabel(attacksPerSecondForRating(ratingForLevels(120)), CAP)).toBe("2.63/s (Max)");
+    expect(attackSpeedLabel(attacksPerSecondForRating(ratingForLevels(130)), CAP)).toBe("3.00/s (Max)");
     expect(attackSpeedLabel(2.5, CAP)).toBe("2.50/s");
   });
 });

@@ -1,5 +1,5 @@
 import { table, t, SenderError } from "spacetimedb/server";
-import { PRESTIGE_CHALLENGE_LIMIT, challengeGoalMet, challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { CHALLENGE_ABSOLUTE_MIN_INTERVAL, PRESTIGE_CHALLENGE_LIMIT, challengeGoalMet } from "../../shared/prestige-challenge";
 import { prestigeExpanded } from "./prestige-expansion";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { readPlayerProgress } from "./wide-stats";
@@ -140,7 +140,8 @@ export function restorePrestigeChallenge(ctx: any, player: any, reward: boolean,
   }
   ctx.db.playerPrestigeChallenge.identity.update(next);
   const progress = carryOwnership({ ...saved, identity: ctx.sender }, readPlayerProgress(ctx, ctx.sender));
-  if (reward) progress.attackRate = Math.max(challengeMinimumInterval(next), 1 / (1 / progress.attackRate + .5));
+  // The win's half attack a second, never past the fastest anyone attacks (Quick Draw may raise this player's cap).
+  if (reward) progress.attackRate = Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, 1 / (1 / progress.attackRate + .5));
   updateSnapshotRow(ctx, "playerProgress", progress);
   writeEndless(ctx, ctx.sender, backup.completedEndless);
   ctx.db.prestigeChallengeBackup.identity.delete(ctx.sender);

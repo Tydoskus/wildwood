@@ -12,7 +12,7 @@ import type { MapId, SpawnSite } from "../world";
 import type { MapPortal } from "./map-controller";
 import type { EnemyState, PlayerState } from "./types";
 import { createSoulDefenseForce } from "./soul-defense-force";
-import { cleanRating } from "../../../shared/stat-rating";
+import { cleanRating, type AttackCapArg } from "../../../shared/stat-rating";
 import { gameConfirm } from "../../ui/confirm-dialog";
 
 export type SoulDimensionSource = {
@@ -54,7 +54,7 @@ export function createSoulDimensionRuntime(deps: {
   fullDps?: () => number;
   logPickup?: (label: string, color: string) => void;
   /** The player's fastest attack interval: Reflect Only wins raise the cap, and soul attack speed may reach it. */
-  attackCap?: () => number;
+  attackCap?: () => AttackCapArg;
   /** For the Soul Defense Force (soul-defense-force.ts). */
   damagePlayer?: (damage: number, source: EnemyState) => void;
   message?: (text: string, color: string) => void;

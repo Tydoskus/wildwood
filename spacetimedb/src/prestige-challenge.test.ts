@@ -14,7 +14,7 @@ function fixture() {
   ensurePrestigeExpansion(f.ctx as any);
   f.ctx.timestamp = f.db.prestigeExpansion.id.find(0).unlocksAt;
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 8, peakPower: 0, prestigedAt: f.ctx.timestamp });
-  writePrestigePerkRanks(f.ctx, f.ctx.sender, { keenEdge: 2, doubleStrike: 1, splitShot: 0, riposte: 1, bossSlayer: 3, secondWind: 2, longShot: 4, fleetFoot: 3 });
+  writePrestigePerkRanks(f.ctx, f.ctx.sender, { keenEdge: 2, doubleStrike: 1, splitShot: 0, riposte: 1, bossSlayer: 3, secondWind: 2, longShot: 4, fleetFoot: 3, quickDraw: 0 });
   f.patch("playerProgress", { bossRewardClaims: BOSS_REWARD_CLAIM_BITS.aegisPrime, damage: 12345, attackRate: MIN_ATTACK_INTERVAL });
   f.seed("proceduralProgress", { identity: f.ctx.sender, completed: 12 });
   const saved = { ...f.db.playerProgress.identity.find(f.ctx.sender) };

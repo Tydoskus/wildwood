@@ -4,8 +4,8 @@ import {
   prestigePerkRank, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier,
 } from "../../shared/prestige-perks";
 
-it("names all eight perks and rejects anything else", () => {
-  expect(PRESTIGE_PERK_IDS).toEqual(["keenEdge", "doubleStrike", "splitShot", "riposte", "bossSlayer", "secondWind", "longShot", "fleetFoot"]);
+it("names all nine perks and rejects anything else", () => {
+  expect(PRESTIGE_PERK_IDS).toEqual(["keenEdge", "doubleStrike", "splitShot", "riposte", "bossSlayer", "secondWind", "longShot", "fleetFoot", "quickDraw"]);
   expect(isPrestigePerkId("keenEdge")).toBe(true);
   expect(isPrestigePerkId("constructor")).toBe(false);
   expect(isPrestigePerkId("nope")).toBe(false);

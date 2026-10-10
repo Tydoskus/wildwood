@@ -171,7 +171,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
   const pausedResearch = new Map<ResearchId, PausedResearch>();
   let localPrestige: PlayerPrestige | null = null;
   let localPrestigePerks: PlayerPrestigePerks | null = null;
-  let expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
+  let expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0, quickDraw: 0 };
   let prestigeExpansionUnlocksAt: number | null = null;
   let prestigeChallenge: PrestigeChallenge = { active: false, completed: 0 };
   let challengeParked = false;
@@ -654,15 +654,15 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     dependencies.notify();
   }
 
-  function upsertPrestigeExpansionPerk(row: { identity: Identity; bossSlayer: number; secondWind: number; longShot: number; fleetFoot: number }) {
+  function upsertPrestigeExpansionPerk(row: { identity: Identity; bossSlayer: number; secondWind: number; longShot: number; fleetFoot: number; quickDraw?: number }) {
     if (row.identity.toHexString() === dependencies.localIdentity()) {
-      expansionPerks = { bossSlayer: row.bossSlayer, secondWind: row.secondWind, longShot: row.longShot, fleetFoot: row.fleetFoot };
+      expansionPerks = { bossSlayer: row.bossSlayer, secondWind: row.secondWind, longShot: row.longShot, fleetFoot: row.fleetFoot, quickDraw: row.quickDraw ?? 0 };
     }
     dependencies.notify();
   }
 
   function removePrestigeExpansionPerk(row: { identity: Identity }) {
-    if (row.identity.toHexString() === dependencies.localIdentity()) expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
+    if (row.identity.toHexString() === dependencies.localIdentity()) expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0, quickDraw: 0 };
     dependencies.notify();
   }
 
@@ -994,7 +994,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       prestigeExpansionUnlocksAt: () => prestigeExpansionUnlocksAt,
       /** The ranks in play: none during an Aggro run, which plays without prestige bonuses. */
       prestigePerks: (): PlayerPrestigePerks => prestigeBonusesOff(aggroChallenge)
-        ? { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 }
+        ? { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0, quickDraw: 0 }
         : { keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks },
       /** The ranks the player owns, for the Prestige window. */
       storedPrestigePerks: (): PlayerPrestigePerks => ({ keenEdge: 0, doubleStrike: 0, splitShot: 0, riposte: 0, ...localPrestigePerks, ...expansionPerks }),
@@ -1340,7 +1340,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
-      expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
+      expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0, quickDraw: 0 };
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;
       itemGifts.clear();
@@ -1389,7 +1389,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       localPrestige = null;
       prestigeLevelByIdentity.clear();
       localPrestigePerks = null;
-      expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0 };
+      expansionPerks = { bossSlayer: 0, secondWind: 0, longShot: 0, fleetFoot: 0, quickDraw: 0 };
       activeItemUpgrades.clear();
       balanceApologyGiftAmount = 0n;
       itemGifts.clear();

@@ -18,7 +18,7 @@ import { armorDamageReduction } from "./combat";
 import { MIN_ATTACK_INTERVAL, TUTORIAL_FOREST_MAP_ID } from "./rules";
 import { CAMPAIGN_GATEWAYS } from "./map-gateways";
 import { TOWN_MAP_ID } from "./town";
-import { attackIntervalForRating, attackSpeedRatingForInterval, cleanRating, RATING_MAX } from "./stat-rating";
+import { attackIntervalForRating, attackSpeedRatingForInterval, cleanRating, RATING_MAX, type AttackCapArg } from "./stat-rating";
 
 export const SOUL_MAP_ID = "soul_dimension";
 export type SoulMapId = typeof SOUL_MAP_ID;
@@ -106,12 +106,12 @@ export function cleanSoulStats(soul: Partial<SoulStats> | null | undefined): Sou
  * A run's base stats with the soul's added: what every combat read starts
  * from. Attack speed and crit damage are ratings (stat-rating.ts). The soul's
  * attack speed adds to the run's, read back from its interval under the
- * player's cap, `minInterval`: the usual one, or the higher one Reflect Only
+ * player's cap, `minInterval` (an AttackCap with Quick Draw in): the usual one, or the higher one Reflect Only
  * wins earn (challengeMinimumInterval). Crit damage adds where the multiplier
  * is worked out (critical-damage.ts).
  */
 export function withSoulStats<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(
-  progress: T, soul: Partial<SoulStats> | null | undefined, minInterval = MIN_ATTACK_INTERVAL,
+  progress: T, soul: Partial<SoulStats> | null | undefined, minInterval: AttackCapArg = MIN_ATTACK_INTERVAL,
 ): T {
   if (!soul) return progress;
   const clean = cleanSoulStats(soul);
@@ -135,7 +135,7 @@ export function withSoulStats<T extends { damage: number; maxHp: number; armor: 
  * Attack speed at the cap cannot be undone exactly; then the run's saved interval, `savedAttackRate`, stands.
  */
 export function withoutSoulStats<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(
-  progress: T, soul: Partial<SoulStats> | null | undefined, savedAttackRate: number, minInterval = MIN_ATTACK_INTERVAL,
+  progress: T, soul: Partial<SoulStats> | null | undefined, savedAttackRate: number, minInterval: AttackCapArg = MIN_ATTACK_INTERVAL,
 ): T {
   if (!soul) return progress;
   const clean = cleanSoulStats(soul);

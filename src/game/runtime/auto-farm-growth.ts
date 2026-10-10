@@ -1,3 +1,4 @@
+import { attackCapInterval, type AttackCapArg } from '../../../shared/stat-rating';
 /**
  * Autofarm's growth planner: the growth forecast (growth-forecast.ts) run on
  * the live build every PLAN_SECONDS, a little at a time (a few forecasts a
@@ -296,7 +297,7 @@ export function createGrowthContextSource(deps: {
   research: () => PlayerPowerResearch & { enemyRespawn?: number };
   upgradeLevel: (itemId: string) => number;
   rewardMultiplier: () => number;
-  minAttackInterval: () => number;
+  minAttackInterval: () => AttackCapArg;
   criticalChance: () => number;
   /** The crit multiplier, with this much more crit rating when asked (a crit reward's worth). */
   criticalMultiplier: (extraRating?: number) => number;
@@ -334,7 +335,7 @@ export function createGrowthContextSource(deps: {
     if (nextMap === undefined || previousMap === undefined) return null;
     const build = forecastBuild({
       base: { damage: player.damage, maxHp: player.baseMaxHp, attackRate: player.attackRate, armor: player.armor, regen: player.regen },
-      equipment: deps.equipment(), research, upgradeLevel: deps.upgradeLevel, rewardMultiplier: deps.rewardMultiplier(), minAttackInterval: deps.minAttackInterval(),
+      equipment: deps.equipment(), research, upgradeLevel: deps.upgradeLevel, rewardMultiplier: deps.rewardMultiplier(), minAttackInterval: attackCapInterval(deps.minAttackInterval()),
       criticalChance: deps.criticalChance(), criticalMultiplier: deps.criticalMultiplier(),
       projectileCount: player.projectileCount ?? 1, melee: isMeleeWeapon(deps.weapon()), reach: weaponAttackRange(deps.weapon(), player.attackRange),
       projectileSpeed: player.projectileSpeed, moveSpeed: deps.moveSpeed(), bowSkills: deps.bowSkills(),

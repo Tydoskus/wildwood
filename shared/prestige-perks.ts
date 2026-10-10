@@ -1,4 +1,6 @@
-import { PRESTIGE_CHALLENGE_LIMIT } from "./prestige-challenge";
+import { PRESTIGE_CHALLENGE_LIMIT, challengeMinimumInterval, type PrestigeChallenge } from "./prestige-challenge";
+import type { AttackCap } from "./stat-rating";
+import { QUICK_DRAW_CAP_PER_RANK } from "./rules";
 /**
  * Prestige perks. One point per prestige and five ranks per perk (Reflect gains one per challenge won), so maxing a
  * line takes five runs and spreading points leaves you mediocre at all of them.
@@ -20,6 +22,8 @@ export const PRESTIGE_PERKS = {
   secondWind: { title: "Second Wind", perRank: .01, detail: "Heal part of your max health each time you kill a regular enemy." },
   longShot: { title: "Long Shot", perRank: 5, detail: "Longer attack range, for bows and melee weapons." },
   fleetFoot: { title: "Fleet Foot", perRank: .02, detail: "Move faster. Adds to Move Speed research." },
+  // Attacks a second the attack speed cap rises a rank (0.901.47): the attack speed rating closes in on the higher cap.
+  quickDraw: { title: "Quick Draw", perRank: QUICK_DRAW_CAP_PER_RANK, detail: "Raises the attack speed cap. Your attack speed climbs toward the higher cap." },
 } as const;
 
 /**
@@ -105,6 +109,7 @@ export function prestigePerkEffectLabel(perk: PrestigePerkId, rank: number) {
   if (perk === "secondWind") return `Heal ${chance} max health per kill`;
   if (perk === "longShot") return `+${prestigePerkValue(ranks, perk)} attack range`;
   if (perk === "fleetFoot") return `+${chance} move speed`;
+  if (perk === "quickDraw") return `+${(prestigePerkValue(ranks, perk)).toFixed(1)} attack speed cap`;
   return `${chance} chance to reflect a hit`;
 }
 
@@ -135,4 +140,12 @@ export function prestigeReachMultiplier(ranks: Partial<PrestigePerkRanks> | null
 /** How much bigger a hit was before armor than what got through: 2 at half reduction. */
 export function preArmorFactor(armorReduction: number) {
   return 1 / (1 - Math.max(0, Math.min(.999, Number.isFinite(armorReduction) ? armorReduction : 0)));
+}
+
+/**
+ * The attack speed cap a player plays under (stat-rating.ts AttackCap): Reflect Only's wins in play, and
+ * Quick Draw's raise from the perk ranks in play (none during an Aggro run, whose callers pass no ranks).
+ */
+export function playerAttackCap(challenge: PrestigeChallenge | null | undefined, ranks: Partial<PrestigePerkRanks> | null | undefined): AttackCap {
+  return { minInterval: challengeMinimumInterval(challenge), raise: prestigePerkValue(ranks, "quickDraw") };
 }

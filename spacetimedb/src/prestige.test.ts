@@ -6,6 +6,7 @@ import { STARTER_BOW } from "../../shared/items";
 import { ATTACK_BALANCE_VERSION, BOSS_REWARD_CLAIM_BITS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_ISSUER } from "../../shared/rules";
 import { PRESTIGE_CAP_HINT, PRESTIGE_MAX_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeRequirementHint, prestigeStatMultiplier, prestigeUnlocked } from "../../shared/prestige";
 import { PRESTIGE_PERK_MAX_RANK } from "../../shared/prestige-perks";
+import { attackIntervalForRating, ratingForLevels } from "../../shared/stat-rating";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const CAMPAIGN_COMPLETE = BOSS_REWARD_CLAIM_BITS.aegisPrime;
@@ -235,6 +236,22 @@ it("spends a banked point on one rank and refuses anything it cannot pay for", (
   expect(prestigeRow(f)).toMatchObject({ perkPoints: 0 });
   expect(perkRow(f)).toMatchObject({ riposte: 2 });
   expect(() => f.run(server.spendPrestigePerkPoint, { perk: "riposte" })).toThrow("No perk points");
+});
+
+it("Quick Draw raises the attack speed cap the run's rating closes in on, and a respec moves it back", () => {
+  const f = crystalFixture();
+  f.seed("playerPrestige", { identity: f.ctx.sender, level: 2, perkPoints: 2, peakPower: 0, prestigedAt: f.ctx.timestamp });
+  f.seed("prestigeExpansion", { id: 0, launchedAt: f.ctx.timestamp, unlocksAt: f.ctx.timestamp });
+  const before = attackIntervalForRating(ratingForLevels(10));
+  f.patch("playerProgress", { attackRate: before });
+  f.run(server.spendPrestigePerkPoint, { perk: "quickDraw" });
+  f.run(server.spendPrestigePerkPoint, { perk: "quickDraw" });
+  expect(f.db.playerPrestigeExpansionPerk.identity.find(f.ctx.sender)).toMatchObject({ quickDraw: 2 });
+  // Same ten levels, on a curve to 3.4 attacks a second instead of 3.
+  const raised = f.db.playerProgress.identity.find(f.ctx.sender).attackRate;
+  expect(1 / raised).toBeCloseTo(3.4 - (3.4 - 1 / 1.56) * .95 ** 10, 4);
+  f.run(server.respecPrestigePerks, {});
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).attackRate).toBeCloseTo(before, 6);
 });
 
 it("refuses to push a perk past its highest rank", () => {

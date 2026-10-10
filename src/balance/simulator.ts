@@ -5,7 +5,7 @@ import type { BalanceSettings, MapBalanceSnapshot } from "../../shared/map-balan
 import { campaignMapTargetSeconds, CAMPAIGN_ENTRY_TARGET_SECONDS } from "../../shared/campaign-pacing";
 import { compareKillBudget, killTargets, normalizeKillBudget, DEFAULT_KILL_BUDGET, type KillBudgetConfig, type BossReadinessComparison } from "./kill-budget";
 import { generateMap, generatedBossStats, proceduralMapId, proceduralMapNumber, type ProceduralMapId } from "../../shared/procedural-maps";
-import { bossHitsToDefeat } from "../../shared/boss-regeneration";
+import { BOSS_REGEN_FRACTION_PER_SECOND, bossHitsToDefeat } from "../../shared/boss-regeneration";
 import { simulationRegularDrops, simulationTravelSeconds } from "./gameplay-model";
 import { itemTier } from "../../shared/item-tier";
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../game/runtime/regular-enemy-respawn";
@@ -1448,7 +1448,7 @@ function projectedBossTtk(
   const projected = { ...state, stats: { ...state.stats } };
   const reward = enemy.reward;
   applyRewardToStats(projected.stats, reward.type, rewardAmount(state, reward.amount, adjustment.reward));
-  return bossFightSeconds(projected, map, adjustment);
+  return bossFightSeconds(projected, map, adjustment, true);
 }
 
 function projectedBossRewardPowerGain(
@@ -1545,6 +1545,7 @@ function selectSite(
   const pendingClear = available.filter((site) => site.kills < config.requiredClears);
   const adjustment = config.mapAdjustments[map.id];
   const currentBossTtk = bossFightSeconds(state, map, adjustment);
+  const smoothBossTtk = bossFightSeconds(state, map, adjustment, true);
   const bossReadinessTarget = bossReadinessTargetSeconds(map.id, config);
   const needsHealth = !bossAlreadyCleared && bossHitShare(state, map, adjustment) > .3;
   const bossGateActive = !bossAlreadyCleared && currentBossTtk !== null && currentBossTtk > bossReadinessTarget;
@@ -1585,7 +1586,7 @@ function selectSite(
         power: bossGateActive ? 0 : projectedRewardPowerGain(state, enemy, adjustment),
         dps: bossGateActive ? 0 : projectedDpsGain(state, enemy, adjustment),
         bossTtk: bossGateActive && (enemy.reward.type === "damage" || enemy.reward.type === "speed" || enemy.reward.type === "crit")
-          ? projectedBossTtk(state, map, enemy, adjustment) : currentBossTtk,
+          ? projectedBossTtk(state, map, enemy, adjustment) : smoothBossTtk,
       };
       projections.set(key, projection);
     }
@@ -1729,7 +1730,7 @@ function selectSite(
       }
     } else if (bossGateActive && currentBossTtk !== null && !defensiveTurn) {
       const nextBossTtk = candidate.nextBossTtk;
-      const readinessGain = nextBossTtk === null ? 0 : Math.max(0, currentBossTtk - nextBossTtk);
+      const readinessGain = nextBossTtk === null || smoothBossTtk === null ? 0 : Math.max(0, smoothBossTtk - nextBossTtk);
       // Readiness is lexically more important than canonical power while the
       // next boss is still out of reach. This safety rail is relaxed only on
       // the explicit defensive turns above, so a wider build can grow without
@@ -1776,11 +1777,22 @@ function bossFightOutcome(state: EffectiveStatsState, map: BalanceMapDefinition,
   return resolveFight(stats.maxHp, stats.maxHp, stats.regen, fightSeconds, [bossAttacker(map.boss.kind, strongestHit, stats.armor)]);
 }
 
-function bossFightSeconds(state: EffectiveStatsState, map: BalanceMapDefinition, adjustment: MapAdjustment) {
+/**
+ * Seconds to kill the boss. `smooth` counts the hits as a fraction, for comparing two builds: rounded up,
+ * a small damage gain rarely saves a whole hit while any attack speed gain shortens every one, so readiness
+ * farming chased attack speed for ever once ratings stopped it reaching a cap (0.901.47).
+ */
+function bossFightSeconds(state: EffectiveStatsState, map: BalanceMapDefinition, adjustment: MapAdjustment, smooth = false) {
   if (!map.boss) return null;
   const combat = combatStats(state);
   const interval = Math.max(MIN_ATTACK_INTERVAL, combat.attackRate);
-  return FIRST_HIT_SECONDS + (bossHitsToDefeat(map.boss.hp * adjustment.bossHp, combat.averageHit, interval, map.balance?.boss?.regenFraction) - 1) * interval;
+  const maxHp = map.boss.hp * adjustment.bossHp, regenFraction = map.balance?.boss?.regenFraction;
+  if (smooth) {
+    const net = combat.averageHit - maxHp * (regenFraction ?? BOSS_REGEN_FRACTION_PER_SECOND) * interval;
+    if (combat.averageHit >= maxHp) return FIRST_HIT_SECONDS;
+    return net > 0 ? FIRST_HIT_SECONDS + (maxHp - combat.averageHit) / net * interval : Infinity;
+  }
+  return FIRST_HIT_SECONDS + (bossHitsToDefeat(maxHp, combat.averageHit, interval, regenFraction) - 1) * interval;
 }
 
 function historyPowerAt(history: HistoryPoint[], timeSeconds: number) {

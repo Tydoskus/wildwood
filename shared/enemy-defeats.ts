@@ -6,7 +6,7 @@ import designs from "./map-designs.json";
 import { endlessSiteLane, generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
 import { isSoulMap, soulRewardType, soulStatFromEnemyId, SOUL_POPULATION, SOUL_STAT_DETAILS, SOUL_STAT_ORDER } from "./soul-dimension";
 import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "./rules";
-import { addAttackSpeedRating, cleanRating } from "./stat-rating";
+import { addAttackSpeedRating, cleanRating, type AttackCapArg } from "./stat-rating";
 
 export type EnemyDefeat = { enemy: string; count: number };
 export const ENEMY_DEFEAT_BATCH_MAX = 100;
@@ -171,7 +171,7 @@ export function defeatBudget(population: number, minRespawnSeconds = DEFEAT_MIN_
  * crit to `critRating`, which a caller that tracks it carries on `base`.
  */
 export function applyEnemyRewards<T extends { damage: number; maxHp: number; attackRate: number; armor: number; regen: number; critRating?: number }>(
-  base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number, minAttackInterval = MIN_ATTACK_INTERVAL,
+  base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number, minAttackInterval: AttackCapArg = MIN_ATTACK_INTERVAL,
 ): T {
   const next = { ...base };
   for (const reward of rewards) {

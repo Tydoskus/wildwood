@@ -4,7 +4,8 @@ import { isDeveloperIdentity } from "../../shared/developer-identity";
 import { isProceduralMap } from "../../shared/procedural-maps";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import { challengeActive } from "./prestige-challenge";
-import { challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { playerAttackCap } from "../../shared/prestige-perks";
+import { prestigePerkRanks } from "./prestige";
 import { cleanRating } from "../../shared/stat-rating";
 import {
   addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier,
@@ -81,9 +82,9 @@ export function soulStatsFor(ctx: any, identity: any): SoulStats | null {
   return row ? cleanSoulStats(row) : null;
 }
 
-/** The fastest interval soul attack speed may reach: Reflect Only wins raise it. Soul is in play only outside a challenge. */
+/** The attack speed cap the soul's rating adds under: Reflect Only wins and Quick Draw raise it. Soul is in play only outside a challenge. */
 export function soulAttackCapFor(ctx: any, identity: any) {
-  return challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(identity));
+  return playerAttackCap(ctx.db.playerPrestigeChallenge.identity.find(identity), prestigePerkRanks(ctx, identity));
 }
 
 export function rewardKillsFor(ctx: any, identity: any): RewardKillCounts {
