@@ -71,6 +71,8 @@ export type EnemyState = Circle & {
   generatedBoss?: boolean;
   /** Drawn this many times its kind's size (the Soul Defense Force); generated bosses have their own. */
   spriteScale?: number;
+  /** The chance a Reflect aimed at it is thrown back at the player instead (the Soul Defense Force). */
+  reflectsReflect?: number;
   isBoss?: false;
   type: EnemyKind;
   siteId: number;

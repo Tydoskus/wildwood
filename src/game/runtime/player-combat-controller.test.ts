@@ -183,6 +183,29 @@ describe("player attack timing", () => {
     expect(mob.hp).toBe(960);            // the 40 that arrived, not the 20
   });
 
+  it("lets an enemy that throws Reflect back send the hit to the player, through armor, at its chance", () => {
+    const fight = (roll: number) => {
+      const state = createCombatHarness({ prestigeReflect: () => 1, effectiveArmor: () => 1_000, random: () => roll });   // armor halves damage
+      state.enemies.length = 0;
+      createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: "Spitter", x: 520, y: 500,
+        campName: "Test", leashRange: 500, alive: false, respawnAt: 0 });
+      const mob = state.enemies[0]; mob.hp = mob.maxHp = 1000; mob.reflectsReflect = .5;
+      Object.assign(state.player, { x: 500, y: 500, hp: 1000, maxHp: 1000, hurtClock: 0 });
+      state.controller.damagePlayer(40, mob);
+      return { player: state.player.hp, mob: mob.hp };
+    };
+    expect(fight(.2)).toEqual({ player: 960, mob: 1000 });   // 20 from the hit, 20 from the bounce
+    expect(fight(.8)).toEqual({ player: 980, mob: 960 });
+  });
+
+  it("counts Double Strike and Arrow Storm in the full damage a second, and leaves expectedDps as it was", () => {
+    const plain = createCombatHarness();
+    const perks = createCombatHarness({ prestigeDoubleStrike: () => .2, bowSkills: () => ({ arrowStorm: 4 }) });
+    expect(plain.controller.expectedFullDps()).toBeCloseTo(plain.controller.expectedDps());
+    expect(perks.controller.expectedDps()).toBeCloseTo(plain.controller.expectedDps());
+    expect(perks.controller.expectedFullDps()).toBeCloseTo(plain.controller.expectedDps() * 1.2 * 1.1);
+  });
+
   it("reflects a campaign boss's hit back at that boss, drawn blue", () => {
     const hitPersonalBoss = vi.fn();
     const state = createCombatHarness({ prestigeReflect: () => 1, prestigeBossSlayer: () => .5, hitPersonalBoss });

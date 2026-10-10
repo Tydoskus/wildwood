@@ -41,6 +41,8 @@ const SECONDS_TO_KILL = 45;
 const TOUCH_DAMAGE_MULTIPLIER = 3;
 /** A charge that lands takes this share of the player's health, after their armor. */
 const CHARGE_HEALTH_SHARE = .35;
+/** The chance it throws a Reflect back at the player: a Reflect build that stands still does not win alone. */
+const REFLECT_BOUNCE_CHANCE = .5;
 const CHASE_SPEED = 150;
 const CHARGE_EVERY = 4;
 const WINDUP_SECONDS = .8;
@@ -60,6 +62,8 @@ export function createSoulDefenseForce(deps: {
   player: PlayerState;
   enemies: EnemyState[];
   strength: () => SoulStrength;
+  /** Damage a second with Double Strike and Arrow Storm in, for its health; strength's dps leaves them out. */
+  fullDps?: () => number;
   spawnFromSite: (site: SpawnSite) => void;
   damagePlayer?: (damage: number, source: EnemyState) => void;
   message?: (text: string, color: string) => void;
@@ -85,7 +89,8 @@ export function createSoulDefenseForce(deps: {
 
   function spawn() {
     const { player } = deps;
-    const soul = soulEnemyStats(deps.strength());
+    const strength = deps.strength(), fullDps = deps.fullDps?.() ?? 0;
+    const soul = soulEnemyStats(Number.isFinite(fullDps) && fullDps > strength.dps ? { ...strength, dps: fullDps } : strength);
     const angle = Math.random() * Math.PI * 2;
     const before = deps.enemies.length;
     deps.spawnFromSite({
@@ -107,6 +112,7 @@ export function createSoulDefenseForce(deps: {
     boss = deps.enemies[deps.enemies.length - 1];
     boss.displayName = SOUL_DEFENSE_FORCE_NAME;
     boss.spriteScale = 2.4;
+    boss.reflectsReflect = REFLECT_BOUNCE_CHANCE;
     boss.engaged = true;
     boss.aggroRadius = 1e9;
     phase = "chase"; clock = CHARGE_EVERY; landed = false;

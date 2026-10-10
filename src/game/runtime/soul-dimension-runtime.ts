@@ -48,6 +48,8 @@ export function createSoulDimensionRuntime(deps: {
   townMap: { secondaryPortal?: MapPortal };
   /** The player as combat has them now: weapon damage a second, health, armor, regen. */
   strength: () => SoulStrength;
+  /** Damage a second with Double Strike and Arrow Storm in: the Soul Defense Force's health. */
+  fullDps?: () => number;
   logPickup?: (label: string, color: string) => void;
   /** The player's fastest attack interval: Reflect Only wins raise the cap, and soul attack speed may reach it. */
   attackCap?: () => number;
@@ -63,7 +65,7 @@ export function createSoulDimensionRuntime(deps: {
 }) {
   let filledTier = -1;
   const defenseForce = createSoulDefenseForce({ identity: () => deps.source()?.localIdentity?.(), player: deps.player, enemies: deps.enemies,
-    strength: deps.strength, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown,
+    strength: deps.strength, fullDps: deps.fullDps, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown,
     critMultiplier: deps.researchCritMultiplier && (() => deps.researchCritMultiplier!(inPlay().critDamage)),
     notice: text => { void gameConfirm({ message: text, confirmLabel: "OK", cancelLabel: "" }); } });
   let strengthClock = 0;

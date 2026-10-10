@@ -17,7 +17,7 @@ import type { SpawnSite } from "../world";
 import { equipmentDamage, itemDefinition } from "../../../shared/items";
 import { worldReflectDamage } from "../../../shared/prestige-perks";
 import { createMarbleBag } from "../../../shared/marble-bag";
-import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, RICOCHET_DAMAGE_SHARE, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
+import { ARROW_STORM_DAMAGE_SHARE, ARROW_STORM_RADIUS, ARROW_STORM_SCORE_WEIGHT, RICOCHET_DAMAGE_SHARE, bowSkillChance, hasBowSkills, rollArrowSkillProcs, type BowSkillRoll } from "../../../shared/bow-skills";
 import { ARROW_STORM_FLIGHT_SECONDS, ARROW_STORM_STAGGER_SECONDS } from "./combat-effects";
 import { arrowPassesThrough, isSkillSecondaryTarget, rainArrowStorm, ricochetChain } from "./bow-skill-procs";
 import { addPlayerBaseMaxHealth } from "./player-health";
@@ -77,6 +77,7 @@ export function attackReadyAtWithoutTarget(nextAttackAtSeconds: number, nowSecon
 export type PlayerCombatController = {
   expectedDps: () => number;
   expectedBossDps: () => number;
+  expectedFullDps: () => number;
   attackNearest: (enemyType?: AutoFarmGroup | null, campName?: string | null, priority?: AutoFarmPriority) => void;
   updateProjectiles: (dt: number) => void;
   /** `source` is who dealt it, which Reflect answers. */
@@ -625,7 +626,14 @@ export function createPlayerCombatController(options: {
     // The server's bounds allow it.
     const reflectChance = options.prestigeReflect?.() ?? 0;
     if (source && !source.dead && dealt > 0 && reflectChance > 0 && reflectBag.draw(reflectChance)) {
-      applyPlayerHit(source, worldReflectDamage(amount, player.maxHp, options.reflectOnly?.() === true), false, Math.atan2(source.y - player.y, source.x - player.x), true);
+      const reflected = worldReflectDamage(amount, player.maxHp, options.reflectOnly?.() === true);
+      // Some enemies throw a Reflect back: it lands on the player through armor, and does not bounce again.
+      if (!source.isBoss && random() < (source.reflectsReflect ?? 0)) {
+        const back = damageAfterArmor(reflected, effectiveArmor());
+        player.hp -= back;
+        spawnDamageNumber(player.x, player.y - 18, back, false, true);
+        spawnBurst(source.x, source.y, "#c9d4ff", 10, 140);
+      } else applyPlayerHit(source, reflected, false, Math.atan2(source.y - player.y, source.x - player.x), true);
     }
     spawnDamageNumber(player.x, player.y, dealt, false, true);
     player.hurtClock = .1;
@@ -825,8 +833,15 @@ export function createPlayerCombatController(options: {
     return weaponDamage(false) * (1 + chance * (researchCriticalDamageMultiplier() - 1)) * projectiles / Math.max(.05, player.attackRate);
   }
 
+  /** expectedDps with Double Strike and Arrow Storm in, against one enemy: what the Soul Defense Force is built against. */
+  function expectedFullDps() {
+    const storm = isMeleeWeapon(options.equippedWeapon()) ? 0 : bowSkillChance(options.bowSkills?.(), "arrowStorm") * ARROW_STORM_SCORE_WEIGHT;
+    return expectedDps() * (1 + Math.max(0, options.prestigeDoubleStrike?.() ?? 0)) * (1 + storm);
+  }
+
   return {
     expectedDps,
+    expectedFullDps,
     /** The same against a boss, Boss Slayer included: how long a boss fight would take. */
     expectedBossDps: () => expectedDps() * (1 + (options.prestigeBossSlayer?.() ?? 0)),
     attackNearest,

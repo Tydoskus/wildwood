@@ -3,7 +3,7 @@ import { createSoulDefenseForce, soulDefenseForceKills, SOUL_DEFENSE_FORCE_KILLS
 import type { SpawnSite } from "../world";
 import type { EnemyState, PlayerState } from "./types";
 
-function setup(refuse = false, critMultiplier?: () => number) {
+function setup(refuse = false, critMultiplier?: () => number, fullDps?: () => number) {
   const values = new Map<string, string>();
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
   const player = { x: 1000, y: 1000, r: 20, hp: 100, maxHp: 100 } as PlayerState;
@@ -17,7 +17,7 @@ function setup(refuse = false, critMultiplier?: () => number) {
   const damagePlayer = vi.fn((damage: number) => { player.hp -= damage; });
   const message = vi.fn(), notice = vi.fn();
   const sendToTown = vi.fn(async () => true);
-  const force = createSoulDefenseForce({ identity: () => "me", player, enemies, spawnFromSite, damagePlayer, message, notice, storage: () => storage, sendToTown, wait: async () => {}, critMultiplier,
+  const force = createSoulDefenseForce({ identity: () => "me", player, enemies, spawnFromSite, damagePlayer, message, notice, storage: () => storage, sendToTown, wait: async () => {}, critMultiplier, fullDps,
     strength: () => ({ dps: 100, maxHp: 100, armor: 0, regen: 0 }) });
   const killAll = (count = SOUL_DEFENSE_FORCE_KILLS) => { for (let i = 0; i < count; i++) force.countKill(); };
   return { force, player, enemies, damagePlayer, message, notice, sendToTown, killAll };
@@ -125,4 +125,10 @@ it("comes sooner the harder the player crits: every 100 kills at 100x, every 100
   crit = 10; low.killAll(100); low.force.update(.1, true);
   expect(low.enemies).toHaveLength(0);
   expect(low.force.killsNeeded()).toBe(100_000);
+});
+
+it("takes its health from the player's full damage, perks in, and throws half of all Reflects back", () => {
+  const s = setup(false, undefined, () => 300); s.killAll(); s.force.update(.1, true);
+  expect(s.enemies[0].hp).toBeCloseTo(13_500);
+  expect(s.enemies[0].reflectsReflect).toBe(.5);
 });
