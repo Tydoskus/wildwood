@@ -1,5 +1,5 @@
 import { CAMPAIGN_ITEM_PRESENTATIONS } from "./campaign-item-presentation";
-import { applyGalaxyArtTexture, skyFinishCssFallback, skyFinishCssVariable, type SkyFinish } from "./galaxy-finish";
+import { applyGalaxyArtTexture, galaxyIconOutlineVariable, skyFinishCssFallback, skyFinishCssVariable, type SkyFinish } from "./galaxy-finish";
 import type { WeaponCategory } from "./equipment-alignment";
 import type { LayerAdjustment } from "./player-layer-alignment";
 import {
@@ -354,8 +354,10 @@ export function itemArtMarkup(itemId: string, hidden = true) {
 export function galaxyArtStyle(source: string, finish: SkyFinish = "GALAXY") {
   applyGalaxyArtTexture(finish);
   return [
-    // The sky here; game.css .has-galaxy-finish lays the art over it in grey from --galaxy-art.
+    // The sky here; game.css .has-galaxy-finish lays the art over it in grey from --galaxy-art,
+    // and the solid outline from --galaxy-outline (made once per art; none until it loads).
     `--galaxy-art: url(${source})`,
+    `--galaxy-outline: var(${galaxyIconOutlineVariable(source)}, none)`,
     `background-image: var(${skyFinishCssVariable(finish)}, ${skyFinishCssFallback(finish)})`,
     `-webkit-mask-image: url(${source})`,
     `mask-image: url(${source})`,

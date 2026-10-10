@@ -261,6 +261,26 @@ function prefersReducedMotion() {
 }
 
 /**
+ * How much of each art pixel is the black line, 0 to 1: all of it at or below
+ * LINE_LUMINANCE, part of it for the soft edge touching the line, none for the
+ * plate. Shared by the canvas finish and the icons' outline image.
+ */
+function lineWeights(data: Uint8ClampedArray, luminances: Float32Array, width: number, height: number) {
+  const count = width * height, weights = new Float32Array(count);
+  const isLine = (index: number) => data[index * 4 + 3] >= 128 && luminances[index] <= LINE_LUMINANCE;
+  for (let index = 0; index < count; index += 1) {
+    const luminance = luminances[index];
+    if (!data[index * 4 + 3] || luminance >= LINE_EDGE_LUMINANCE) continue;
+    if (luminance <= LINE_LUMINANCE) { weights[index] = 1; continue; }
+    const x = index % width;
+    const touches = (x > 0 && isLine(index - 1)) || (x < width - 1 && isLine(index + 1))
+      || (index >= width && isLine(index - width)) || (index + width < count && isLine(index + width));
+    if (touches) weights[index] = (LINE_EDGE_LUMINANCE - luminance) / (LINE_EDGE_LUMINANCE - LINE_LUMINANCE);
+  }
+  return weights;
+}
+
+/**
  * The piece's shading and outline, worked out once from its pixels. Shading
  * maps the art's light and dark faces either side of the neutral grey an
  * overlay blend leaves untouched, so plates still look like plates. The
@@ -289,22 +309,17 @@ function pieceDetail(source: CanvasImageSource, width: number, height: number, p
     shadePixels.data[offset + 3] = alpha;
     luminances[index] = luminance;
   }
-  const isLine = (index: number) => data[index * 4 + 3] >= 128 && luminances[index] <= LINE_LUMINANCE;
+  const weights = lineWeights(data, luminances, width, height);
   for (let index = 0; index < count; index += 1) {
-    const offset = index * 4, alpha = data[offset + 3], luminance = luminances[index];
-    if (!alpha || luminance >= LINE_EDGE_LUMINANCE) continue;
-    let weight = 1;
-    if (luminance > LINE_LUMINANCE) {
-      const x = index % width;
-      const touches = (x > 0 && isLine(index - 1)) || (x < width - 1 && isLine(index + 1))
-        || (index >= width && isLine(index - width)) || (index + width < count && isLine(index + width));
-      if (!touches) continue;
-      weight = (LINE_EDGE_LUMINANCE - luminance) / (LINE_EDGE_LUMINANCE - LINE_LUMINANCE);
-    }
+    const weight = weights[index];
+    if (!weight) continue;
+    // Solid by its weight, not by the art's alpha: it covers the sky before the art's shape
+    // cuts the piece, so a soft outer edge fades from black to clear, never through sky.
+    const offset = index * 4;
     outlinePixels.data[offset] = data[offset];
     outlinePixels.data[offset + 1] = data[offset + 1];
     outlinePixels.data[offset + 2] = data[offset + 2];
-    outlinePixels.data[offset + 3] = Math.round(alpha * weight);
+    outlinePixels.data[offset + 3] = Math.round(255 * weight);
   }
   // Distance in from the plate's edge (the line or the outside), out to SHINE_END.
   const distance = new Uint8Array(count), queue: number[] = [];
@@ -384,14 +399,16 @@ function paintPiece(piece: Piece, sprite: CanvasImageSource, seconds: number, pa
     context.globalCompositeOperation = "overlay";
     context.drawImage(piece.shade, 0, 0);
   }
-  context.globalCompositeOperation = "destination-in";
-  context.drawImage(residentDrawable(sprite), 0, 0, width, height);
   if (piece.shine) {
     context.globalCompositeOperation = "lighter";
     context.drawImage(piece.shine, 0, 0);
   }
+  // The line goes on before the art's shape cuts the piece (see pieceDetail), so no sky edges it.
   context.globalCompositeOperation = "source-over";
   if (piece.outline) context.drawImage(piece.outline, 0, 0);
+  context.globalCompositeOperation = "destination-in";
+  context.drawImage(residentDrawable(sprite), 0, 0, width, height);
+  context.globalCompositeOperation = "source-over";
 }
 
 /**
@@ -431,6 +448,47 @@ export function galaxyFinishFrame(
  * with CSS (`.has-galaxy-finish` in game.css). This hands that rule the
  * palette's tile, once, as a custom property on the document.
  */
+const iconOutlines = new Map<string, string>();
+/**
+ * An icon's outline, the same line weights as the canvas finish (lineWeights),
+ * as an image laid over its sky: the CSS filters it replaced only darkened the
+ * sky by a thin line's coverage, so at slot size the line vanished and sky
+ * showed past it. Made once per art when it loads, handed over as a custom
+ * property on the document as the sky tile is; until then the icon has none.
+ * Returns the property's name.
+ */
+export function galaxyIconOutlineVariable(source: string) {
+  const known = iconOutlines.get(source);
+  if (known) return known;
+  const name = `--galaxy-outline-${iconOutlines.size + 1}`;
+  iconOutlines.set(source, name);
+  if (typeof document === "undefined" || typeof Image === "undefined") return name;
+  const image = new Image();
+  image.onload = () => {
+    const width = image.naturalWidth, height = image.naturalHeight, art = canvas(width, height), out = canvas(width, height);
+    if (!art || !out || !width || !height) return;
+    art.context.drawImage(image, 0, 0);
+    let pixels: ImageData;
+    try { pixels = art.context.getImageData(0, 0, width, height); } catch { return; }
+    const data = pixels.data, count = width * height, luminances = new Float32Array(count);
+    for (let index = 0; index < count; index += 1) {
+      const offset = index * 4;
+      luminances[index] = (data[offset] * .299 + data[offset + 1] * .587 + data[offset + 2] * .114) / 255;
+    }
+    const weights = lineWeights(data, luminances, width, height), line = out.context.createImageData(width, height);
+    for (let index = 0; index < count; index += 1) {
+      if (!weights[index]) continue;
+      const offset = index * 4;
+      line.data[offset] = data[offset]; line.data[offset + 1] = data[offset + 1]; line.data[offset + 2] = data[offset + 2];
+      line.data[offset + 3] = Math.round(255 * weights[index]);
+    }
+    out.context.putImageData(line, 0, 0);
+    try { document.documentElement.style.setProperty(name, `url(${out.element.toDataURL("image/png")})`); } catch {}
+  };
+  image.src = source;
+  return name;
+}
+
 export function applyGalaxyArtTexture(finish: SkyFinish = "GALAXY") {
   if (artTexturesApplied.has(finish) || typeof document === "undefined") return;
   artTexturesApplied.add(finish);
