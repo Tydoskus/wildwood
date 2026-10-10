@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.34": [
+    "Ping updates about once a second while you play, from the last three seconds instead of five",
+    "Whatever keeps count in the Soul Dimension has a new face",
+  ],
   "0.901.33": [
     "Whatever keeps count in the Soul Dimension now actually arrives",
   ],
@@ -3101,6 +3105,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.34": "2026-10-09",
   "0.901.33": "2026-10-09",
   "0.901.32": "2026-10-09",
   "0.901.31": "2026-10-09",

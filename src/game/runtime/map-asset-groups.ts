@@ -14,7 +14,7 @@ import {
   type MapId,
 } from "../world";
 import type { EnemyKind } from "../enemies";
-import { SOUL_ENEMY_KINDS } from "../soul-world";
+import { SOUL_DEFENSE_FORCE_KIND, SOUL_ENEMY_KINDS } from "../soul-world";
 
 export type MapArtAssetGroup =
   | "forestBoss"
@@ -52,7 +52,8 @@ const AUTHORED_MAP_ASSET_GROUPS = {
   home_exterior: { art: ["forestDecor", "snowDecor"], enemies: [] },
   // The Town's Loadout Upgrades bench is the snow set's workbench sprite, as Home's was.
   town: { art: ["soulVillage", "snowDecor"], enemies: [] },
-  soul_dimension: { art: ["nightDecor"], enemies: SOUL_ENEMY_KINDS },
+  // The soul camps, and the Soul Defense Force that comes every thousand of them.
+  soul_dimension: { art: ["nightDecor"], enemies: [...SOUL_ENEMY_KINDS, SOUL_DEFENSE_FORCE_KIND] },
   [TUTORIAL_FOREST_MAP_ID]: {
     art: ["forestBoss", "forestDecor"],
     enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"],
@@ -117,7 +118,7 @@ export const MAP_ASSET_GROUPS = withGeneratedMaps<MapAssetGroup>(AUTHORED_MAP_AS
 export const MAP_ENEMY_SPRITE_GROUPS = withGeneratedMaps<readonly EnemyKind[]>({
   [ONBOARDING_MAP_ID]: ["Spitter", "Brood"],
   home_exterior: [],
-  soul_dimension: SOUL_ENEMY_KINDS,
+  soul_dimension: AUTHORED_MAP_ASSET_GROUPS.soul_dimension.enemies,
   town: [],
   [TUTORIAL_FOREST_MAP_ID]: MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].enemies,
   [BEGINNER_DESERT_MAP_ID]: MAP_ASSET_GROUPS[BEGINNER_DESERT_MAP_ID].enemies,

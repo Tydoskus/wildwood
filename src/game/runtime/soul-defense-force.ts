@@ -1,13 +1,14 @@
 import { armorDamageReduction } from "../../../shared/combat";
 import { soulEnemyStats, SOUL_SECONDS_TO_KILL, type SoulStrength } from "../../../shared/soul-dimension";
 import { ENEMY_TYPES } from "../enemies";
+import { SOUL_DEFENSE_FORCE_KIND } from "../soul-world";
 import type { SpawnSite } from "../world";
 import type { EnemyState, PlayerState } from "./types";
 
 /**
  * The Soul Defense Force: an easter egg, after the Witcher's Bovine Defense
- * Force. Every thousand soul enemies a player kills, a giant Dread Warden comes
- * for them in the Soul Dimension. It chases, glows, and charges in a straight
+ * Force. Every thousand soul enemies a player kills, a giant Angry Evilmass comes
+ * for them in the Soul Dimension, drawn at an Endless boss's size. It chases, glows, and charges in a straight
  * line; three charges kill. Built from the player's own strength like every
  * soul enemy, so it is as hard at any power. Beating it pays nothing, and its
  * kill never reaches the server (onEnemyDefeated stops it before the report).
@@ -17,6 +18,7 @@ import type { EnemyState, PlayerState } from "./types";
  */
 export const SOUL_DEFENSE_FORCE_KILLS = 1000;
 export const SOUL_DEFENSE_FORCE_NAME = "Soul Defense Force";
+
 const KEY = "wildstat:soul-defense-force:v1";
 /** Its own site id: -1 is the generated bosses', and a respawn timer kept for that id refused the spawn. */
 const SITE_ID = -7_000;
@@ -66,11 +68,11 @@ export function createSoulDefenseForce(deps: {
     const angle = Math.random() * Math.PI * 2;
     const before = deps.enemies.length;
     deps.spawnFromSite({
-      id: SITE_ID, type: "Dread Warden", campName: SOUL_DEFENSE_FORCE_NAME,
+      id: SITE_ID, type: SOUL_DEFENSE_FORCE_KIND, campName: SOUL_DEFENSE_FORCE_NAME,
       x: player.x + Math.cos(angle) * 520, y: player.y + Math.sin(angle) * 520,
       leashRange: 1e9, alive: false, respawnAt: 0,
       definition: {
-        ...ENEMY_TYPES["Dread Warden"],
+        ...ENEMY_TYPES[SOUL_DEFENSE_FORCE_KIND],
         hp: soul.hp * SECONDS_TO_KILL / SOUL_SECONDS_TO_KILL,
         damage: soul.damage * TOUCH_DAMAGE_MULTIPLIER,
         attackSpeed: soul.attackSpeed,
@@ -83,7 +85,7 @@ export function createSoulDefenseForce(deps: {
     if (deps.enemies.length === before) return;
     boss = deps.enemies[deps.enemies.length - 1];
     boss.displayName = SOUL_DEFENSE_FORCE_NAME;
-    boss.spriteScale = 2;
+    boss.spriteScale = 2.4;
     boss.engaged = true;
     boss.aggroRadius = 1e9;
     phase = "chase"; clock = CHARGE_EVERY; landed = false;

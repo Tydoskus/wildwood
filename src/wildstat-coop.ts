@@ -67,7 +67,8 @@ type WildStatRuntime = Window & {
   WILDWOOD_SPACETIMEDB_HOST?: string;
   WILDWOOD_SPACETIMEDB_DB_NAME?: string;
 };
-const LATENCY_SAMPLE_INTERVAL_MS = 1_000;
+// Timing a reducer the game sends anyway costs nothing: four a second keeps the reading live while playing.
+const LATENCY_SAMPLE_INTERVAL_MS = 250;
 const latencySamples = createLatencySamples();
 // Allow normal connection/session deadlines to recover before restarting a stalled attempt.
 const WAKE_RECONNECT_WATCHDOG_MS = 45_000;

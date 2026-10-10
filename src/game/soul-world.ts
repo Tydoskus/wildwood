@@ -6,6 +6,8 @@ export const SOUL_ENEMY_SPECIES: Readonly<Record<SoulStatId, EnemyKind>> = {
   damage: "Spitter", health: "Bramble", armor: "Mossback", regen: "Brood", attackSpeed: "Needle", critDamage: "Dread Warden",
 };
 export const SOUL_ENEMY_KINDS: readonly EnemyKind[] = [...new Set(Object.values(SOUL_ENEMY_SPECIES))];
+/** The Soul Defense Force (runtime/soul-defense-force.ts): an Angry Evilmass, the Endless monster with its brain showing (Ryan's pick). */
+export const SOUL_DEFENSE_FORCE_KIND: EnemyKind = "Angry Evilmass";
 
 /** The soul stat a camp is for a player at this tier, or null before the first tier. */
 export function soulCampStat(camp: Pick<SoulCamp, "roll">, tier: number): SoulStatId | null {
