@@ -18,7 +18,7 @@ import { armorDamageReduction } from "./combat";
 import { MIN_ATTACK_INTERVAL, TUTORIAL_FOREST_MAP_ID } from "./rules";
 import { CAMPAIGN_GATEWAYS } from "./map-gateways";
 import { TOWN_MAP_ID } from "./town";
-import { attackIntervalForRating, attackSpeedRatingForInterval, cleanRating, RATING_MAX, type AttackCapArg } from "./stat-rating";
+import { attackIntervalForRating, attackSpeedRatingForInterval, cleanRating, critDamageForLevels, critDamageLevelsFor, CRIT_DAMAGE_TARGET, RATING_MAX, ratingForLevels, ratingLevels, type AttackCapArg } from "./stat-rating";
 
 export const SOUL_MAP_ID = "soul_dimension";
 export type SoulMapId = typeof SOUL_MAP_ID;
@@ -42,7 +42,8 @@ export const SOUL_STAT_DETAILS: Readonly<Record<SoulStatId, { label: string; sho
   regen: { label: "Regen", short: "Regen", reward: .1, color: "#7fe8d8" },
   // Rating points (stat-rating.ts) added to the run's. A map 1 attack speed kill pays 2.5, so these are small.
   attackSpeed: { label: "Attack Speed", short: "Atk Spd", reward: 1, color: "#ffd36e" },
-  critDamage: { label: "Crit Damage", short: "Crit Dmg", reward: 1, color: "#e7a6ff" },
+  // Crit multiplier a kill, as before 0.901.47, turned into rating (soulCritRatingAfterKills).
+  critDamage: { label: "Crit Damage", short: "Crit Dmg", reward: .002, color: "#e7a6ff" },
 };
 export const SOUL_TIER_COUNT = SOUL_STAT_ORDER.length;
 
@@ -87,9 +88,23 @@ export function soulStatValue(soul: Partial<SoulStats> | null | undefined, stat:
 /** Soul stats after `count` kills of one soul enemy. Flat: the reward never grows. */
 export function addSoulKills(soul: Partial<SoulStats> | null | undefined, stat: SoulStatId, count: number): SoulStats {
   const next = { ...EMPTY_SOUL_STATS, ...cleanSoulStats(soul) };
-  const field = SOUL_STAT_FIELD[stat];
-  next[field] = Math.min(RATING_MAX, next[field] + SOUL_STAT_DETAILS[stat].reward * Math.max(0, Math.floor(count)));
+  const field = SOUL_STAT_FIELD[stat], kills = Math.max(0, Math.floor(count));
+  next[field] = stat === "critDamage" ? soulCritRatingAfterKills(next[field], kills)
+    : Math.min(RATING_MAX, next[field] + SOUL_STAT_DETAILS[stat].reward * kills);
   return next;
+}
+
+/**
+ * A soul's crit damage rating after `kills` more, at the pace soul crit always had: each adds 0.002x
+ * (SOUL_STAT_DETAILS) to what the soul's own rating gives from a fresh start, up to 100x, stored as the
+ * rating that gives that. On the curve alone a point of rating did nothing to a soul already near 100x
+ * (Ryan, 0.901.47.1: farming toward 100x still pays).
+ */
+export function soulCritRatingAfterKills(rating: number, kills: number) {
+  const current = cleanRating(rating), step = SOUL_STAT_DETAILS.critDamage.reward * Math.max(0, kills);
+  if (!(step > 0) || current >= RATING_MAX) return current;
+  const target = critDamageForLevels(ratingLevels(current)) + step;
+  return Math.max(current, target >= CRIT_DAMAGE_TARGET ? RATING_MAX : ratingForLevels(critDamageLevelsFor(target)));
 }
 export function cleanSoulStats(soul: Partial<SoulStats> | null | undefined): SoulStats {
   const clean = { ...EMPTY_SOUL_STATS };

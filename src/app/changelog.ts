@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.48": [
+    "Soul Crit Damage is +0.002× a kill again, so farming toward 100× pays like before",
+  ],
   "0.901.47": [
     "Every map has 8 Damage, Health, Armor, Regen, Attack Speed and Crit Damage enemies",
     "Attack Speed is a rating now: each map's worth gets you 5% closer to the cap",
@@ -3165,6 +3168,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.48": "2026-10-10",
   "0.901.47": "2026-10-10",
   "0.901.46": "2026-10-10",
   "0.901.45": "2026-10-10",

@@ -7,6 +7,7 @@ import { soulStatOfCampName } from "../soul-world";
 import type { MapId, SpawnSite } from "../world";
 import { createSoulDimensionRuntime } from "./soul-dimension-runtime";
 import type { EnemyState, PlayerState } from "./types";
+import { critDamageForLevels, ratingLevels } from "../../../shared/stat-rating";
 
 function dimension(options: { kills?: number; prestige?: number; map?: MapId } = {}) {
   const player = { x: 0, y: 0, r: 16, hp: 100, maxHp: 100, moving: false, facing: 0 } as unknown as PlayerState;
@@ -85,7 +86,7 @@ it("adds the soul stats once, however many saves and loads go round, and none du
   expect(runtime.critDamage()).toBe(0);
 });
 
-it("counts soul crit damage rating up a point a kill, uncapped: the curve never passes 100×", () => {
+it("counts soul crit damage up 0.002x a kill, as before 0.901.47, and never past 100×", () => {
   const soul = { damage: 0, maxHp: 0, armor: 0, regen: 0, attackSpeed: 0, critDamage: 98.9 };
   const runtime = createSoulDimensionRuntime({
     source: () => ({ soulStats: () => soul }),
@@ -93,6 +94,8 @@ it("counts soul crit damage rating up a point a kill, uncapped: the curve never 
     strength: () => ({ dps: 10, maxHp: 100, armor: 0, regen: 0 }),
   });
   expect(runtime.critDamage()).toBeCloseTo(98.9);
+  const multiplier = (rating: number) => critDamageForLevels(ratingLevels(rating));
+  const before = multiplier(runtime.critDamage());
   for (let kill = 0; kill < 100; kill++) runtime.soulKill("critDamage");
-  expect(runtime.critDamage()).toBeCloseTo(198.9);
+  expect(multiplier(runtime.critDamage())).toBeCloseTo(before + .2, 6);
 });

@@ -2,10 +2,11 @@ import { challengeMinimumInterval } from "./prestige-challenge";
 import { RATING_MAX, attackIntervalForRating, attackSpeedRatingForInterval } from "./stat-rating";
 import { describe, expect, it } from "vitest";
 import {
-  addSoulKills, cleanSoulStats, EMPTY_SOUL_STATS, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, withoutSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
+  addSoulKills, cleanSoulStats, EMPTY_SOUL_STATS, soulCritRatingAfterKills, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, withoutSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
 } from "./soul-dimension";
 import { MIN_ATTACK_INTERVAL } from "./rules";
 import { decodePlayerMapFrame, decodePlayerMotionFrame, encodePlayerMapFrame, encodePlayerMotionFrame } from "./player-motion-frame";
+import { critDamageForLevels, critDamageLevelsFor, ratingForLevels, ratingLevels } from "./stat-rating";
 
 const each = (count: number) => ({ damage: count, health: count, armor: count, regen: count, speed: count });
 
@@ -43,7 +44,8 @@ describe("soul stats", () => {
     soul = addSoulKills(soul, "critDamage", 5);
     expect(soul.damage).toBe(10);
     expect(soul.maxHp).toBe(3);
-    expect(soul.critDamage).toBe(5);
+    // Crit damage is a rating, paid at 0.002x a kill: five kills from nothing is 1.06x.
+    expect(critDamageForLevels(ratingLevels(soul.critDamage))).toBeCloseTo(1.06, 9);
   });
 
   it("add to a run's base stats, attack speed as rating on the run's, never past the cap nor slowing a faster run", () => {
@@ -121,8 +123,19 @@ describe("wide motion frames", () => {
   });
 });
 
-it("keeps soul attack speed and crit damage as rating points: a point a kill, never past the rating's top", () => {
+it("keeps soul attack speed and crit damage as rating points, never past the rating's top", () => {
   expect(addSoulKills(EMPTY_SOUL_STATS, "attackSpeed", 3).attackSpeed).toBe(3);
   expect(addSoulKills({ ...EMPTY_SOUL_STATS, critDamage: RATING_MAX }, "critDamage", 10).critDamage).toBe(RATING_MAX);
   expect(cleanSoulStats({ attackSpeed: 1e305 }).attackSpeed).toBe(RATING_MAX);
+});
+
+describe("soul crit damage at the old pace (0.901.47.1)", () => {
+  it("adds 0.002x crit damage a kill even near 100x, where a point of rating did nothing", () => {
+    const at50 = ratingForLevels(critDamageLevelsFor(50));
+    expect(critDamageForLevels(ratingLevels(soulCritRatingAfterKills(at50, 1)))).toBeCloseTo(50.002, 6);
+    expect(critDamageForLevels(ratingLevels(soulCritRatingAfterKills(at50, 1_000)))).toBeCloseTo(52, 6);
+    // 50x to 100x is 25,000 kills, as it was.
+    expect(soulCritRatingAfterKills(at50, 25_000)).toBe(RATING_MAX);
+    expect(critDamageForLevels(ratingLevels(soulCritRatingAfterKills(at50, 24_990)))).toBeLessThan(100);
+  });
 });

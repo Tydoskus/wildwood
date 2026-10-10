@@ -9,7 +9,7 @@ import { createCombatReport } from "./boss-combat";
 import { createDuelRuntime } from "./duel-runtime";
 import { MODULE_MIGRATION_VERSION } from "./module-migrations";
 import { criticalDamage } from "../../shared/critical-damage";
-import { RATING_MAX, attackIntervalForRating, critDamageForLevels, ratingForLevels } from "../../shared/stat-rating";
+import { RATING_MAX, attackIntervalForRating, critDamageForLevels, ratingForLevels, ratingLevels } from "../../shared/stat-rating";
 import { withSoulStats } from "../../shared/soul-dimension";
 import { DEFAULT_ATTACK_INTERVAL } from "../../shared/rules";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -108,7 +108,7 @@ it("migration 54 turns soul attack speed and crit damage into ratings, nobody we
   expect(attackIntervalForRating(0)).toBeCloseTo(DEFAULT_ATTACK_INTERVAL);
 });
 
-it("pays soul crit damage a rating point a kill, past where 100x used to stop it", () => {
+it("pays soul crit damage 0.002x a kill, as before 0.901.47", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1_000 });
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 0, peakPower: 0, prestigedAt: new Timestamp(0n) });
@@ -120,5 +120,5 @@ it("pays soul crit damage a rating point a kill, past where 100x used to stop it
   reportKills(f, { streamId: "soul-stream-000001", sequence: 1n, mapId: SOUL_MAP_ID, enemies: [{ enemy: "soul:critDamage", count: 50 }] });
   const row = f.db.playerSoulStats.identity.find(f.ctx.sender);
   expect(row.kills).toBe(50n);
-  expect(row.critDamage).toBeCloseTo(148.9);
+  expect(critDamageForLevels(ratingLevels(row.critDamage))).toBeCloseTo(critDamageForLevels(ratingLevels(98.9)) + .1, 6);
 });

@@ -367,7 +367,7 @@ it('in the Soul Dimension draws a slider per soul stat present, in its soul colo
   }
   expect(row('damage').querySelector('.farm-weight-sub')!.textContent).toBe('+1');
   expect(row('attackSpeed').querySelector('.farm-weight-sub')!.textContent).toBe('+1');
-  expect(row('critDamage').querySelector('.farm-weight-sub')!.textContent).toBe('+1');
+  expect(row('critDamage').querySelector('.farm-weight-sub')!.textContent).toBe('+0.002×');
   // The campaign's Attack Speed pick opens as Soul Attack Speed at 100%; what it left unpicked is 0%.
   expect(['damage', 'attackSpeed', 'critDamage'].map(stat => slider(s, `soul:${stat}`).value)).toEqual(['0', '100', '0']);
   slide(s, 'soul:critDamage', 50);
