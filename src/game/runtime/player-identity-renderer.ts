@@ -317,7 +317,8 @@ export function createPlayerIdentityRenderer(options: {
     const displayName = guest ? name.replace(/\s*\(guest\)$/i, "") : name;
     const powerValue = power === null ? "" : formatCompactNumber(power);
     ctx.save();
-    ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+    // Names, power and the health bar's numbers are all 10px (Ryan).
+    ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     ctx.textBaseline = "bottom";
     const nameWidth = ctx.measureText(displayName).width;
     const gender = explicitGender ?? options.playerGender(identity);
@@ -364,7 +365,7 @@ export function createPlayerIdentityRenderer(options: {
       options.outlinedText(String(prestige), badgeLeft + badgeSize / 2, badgeTop + badgeSize * .515, "#ffffff", 3);
       ctx.textBaseline = "bottom";
       ctx.textAlign = "left";
-      ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+      ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
     }
     if (hasGenderIcon && genderIcon) {
       ctx.imageSmoothingEnabled = true;

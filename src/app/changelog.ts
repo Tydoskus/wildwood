@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.42": [
+    "Names and power above players are the same size as health bar numbers",
+  ],
   "0.901.41": [
     "Tutorial Forest has the Town's trees, grass, shadows and dirt roads",
     "Arriving in Tutorial Forest by portal lands you at its starting spot",
@@ -3137,6 +3140,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.42": "2026-10-09",
   "0.901.41": "2026-10-09",
   "0.901.40": "2026-10-09",
   "0.901.39": "2026-10-09",

@@ -10,7 +10,8 @@ export function drawPlayerPowerLabel(
   bottom: number,
 ) {
   ctx.save();
-  ctx.font = '900 12px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+  // 10px, as the name above it and the health bar's numbers (Ryan).
+  ctx.font = '900 10px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
   ctx.textBaseline = "bottom";
   ctx.textAlign = "left";
   const hasIcon = Boolean(icon);
@@ -25,7 +26,7 @@ export function drawPlayerPowerLabel(
     // are cap-height, so the icon's middle belongs a little above the bottom.
     // The two pixels back down are measured against the drawn artwork, whose
     // ink sits high in its own square.
-    const textHeight = 12;
+    const textHeight = 10;
     const opticalDrop = 1;
     ctx.drawImage(icon!, left + textWidth + iconGap, bottom - textHeight / 2 - iconSize / 2 + opticalDrop, iconSize, iconSize);
   }
