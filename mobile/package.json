@@ -8,7 +8,7 @@
   },
   "scripts": {
     "typecheck": "node ../node_modules/typescript/bin/tsc -p tsconfig.json",
-    "test": "node ../node_modules/vitest/vitest.mjs run src/test-commerce.test.ts src/ota-controller.test.ts src/ota-signature.test.ts src/closed-beta-invite.test.ts scripts/ota/common.test.mjs",
+    "test": "node ../node_modules/vitest/vitest.mjs run src/test-commerce.test.ts src/ota-controller.test.ts src/ota-signature.test.ts src/closed-beta-invite.test.ts scripts/ota/common.test.mjs scripts/version-code.test.mjs",
     "build": "node scripts/build.mjs",
     "sync": "npm run build && cap sync",
     "ios": "npm run sync && cap open ios",

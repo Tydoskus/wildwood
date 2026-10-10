@@ -7,6 +7,18 @@ if (uploadPropertiesFile.exists()) {
     uploadPropertiesFile.withInputStream { uploadProperties.load(it) }
 }
 def gameVersion = new groovy.json.JsonSlurper().parse(rootProject.file('../../public/version.json')).version
+// The Play version code is the game version's own number (0.901.45 -> 9010450, a fourth part in the last
+// digit), so a bundle and its game always match and every release is higher than the last. -PwildstatVersionCode overrides it.
+def versionParts = gameVersion.tokenize('.').collect { it.toInteger() } + [0, 0, 0, 0]
+def gameVersionCode = ((versionParts[0] * 1000 + versionParts[1]) * 1000 + versionParts[2]) * 10 + versionParts[3]
+// The game copied into the app must be this version: built and synced after the version moved, not before.
+def stagedBuild = rootProject.file('app/src/main/assets/public/ota-build.json')
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.name.toLowerCase().contains('release') }) {
+        def staged = stagedBuild.exists() ? new groovy.json.JsonSlurper().parse(stagedBuild).version : null
+        if (staged != gameVersion) throw new GradleException("The app holds game ${staged ?: 'nothing'} but the game is ${gameVersion}. Run: npm --prefix mobile run build && (cd mobile && npx cap sync android)")
+    }
+}
 
 
 android {
@@ -16,7 +28,7 @@ android {
         applicationId "com.wildstatmmo.preview"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode = (project.findProperty("wildstatVersionCode") ?: "1").toInteger()
+        versionCode = (project.findProperty("wildstatVersionCode") ?: gameVersionCode).toInteger()
         versionName gameVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

@@ -19,7 +19,7 @@ built:
 
 ```sh
 npm --prefix mobile run build
-npm --prefix mobile run ota -- baseline --platform android --build VERSION_CODE
+npm --prefix mobile run ota -- baseline --platform android   # Android: --build defaults to the game version's code
 ```
 
 Then commit `mobile/ota/baselines/android-VERSION_CODE.json`. The `baseline`

@@ -2,6 +2,7 @@ import { generateKeyPairSync, sign, verify } from 'node:crypto';
 import { readFile, writeFile, mkdir, stat, appendFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { androidVersionCode } from '../version-code.mjs';
 import { root, mobile, stateDir, committedBaselines, NATIVE_DIRS, NATIVE_FILES, json, writeJson, digest, compatibility, assertCompatible, signed, readSigned, readBaselines, compatibleRange, newestCompatibleRange, nativeFiles, signingKey, directoryDigest } from './common.mjs';
 const [command, ...args] = process.argv.slice(2);
 const flag = name => { const i = args.indexOf(`--${name}`); if (i < 0 || !args[i + 1] || args[i + 1].startsWith('--')) throw new Error(`Missing --${name}`); return args[i + 1]; };
@@ -119,7 +120,12 @@ try {
     await writeJson(configPath, config);
     console.log('Created signing key in ignored local-data/ota. Back it up securely; only the public key is shipped.');
   } else if (command === 'baseline') {
-    const p = platform(), build = buildNumber(), staged = await json(resolve(mobile, 'www/ota-build.json'));
+    const p = platform(), staged = await json(resolve(mobile, 'www/ota-build.json'));
+    // The app's game must be the game's version, as the store build's own check requires; Android's build
+    // number defaults to that version's code, the one build.gradle gives the bundle.
+    const gameVersion = (await json(resolve(root, 'public/version.json'))).version;
+    if (staged.version !== gameVersion) throw new Error(`The staged app holds game ${staged.version} but the game is ${gameVersion}. Run npm --prefix mobile run build first.`);
+    const build = !args.includes('--build') && p === 'android' ? androidVersionCode(gameVersion) : buildNumber();
     assertCompatible(staged, await compatibility());
     if (staged.testPurchasesEnabled) throw new Error('Test-purchase bundles cannot be native baselines.');
     const config = await json(resolve(mobile, 'capacitor.config.json'));

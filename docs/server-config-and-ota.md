@@ -82,7 +82,7 @@ Do these in order, from the main checkout (`/Users/ryanguild/Documents/GitHub/wi
 
    ```sh
    npm --prefix mobile run build
-   npm --prefix mobile run ota -- baseline --platform android --build VERSION_CODE
+   npm --prefix mobile run ota -- baseline --platform android   # Android: --build defaults to the game version's code
    ```
 
    Commit `mobile/ota/baselines/android-VERSION_CODE.json`. The command refuses if native files have uncommitted changes, because CI could never match them.

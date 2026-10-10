@@ -11,12 +11,14 @@ Use Java 21 in `mobile/.build/jdk21/Contents/Home` and the SDK in `mobile/.build
 `mobile/android/local.properties` points Gradle at that SDK. The SDK and Gradle
 cache are ignored build tools, not app assets.
 
-1. Run `npm --prefix mobile run build`.
+1. Run `npm --prefix mobile run build` after the game version is final (the release stamp moved
+   `public/version.json`).
 2. From `mobile/`, run Capacitor `sync android` with Node 22 or newer.
-3. From `mobile/android/`, run `./gradlew bundleRelease -PwildstatVersionCode=2`
-   with `JAVA_HOME` pointing at the Java 21 directory above. Increase the version code
-   for each subsequent Play upload. The display version comes from
-   `public/version.json`.
+3. From `mobile/android/`, run `./gradlew bundleRelease` with `JAVA_HOME` pointing at the Java 21
+   directory above. The version code is the game version's own number (`0.901.45` → `9010450`;
+   `node mobile/scripts/version-code.mjs` prints it), and the display version is `public/version.json`,
+   so the bundle always matches its game. The build refuses when the game copied into the app is a
+   different version: run steps 1 and 2 again. `-PwildstatVersionCode=N` still overrides the code.
 4. Upload `mobile/android/app/build/outputs/bundle/release/app-release.aab` to
    **Testing → Internal testing** in Play Console.
 
