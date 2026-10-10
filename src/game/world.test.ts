@@ -3,6 +3,7 @@ import { PRISMSHELL_RADIUS, GLOOMROOT_RADIUS, KOI_SHOGUN_RADIUS, MAGMALISK_RADIU
 import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PLAYER_BASE_REGEN, PLAYER_SPAWN, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
+import { EVEN_SPACING_MIN } from "./region-scatter";
 import { CAMPAIGN_GATEWAYS, campaignLanding } from "../../shared/map-gateways";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
@@ -343,9 +344,10 @@ describe("regional group aggro", () => {
     expect(bootstrap.player).toMatchObject(PLAYER_SPAWN);
     expect(arrival).toEqual(PLAYER_SPAWN);
     expect(campaignLanding(TUTORIAL_FOREST_MAP_ID)).toEqual(PLAYER_SPAWN);
-    const nearest = [...mapSpawnCamps(TUTORIAL_FOREST_MAP_ID)].sort((a, b) =>
-      Math.hypot(a.x - PLAYER_SPAWN.x, a.y - PLAYER_SPAWN.y) - a.radius - (Math.hypot(b.x - PLAYER_SPAWN.x, b.y - PLAYER_SPAWN.y) - b.radius));
-    expect(new Set(nearest.slice(0, 2).flatMap(camp => camp.types))).toEqual(new Set(["Spitter", "Bramble"]));
+    // The enemies nearest the start are the forest's easiest.
+    const nearest = [...createSpawnSites({ x: 4040, y: 4240 }, TUTORIAL_FOREST_MAP_ID)].sort((a, b) =>
+      Math.hypot(a.x - PLAYER_SPAWN.x, a.y - PLAYER_SPAWN.y) - Math.hypot(b.x - PLAYER_SPAWN.x, b.y - PLAYER_SPAWN.y));
+    expect(new Set(nearest.slice(0, 6).map(site => site.type))).toEqual(new Set(["Spitter", "Bramble"]));
     // Far from the portal, so nobody lands and walks straight back through it.
     expect(Math.hypot(arrival.x - portal.x, arrival.y - (portal.y - portal.height * .32))).toBeGreaterThan(125);
     // The other maps still land just below their portals.
@@ -401,17 +403,18 @@ describe("enemy regions (0.871)", () => {
       const camp = camps.find(c => c.name === site.campName)!;
       expect(Math.hypot(site.x - arrival.x, site.y - arrival.y)).toBeGreaterThanOrEqual(ARRIVAL_ENEMY_CLEARANCE);
       expect(Math.hypot(site.x - boss.x, site.y - boss.y)).toBeGreaterThan(900);
-      expect(Math.hypot(site.x - camp.x, site.y - camp.y)).toBeLessThanOrEqual(camp.radius + .001);
+      // An even camp grows round what it skips (the arrival, portals, boss, edge), never tighter.
+      expect(Math.hypot(site.x - camp.x, site.y - camp.y)).toBeLessThanOrEqual(camp.radius * 2.2 + .001);
       expect(site.x).toBeGreaterThanOrEqual(45); expect(site.x).toBeLessThanOrEqual(4755);
       expect(site.y).toBeGreaterThanOrEqual(45); expect(site.y).toBeLessThanOrEqual(4755);
     }
-    // Spread across the region, not stacked: campmates keep apart.
-    for (const camp of camps) {
+    // Even: every enemy on the map sits about the same distance from its nearest campmate (Ryan).
+    const gaps = camps.flatMap(camp => {
       const mates = sites.filter(s => s.campName === camp.name);
-      for (let a = 0; a < mates.length; a++) for (let b = a + 1; b < mates.length; b++) {
-        expect(Math.hypot(mates[a].x - mates[b].x, mates[a].y - mates[b].y)).toBeGreaterThan(camp.radius * .25);
-      }
-    }
+      return mates.length < 2 ? [] : mates.map((a, i) => Math.min(...mates.filter((_, j) => j !== i).map(b => Math.hypot(a.x - b.x, a.y - b.y))));
+    });
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(EVEN_SPACING_MIN * .9);
+    expect(Math.max(...gaps) / Math.min(...gaps)).toBeLessThan(1.6);
   });
 
   it("lands Endless arrivals clear of every enemy and keeps them out of the boss's arena, on every map", () => {

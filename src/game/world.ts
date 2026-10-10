@@ -13,7 +13,8 @@ import { createExpansionLayout } from "./expansion-layouts";
 import { WORLD } from "./constants";
 import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
 import { savedMapDesign } from "./map-design";
-import { isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
+import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../shared/map-editor-overrides";
+import { evenCampSpacing, isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
 import { gatewayClearings } from "../../shared/map-gateways";
 import { PLAYER_SPAWN } from "../../shared/rules";
 
@@ -728,13 +729,20 @@ function authoredWorldLayout(playerSpawn: Point, mapId: MapId) {
  * around them rather than hoping the draw misses (world.test.ts holds the rules).
  */
 const NEIGHBOUR_REGION_GAP = 80;
+/** No enemy spawns this close to a map's boss (world.test.ts holds every map to 900). */
+const BOSS_ARENA_CLEARANCE = 920;
+/** The forest's starter camps (Spitters, Brambles) are the nearest to PLAYER_SPAWN; others keep this far from it. */
+const FOREST_STARTER_KINDS = new Set<string>(["Spitter", "Bramble"]);
+const FOREST_START_CLEARANCE = 1_250;
 const campaignKeepClear = new Map<string, readonly { x: number; y: number; r: number }[]>();
 function keepClearFor(mapId: string) {
   let spots = campaignKeepClear.get(mapId);
   if (!spots) {
     const clearings = gatewayClearings(mapId);
+    // The boss's arena too: an even camp grows round what it skips, so it is told where the boss stands.
+    const boss = savedMapDesign(mapId as MapId)?.gameplay.boss ?? MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.boss ?? { x: 4050, y: 4050 };
     spots = [...clearings.slice(0, -1).map(spot => ({ ...spot, r: 440 })), ...clearings.slice(-1).map(spot => ({ ...spot, r: 480 })),
-      ...(mapId === TUTORIAL_FOREST_MAP_ID ? [{ ...PLAYER_SPAWN, r: 480 }] : [])];
+      ...(mapId === TUTORIAL_FOREST_MAP_ID ? [{ ...PLAYER_SPAWN, r: 480 }] : []), { x: boss.x, y: boss.y, r: BOSS_ARENA_CLEARANCE }];
     campaignKeepClear.set(mapId, spots);
   }
   return spots;
@@ -744,8 +752,11 @@ export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly S
   // The Soul Dimension fills the forest's camps with each player's own (soul-dimension-runtime.ts).
   if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isTownMap(mapId)) return [];
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).camps;
-  const camps = authoredSpawnCamps(mapId);
+  // Every camp's enemies the same distance apart, as far as the map's camps allow (region-scatter.ts).
+  const camps = evenCampSpacing(authoredSpawnCamps(mapId));
   return camps.map(camp => ({ ...camp, types: [...camp.types], keepClear: [...keepClearFor(mapId),
+    // A new character's first fights are the forest's easiest: every other camp grows away from the start.
+    ...(mapId === TUTORIAL_FOREST_MAP_ID && !camp.types.some(type => FOREST_STARTER_KINDS.has(type)) ? [{ ...PLAYER_SPAWN, r: FOREST_START_CLEARANCE }] : []),
     ...camps.filter(other => other !== camp).map(other => ({ x: other.x, y: other.y, r: other.radius + NEIGHBOUR_REGION_GAP }))] }));
 }
 

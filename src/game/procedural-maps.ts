@@ -12,7 +12,7 @@ import { campaignMeleeChaseSpeed } from "../../shared/enemy-definitions";
 import { isGuildHallMap } from "../../shared/guild-hall";
 import { ENEMY_TYPES, type EnemyKind } from "./enemies";
 import type { SpawnSite, SpawnCamp, WorldDecor } from "./world";
-import { isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
+import { evenCampSpacing, isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
 
 export { GENERATED_ENEMY_ART, generatedEnemyArt } from "../../shared/procedural-enemy-art";
 import { GENERATED_ENEMY_MAX_RADIUS, generatedEnemyArt } from "../../shared/procedural-enemy-art";
@@ -21,7 +21,8 @@ export function generatedMapContent(id: ProceduralMapId) {
   const random = mapRandom(map.seed ^ 0x34ac913);
   const kind = generatedEnemyArt(id);
   const kinds = [kind];
-  const camps: SpawnCamp[] = map.camps.map(camp => ({ ...camp, types: kinds }));
+  // Evenly spread, as the campaign's camps are (region-scatter.ts).
+  const camps: SpawnCamp[] = evenCampSpacing(map.camps.map(camp => ({ ...camp, types: kinds })));
   const sites: SpawnSite[] = [];
   for (let i = 0; i < map.camps.length; i++) {
     const camp = map.camps[i];
