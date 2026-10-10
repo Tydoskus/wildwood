@@ -9,11 +9,11 @@ import { residentDrawable } from "./runtime/resident-image";
  * Canvas 2D has no shaders, so the "shader" is four seamless tiles painted
  * once per palette (a nebula and three star layers), scrolled at different
  * speeds and composited per piece: tiles, then the art's own shading blended
- * over them for its outline and form, then the art's alpha as the mask, then
- * a rim just inside the outline. Every player wearing a piece shares one frame
- * canvas, repainted at most thirty times a second with a handful of
- * drawImage/fillRect calls and no per-pixel work; the per-pixel passes (the
- * shading and the rim) run once per piece.
+ * over them for its form, then the art's alpha as the mask, then the art's own
+ * black outline drawn back on top, so no sky shows through it. Every player
+ * wearing a piece shares one frame canvas, repainted at most thirty times a
+ * second with a handful of drawImage/fillRect calls and no per-pixel work; the
+ * per-pixel passes (the shading and the outline) run once per piece.
  */
 export type SkyFinish = "GALAXY" | "DIAMOND_GALAXY";
 
@@ -37,8 +37,6 @@ type SkyPalette = {
   sparkle: "CROSS" | "DIAMOND";
   starSize: number;
   twinkleRate: number;
-  rim: readonly [number, number, number];
-  rimStrength: number;
   /** The CSS custom property icons read the tile from, and what they show before it is painted. */
   cssVariable: string;
   cssFallback: string;
@@ -54,7 +52,6 @@ const PALETTES: Record<SkyFinish, SkyPalette> = {
     dustStars: ["220,228,255", "255,220,250"],
     stars: ["255,255,255", "205,218,255", "255,224,250", "180,236,255"],
     glints: .35, sparkle: "CROSS", starSize: 1.5, twinkleRate: 1.9,
-    rim: [168, 178, 255], rimStrength: .5,
     cssVariable: "--galaxy-art-texture",
     cssFallback: "radial-gradient(circle at 35% 35%, #6a3cc8, #1c2276 45%, #050619 80%)",
   },
@@ -70,7 +67,6 @@ const PALETTES: Record<SkyFinish, SkyPalette> = {
     dustStars: ["225,245,255", "190,235,255"],
     stars: ["255,255,255", "216,242,255", "170,230,255", "235,250,255"],
     glints: .7, sparkle: "DIAMOND", starSize: 1.9, twinkleRate: 2.6,
-    rim: [205, 245, 255], rimStrength: .85,
     cssVariable: "--diamond-galaxy-art-texture",
     cssFallback: "radial-gradient(circle at 35% 35%, #d8f2ff, #7ecbff 40%, #1860a8 80%)",
   },
@@ -82,7 +78,14 @@ const FRAME_MS = 1_000 / 30;
 const TILE = 256;
 /** Below this luminance an art pixel is outline, kept dark so the piece's shape still reads. */
 const OUTLINE_LUMINANCE = .2;
-const RIM_PIXELS = 4;
+/** At or below this an art pixel is the black line itself, drawn back over the sky whole. */
+const LINE_LUMINANCE = .15;
+/**
+ * A pixel touching the line and darker than this is its soft edge, drawn back
+ * in part so the edge fades to black rather than to sky. Only next to the line:
+ * dark leather boots are fill this dark, and must keep their sky.
+ */
+const LINE_EDGE_LUMINANCE = .42;
 
 type Layer = { velocityX: number; velocityY: number; twinkle?: number };
 // Out-canvas pixels per second: the clouds crawl, the stars pass over them at
@@ -100,7 +103,7 @@ type Piece = {
   context: CanvasRenderingContext2D;
   patterns: CanvasPattern[];
   shade: HTMLCanvasElement | null;
-  rim: HTMLCanvasElement | null;
+  outline: HTMLCanvasElement | null;
   phase: number;
   painted: number;
 };
@@ -248,64 +251,54 @@ function prefersReducedMotion() {
 }
 
 /**
- * The piece's shading and rim, worked out once from its pixels. Shading keeps
- * the outline near black and maps the art's light and dark faces either side
- * of the neutral grey an overlay blend leaves untouched, so plates still look
- * like plates. The rim is a soft band of the palette's light just inside the outline.
+ * The piece's shading and outline, worked out once from its pixels. Shading
+ * maps the art's light and dark faces either side of the neutral grey an
+ * overlay blend leaves untouched, so plates still look like plates. The
+ * outline is the art's own dark pixels, drawn over the finished sky: an
+ * overlay only dims a bright star, so without it stars showed through the line.
  */
-function pieceDetail(source: CanvasImageSource, width: number, height: number, palette: SkyPalette) {
-  const scratch = canvas(width, height), shade = canvas(width, height), rim = canvas(width, height);
-  if (!scratch || !shade || !rim) return { shade: null, rim: null };
+function pieceDetail(source: CanvasImageSource, width: number, height: number) {
+  const scratch = canvas(width, height), shade = canvas(width, height), outline = canvas(width, height);
+  if (!scratch || !shade || !outline) return { shade: null, outline: null };
   scratch.context.imageSmoothingEnabled = true;
   scratch.context.imageSmoothingQuality = "high";
   scratch.context.drawImage(source, 0, 0, width, height);
   let pixels: ImageData;
-  try { pixels = scratch.context.getImageData(0, 0, width, height); } catch { return { shade: null, rim: null }; }
+  try { pixels = scratch.context.getImageData(0, 0, width, height); } catch { return { shade: null, outline: null }; }
   const data = pixels.data, count = width * height;
-  const shadePixels = shade.context.createImageData(width, height), rimPixels = rim.context.createImageData(width, height);
-  // Distance in pixels from the edge of the lit surface, out to RIM_PIXELS.
-  const distance = new Uint8Array(count);
-  const queue: number[] = [];
+  const shadePixels = shade.context.createImageData(width, height), outlinePixels = outline.context.createImageData(width, height);
+  const luminances = new Float32Array(count);
   for (let index = 0; index < count; index += 1) {
     const offset = index * 4, alpha = data[offset + 3];
     if (!alpha) continue;
     const luminance = (data[offset] * .299 + data[offset + 1] * .587 + data[offset + 2] * .114) / 255;
-    const surface = luminance >= OUTLINE_LUMINANCE;
-    const value = surface
+    const value = luminance >= OUTLINE_LUMINANCE
       ? .36 + .36 * Math.min(1, (luminance - OUTLINE_LUMINANCE) / (1 - OUTLINE_LUMINANCE))
       : luminance * .4;
     shadePixels.data[offset] = shadePixels.data[offset + 1] = shadePixels.data[offset + 2] = Math.round(value * 255);
     shadePixels.data[offset + 3] = alpha;
-    if (surface && alpha >= 128) distance[index] = 255;
+    luminances[index] = luminance;
   }
+  const isLine = (index: number) => data[index * 4 + 3] >= 128 && luminances[index] <= LINE_LUMINANCE;
   for (let index = 0; index < count; index += 1) {
-    if (distance[index] !== 255) continue;
-    const x = index % width, y = (index - x) / width;
-    const edge = x === 0 || y === 0 || x === width - 1 || y === height - 1 ||
-      distance[index - 1] === 0 || distance[index + 1] === 0 || distance[index - width] === 0 || distance[index + width] === 0;
-    if (edge) { distance[index] = 1; queue.push(index); }
-  }
-  for (let head = 0; head < queue.length; head += 1) {
-    const index = queue[head], next = distance[index] + 1;
-    if (next > RIM_PIXELS) continue;
-    const x = index % width;
-    for (const neighbour of [x > 0 ? index - 1 : -1, x < width - 1 ? index + 1 : -1, index - width, index + width]) {
-      if (neighbour < 0 || neighbour >= count || distance[neighbour] !== 255) continue;
-      distance[neighbour] = next;
-      queue.push(neighbour);
+    const offset = index * 4, alpha = data[offset + 3], luminance = luminances[index];
+    if (!alpha || luminance >= LINE_EDGE_LUMINANCE) continue;
+    let weight = 1;
+    if (luminance > LINE_LUMINANCE) {
+      const x = index % width;
+      const touches = (x > 0 && isLine(index - 1)) || (x < width - 1 && isLine(index + 1))
+        || (index >= width && isLine(index - width)) || (index + width < count && isLine(index + width));
+      if (!touches) continue;
+      weight = (LINE_EDGE_LUMINANCE - luminance) / (LINE_EDGE_LUMINANCE - LINE_LUMINANCE);
     }
-  }
-  const [red, green, blue] = palette.rim;
-  for (let index = 0; index < count; index += 1) {
-    const steps = distance[index];
-    if (!steps || steps === 255) continue;
-    const offset = index * 4, strength = (1 - (steps - 1) / RIM_PIXELS) ** 2;
-    rimPixels.data[offset] = red; rimPixels.data[offset + 1] = green; rimPixels.data[offset + 2] = blue;
-    rimPixels.data[offset + 3] = Math.round(strength * palette.rimStrength * data[offset + 3]);
+    outlinePixels.data[offset] = data[offset];
+    outlinePixels.data[offset + 1] = data[offset + 1];
+    outlinePixels.data[offset + 2] = data[offset + 2];
+    outlinePixels.data[offset + 3] = Math.round(alpha * weight);
   }
   shade.context.putImageData(shadePixels, 0, 0);
-  rim.context.putImageData(rimPixels, 0, 0);
-  return { shade: shade.element, rim: rim.element };
+  outline.context.putImageData(outlinePixels, 0, 0);
+  return { shade: shade.element, outline: outline.element };
 }
 
 function sourceSize(sprite: CanvasImageSource) {
@@ -322,10 +315,10 @@ function createPiece(sprite: CanvasImageSource, width: number, height: number, f
   if (!tiles || !frame) return false;
   const patterns = tiles.map(tile => frame.context.createPattern(tile, "repeat"));
   if (patterns.some(pattern => !pattern)) return false;
-  const { shade, rim } = pieceDetail(residentDrawable(sprite), frame.element.width, frame.element.height, PALETTES[finish]);
+  const { shade, outline } = pieceDetail(residentDrawable(sprite), frame.element.width, frame.element.height);
   // Each piece starts somewhere else in the sky, so a helmet and armour worn
   // together do not show the same clouds side by side.
-  return { frame: frame.element, context: frame.context, patterns: patterns as CanvasPattern[], shade, rim, phase: (pieceCount++ * 97) % TILE, painted: Number.NaN };
+  return { frame: frame.element, context: frame.context, patterns: patterns as CanvasPattern[], shade, outline, phase: (pieceCount++ * 97) % TILE, painted: Number.NaN };
 }
 
 function paintPiece(piece: Piece, sprite: CanvasImageSource, seconds: number, palette: SkyPalette) {
@@ -351,11 +344,8 @@ function paintPiece(piece: Piece, sprite: CanvasImageSource, seconds: number, pa
   }
   context.globalCompositeOperation = "destination-in";
   context.drawImage(residentDrawable(sprite), 0, 0, width, height);
-  if (piece.rim) {
-    context.globalCompositeOperation = "lighter";
-    context.drawImage(piece.rim, 0, 0);
-  }
   context.globalCompositeOperation = "source-over";
+  if (piece.outline) context.drawImage(piece.outline, 0, 0);
 }
 
 /**

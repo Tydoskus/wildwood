@@ -602,21 +602,22 @@
   .inventory-item[data-item-id="starter_stone"] .inventory-item-art { width: min(30px, 48%); height: min(30px, 48%); }
   .inventory-item-art-wrap .boot-pixel-icon { transform: scale(1.35); }
   .equipment-slot .inventory-item-art { width: var(--equipped-art-width, 34px); height: var(--equipped-art-height, 34px); }
-  /* Galaxy cosmetics: the art masks a drifting sky (painted by galaxy-finish.ts)
-     and is blended back over it, so its outline and shading still read. */
+  /* Galaxy cosmetics: the art masks a drifting sky (painted by galaxy-finish.ts),
+     is overlaid on it for its shading, and multiplied on top so its black outline
+     stays black: an overlay alone let bright stars show through the line. */
   .has-galaxy-finish {
-    /* Both images and the mask are set inline (galaxyArtStyle in item-presentation.ts). */
-    background-size: contain, 96px 96px;
-    background-repeat: no-repeat, repeat;
-    background-position: center, 0 0;
-    background-blend-mode: overlay, normal;
+    /* The images and the mask are set inline (galaxyArtStyle in item-presentation.ts). */
+    background-size: contain, contain, 96px 96px;
+    background-repeat: no-repeat, no-repeat, repeat;
+    background-position: center, center, 0 0;
+    background-blend-mode: multiply, overlay, normal;
     -webkit-mask-position: center; mask-position: center;
     -webkit-mask-size: contain; mask-size: contain;
     -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     image-rendering: auto;
     animation: galaxy-art-drift 40s linear infinite;
   }
-  @keyframes galaxy-art-drift { to { background-position: center, 192px 96px; } }
+  @keyframes galaxy-art-drift { to { background-position: center, center, 192px 96px; } }
   @media (prefers-reduced-motion: reduce) { .has-galaxy-finish { animation: none; } }
   /* Where a plain image of the item stood, its galaxy span takes the image's place and size. */
   .item-art-image.has-galaxy-finish { display: block; }
@@ -1433,7 +1434,7 @@
     filter: drop-shadow(0 0 4px var(--item-drop-color)) drop-shadow(0 0 10px var(--item-drop-color));
     image-rendering: pixelated;
   }
-  .item-drop-sprite.has-galaxy-finish { background-size: contain, 96px 96px; background-repeat: no-repeat, repeat; background-position: center, 0 0; image-rendering: auto; }
+  .item-drop-sprite.has-galaxy-finish { background-size: contain, contain, 96px 96px; background-repeat: no-repeat, no-repeat, repeat; background-position: center, center, 0 0; image-rendering: auto; }
 
   .item-drop-name {
     color: var(--item-drop-color);

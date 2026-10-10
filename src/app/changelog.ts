@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.32": [
     "Galaxy and Diamond Galaxy Boots show their winged boot again in the inventory, and stay regular boots on your character",
+    "Galaxy and Diamond Galaxy pieces keep a clean black outline: no sky over it and no pale line inside it",
   ],
   "0.901.31": [
     "Patreon Diamond members wear the Diamond Galaxy set: helmet, armor, boots and bow of icy, sparkling sky, for as long as Diamond is active",
