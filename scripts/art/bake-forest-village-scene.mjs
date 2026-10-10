@@ -324,44 +324,6 @@ await sharp({ create: { width: maxX - minX, height: maxY - minY, channels: 4, ba
   .composite(groundPieces.map(p => ({ input: p.buffer, left: Math.round(p.gx - minX), top: Math.round(p.gy - minY) })))
   .webp({ quality: 90, alphaQuality: 90, effort: 6 }).toFile(join(outDir, "village-ground.webp"));
 
-// ---- The river's masks, for the game's moving water (the demo animates it with a shader): the open water
-// you can see (water tiles, less everything drawn over them: banks, bridges), and a band along its shore. ----
-{
-  const width = maxX - minX, height = maxY - minY;
-  const waterOrder = Math.max(...ground.filter(piece => /^Water$/i.test(piece.layer)).map(piece => piece.order));
-  const solidWhite = async piece => sharp(piece.buffer).ensureAlpha().linear([0, 0, 0, 1], [255, 255, 255, 0]).png().toBuffer();
-  const layers = [];
-  for (const [index, piece] of groundPieces.entries()) {
-    const source = ground[index];
-    const water = /^Water$/i.test(source.layer);
-    if (!water && source.order <= waterOrder) continue;
-    layers.push({ input: await solidWhite(piece), left: Math.round(piece.gx - minX), top: Math.round(piece.gy - minY), blend: water ? "over" : "dest-out" });
-  }
-  const mask = await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(layers).raw().toBuffer();
-  const alpha = new Float32Array(width * height);
-  for (let i = 0; i < alpha.length; i++) alpha[i] = mask[i * 4 + 3] / 255;
-  // A box blur of the mask: near 1 only well inside the water, so 1 minus it lights the shore.
-  const blur = (source, radius) => {
-    const out = new Float32Array(source.length), tmp = new Float32Array(source.length);
-    for (let y = 0; y < height; y++) { let sum = 0; for (let x = -radius; x < width + radius; x++) {
-      sum += source[y * width + Math.min(width - 1, Math.max(0, x + radius))] - source[y * width + Math.min(width - 1, Math.max(0, x - radius - 1))];
-      if (x >= 0 && x < width) tmp[y * width + x] = sum / (radius * 2 + 1); } }
-    for (let x = 0; x < width; x++) { let sum = 0; for (let y = -radius; y < height + radius; y++) {
-      sum += tmp[Math.min(height - 1, Math.max(0, y + radius)) * width + x] - tmp[Math.min(height - 1, Math.max(0, y - radius - 1)) * width + x];
-      if (y >= 0 && y < height) out[y * width + x] = sum / (radius * 2 + 1); } }
-    return out;
-  };
-  const near = blur(alpha, 6);
-  const inner = Buffer.alloc(width * height * 4), shore = Buffer.alloc(width * height * 4);
-  for (let i = 0; i < alpha.length; i++) {
-    const deep = Math.max(0, Math.min(1, (near[i] - .7) / .3)) * alpha[i];
-    const band = Math.max(0, alpha[i] - Math.max(0, Math.min(1, (near[i] - .45) / .4)));
-    inner.fill(255, i * 4, i * 4 + 3); inner[i * 4 + 3] = Math.round(deep * 255);
-    shore.fill(255, i * 4, i * 4 + 3); shore[i * 4 + 3] = Math.round(band * 255);
-  }
-  await sharp(inner, { raw: { width, height, channels: 4 } }).webp({ quality: 80, alphaQuality: 80, effort: 6 }).toFile(join(outDir, "village-water.webp"));
-  await sharp(shore, { raw: { width, height, channels: 4 } }).webp({ quality: 80, alphaQuality: 80, effort: 6 }).toFile(join(outDir, "village-shore.webp"));
-}
 
 // ---- The props: unique frames packed into one atlas. ----
 props.sort((a, b) => b.depthY - a.depthY
@@ -444,6 +406,8 @@ function spriteNamed(name) {
   return entry ? spriteFor({ guid: entry[0], fileID: "21300000" }) : null;
 }
 const placed = [];
+/** The flat props, as drawn: cut out of the water's masks. */
+const flatCovers = [];
 /** Each door: its prop, its pictures shut and open, and where its sill is. */
 const doorways = [];
 for (const prop of props) {
@@ -474,10 +438,63 @@ for (const prop of props) {
     doorways.push({ item, prop, image });
   }
   placed.push(item);
+  if (item.ground) flatCovers.push({ image, x: item.x, y: item.y });
 }
 // Equal depths keep Unity's order inside a group: nudge each later part a hair deeper.
 const seen = new Map();
 for (const item of placed) { const n = seen.get(item.d) ?? 0; seen.set(item.d, n + 1); item.d = +(item.d + n * .001).toFixed(3); }
+// ---- The river's masks, for the game's moving water (the demo animates it with a shader): the open water
+// you can see (water tiles, less everything drawn over them: banks, and the flat props on it, the bridges' planks),
+// and a band along its shore. The game lays both over the ground and its flat props, so a plank left in lit it. ----
+async function bakeWaterMasks(covers) {
+  const width = maxX - minX, height = maxY - minY;
+  const waterOrder = Math.max(...ground.filter(piece => /^Water$/i.test(piece.layer)).map(piece => piece.order));
+  const solidWhite = async piece => sharp(piece.buffer).ensureAlpha().linear([0, 0, 0, 1], [255, 255, 255, 0]).png().toBuffer();
+  const layers = [];
+  for (const [index, piece] of groundPieces.entries()) {
+    const source = ground[index];
+    const water = /^Water$/i.test(source.layer);
+    if (!water && source.order <= waterOrder) continue;
+    layers.push({ input: await solidWhite(piece), left: Math.round(piece.gx - minX), top: Math.round(piece.gy - minY), blend: water ? "over" : "dest-out" });
+  }
+  // The flat props cover the light as they cover the water: cut from both masks after the shore is found,
+  // so the river looks as it did, only under the planks and stones it stops, with no new foam around them.
+  const coverLayers = [];
+  for (const { image, x, y } of covers) {
+    const w = Math.max(1, Math.round(image.w * GROUND_SCALE)), h = Math.max(1, Math.round(image.h * GROUND_SCALE));
+    const left = Math.round((x - image.pivotX) * GROUND_SCALE - minX), top = Math.round((y - image.pivotY) * GROUND_SCALE - minY);
+    if (left + w <= 0 || top + h <= 0 || left >= width || top >= height) continue;
+    coverLayers.push({ input: await sharp(await solidWhite(image)).resize(w, h, { fit: "fill" }).png().toBuffer(), left, top });
+  }
+  const covered = await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(coverLayers).raw().toBuffer();
+  const mask = await sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(layers).raw().toBuffer();
+  const alpha = new Float32Array(width * height);
+  for (let i = 0; i < alpha.length; i++) alpha[i] = mask[i * 4 + 3] / 255;
+  // A box blur of the mask: near 1 only well inside the water, so 1 minus it lights the shore.
+  const blur = (source, radius) => {
+    const out = new Float32Array(source.length), tmp = new Float32Array(source.length);
+    for (let y = 0; y < height; y++) { let sum = 0; for (let x = -radius; x < width + radius; x++) {
+      sum += source[y * width + Math.min(width - 1, Math.max(0, x + radius))] - source[y * width + Math.min(width - 1, Math.max(0, x - radius - 1))];
+      if (x >= 0 && x < width) tmp[y * width + x] = sum / (radius * 2 + 1); } }
+    for (let x = 0; x < width; x++) { let sum = 0; for (let y = -radius; y < height + radius; y++) {
+      sum += tmp[Math.min(height - 1, Math.max(0, y + radius)) * width + x] - tmp[Math.min(height - 1, Math.max(0, y - radius - 1)) * width + x];
+      if (y >= 0 && y < height) out[y * width + x] = sum / (radius * 2 + 1); } }
+    return out;
+  };
+  const near = blur(alpha, 6);
+  const inner = Buffer.alloc(width * height * 4), shore = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < alpha.length; i++) {
+    const deep = Math.max(0, Math.min(1, (near[i] - .7) / .3)) * alpha[i];
+    const band = Math.max(0, alpha[i] - Math.max(0, Math.min(1, (near[i] - .45) / .4)));
+    const open = 1 - covered[i * 4 + 3] / 255;
+    inner.fill(255, i * 4, i * 4 + 3); inner[i * 4 + 3] = Math.round(deep * open * 255);
+    shore.fill(255, i * 4, i * 4 + 3); shore[i * 4 + 3] = Math.round(band * open * 255);
+  }
+  await sharp(inner, { raw: { width, height, channels: 4 } }).webp({ quality: 80, alphaQuality: 80, effort: 6 }).toFile(join(outDir, "village-water.webp"));
+  await sharp(shore, { raw: { width, height, channels: 4 } }).webp({ quality: 80, alphaQuality: 80, effort: 6 }).toFile(join(outDir, "village-shore.webp"));
+}
+await bakeWaterMasks(flatCovers);
+
 // ---- Particle systems (chimney smoke, campfire smoke and sparks): their settings, for the game's own small emitter. ----
 const curveRange = c => {
   // Unity's MinMaxCurve: 0 a constant, 1 a curve times the scalar, 3 a random value between two constants.

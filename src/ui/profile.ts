@@ -177,7 +177,10 @@ export function profileStatDisplayRows(
   const regenResearchBonus = researchBonus(ranks.regeneration, 2);
   const speedResearchBonus = researchBonus(ranks.moveSpeed, 2);
   const rangeResearchBonus = Math.min(5, Math.max(0, ranks.utilityAttackRange ?? 0)) * 10;
-  const baseRange = Math.max(1, progress.attackRange - rangeResearchBonus);
+  // Long Shot and Fleet Foot pay outside an Aggro run, as the server pays them: the saved range already holds Long Shot.
+  const perksInPlay = profile.aggroChallenge?.active ? null : perks;
+  const rangePerkBonus = prestigePerkValue(perksInPlay, "longShot"), speedPerkBonus = prestigePerkValue(perksInPlay, "fleetFoot");
+  const baseRange = Math.max(1, progress.attackRange - rangeResearchBonus - rangePerkBonus);
   const stats: ProfileStatDisplayRow[] = [
     {
       kind: "health", label: "Max Hp:",
@@ -215,7 +218,8 @@ export function profileStatDisplayRows(
       kind: "range", label: "Attack Range:", base: statValue(baseRange),
       equationOperator: "×",
       multiplier: multiplierValue(progress.attackRange / baseRange), total: statValue(progress.attackRange),
-      sources: rangeResearchBonus ? [{ label: "Tech", value: `+${rangeResearchBonus} range` }] : [],
+      sources: [...(rangeResearchBonus ? [{ label: "Tech" as const, value: `+${rangeResearchBonus} range` }] : []),
+        ...(rangePerkBonus ? [{ label: "Prestige" as const, value: `+${rangePerkBonus} range` }] : [])],
     },
     {
       kind: "regen", label: "Regen:",
@@ -227,8 +231,9 @@ export function profileStatDisplayRows(
     {
       kind: "speed", label: "Move Speed:", base: statValue(progress.speedOverride > 0 ? progress.speedOverride : progress.speed),
       equationOperator: "×",
-      multiplier: multiplierValue(effective.multipliers.speed), total: statValue(effective.speed),
-      sources: [...multiplierSources(speedResearchBonus), ...(ranks.utilityMoveSpeed > 0 ? [{ label: "Tech" as const, value: `+${utilityMovementSpeedBonus(ranks.utilityMoveSpeed)} speed` }] : [])],
+      multiplier: multiplierValue(effective.multipliers.speed * (1 + speedPerkBonus)), total: statValue(effective.speed * (1 + speedPerkBonus)),
+      sources: [...multiplierSources(speedResearchBonus), ...(ranks.utilityMoveSpeed > 0 ? [{ label: "Tech" as const, value: `+${utilityMovementSpeedBonus(ranks.utilityMoveSpeed)} speed` }] : []),
+        ...(speedPerkBonus ? [{ label: "Prestige" as const, value: `+${Math.round(speedPerkBonus * 1000) / 10}%` }] : [])],
     },
   ];
   // Tech and prestige multiply each other, exactly as the server pays them, so

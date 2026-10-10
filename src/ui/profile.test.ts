@@ -156,6 +156,22 @@ describe("profile stat display", () => {
     });
   });
 
+  it("shows Long Shot inside the saved range and Fleet Foot on Move Speed, as Prestige, outside an Aggro run", () => {
+    const profile = {
+      progress: { ...progress(), attackRange: 240, speed: 200 },
+      research: { ...createEmptyResearchRanks(), utilityAttackRange: 3 },
+      itemUpgradeLevels: {},
+      prestigePerks: { longShot: 2, fleetFoot: 3 },
+    } as Parameters<typeof profileStatDisplayRows>[0];
+    const rows = profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL);
+    expect(rows.find(row => row.kind === "range")).toMatchObject({
+      base: "200", total: "240", sources: [{ label: "Tech", value: "+30 range" }, { label: "Prestige", value: "+10 range" }],
+    });
+    expect(rows.find(row => row.kind === "speed")).toMatchObject({ total: "212", sources: [{ label: "Prestige", value: "+6%" }] });
+    const aggro = profileStatDisplayRows({ ...profile, aggroChallenge: { active: true } } as typeof profile, () => "0%", MIN_ATTACK_INTERVAL);
+    expect(aggro.find(row => row.kind === "speed")).toMatchObject({ total: "200", sources: [] });
+  });
+
   it("clamps a legacy saved attack rate and places the short max marker beside it", () => {
     const profile = {
       progress: { ...progress(FROST_BOW), attackRate: .32 },
