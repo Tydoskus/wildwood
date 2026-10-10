@@ -1,6 +1,7 @@
 import { finalCampaignEnemy, finalCampaignBoss } from "./campaign-combat-baseline";
-import { CAMPAIGN_ENDPOINT } from "./campaign-registry";
+import { CAMPAIGN_ENDPOINT, CAMPAIGN_MAPS } from "./campaign-registry";
 import { runtimeMapBalance } from "./map-balance-runtime";
+import { ratingRewardPerKill } from "./stat-rating";
 import {
   campaignEnemyRewardMultiplier,
   bossHeavyHitAt,
@@ -16,7 +17,7 @@ import { endlessScaling } from "./endless-balance";
 
 export type ProceduralMapId = `endless_${number}`;
 export const PROCEDURAL_PREFIX = "endless_";
-export const PROCEDURAL_MAP_VERSION = 2;
+export const PROCEDURAL_MAP_VERSION = 3;
 export const PROCEDURAL_ENTRY_MAP = CAMPAIGN_ENDPOINT.mapId;
 export const PROCEDURAL_ENTRY_BOSS = CAMPAIGN_ENDPOINT.bossKind;
 export const PROCEDURAL_FIRST_TIER = CAMPAIGN_ENDPOINT.endlessTier;
@@ -104,8 +105,22 @@ export function proceduralPalette(index: number) {
     accent: hslHex(hue, saturation, 23),
   };
 }
-export const PROCEDURAL_CAMP_RADIUS = 660;
+export const PROCEDURAL_CAMP_RADIUS = 520;
 export const PROCEDURAL_CAMP_JITTER = 80;
+/** Every Endless camp holds eight, as every campaign map has eight of each stat (0.901.47). */
+export const ENDLESS_CAMP_COUNT = 8;
+/** The damage camp's first four are regulars, the rest Dread Wardens. */
+export const ENDLESS_DAMAGE_REGULARS = 4;
+const ENDLESS_LANES: readonly (readonly [ForestProgressionLane, RewardStat])[] = [
+  ["Cindermaw", "damage"], ["Bramble", "health"], ["Mossback", "armor"], ["Brood", "regen"], ["Needle", "speed"], ["Striker", "crit"],
+];
+const ENDLESS_CAMP_NAMES: Readonly<Record<RewardStat, string>> = {
+  damage: "Damage", health: "Health", armor: "Armor", regen: "Regen", speed: "Attack Speed", crit: "Crit",
+};
+/** The reward lane of a camp's `index`th enemy: the damage camp's last ones are elites. */
+export function endlessSiteLane(camp: Pick<GeneratedCamp, "stat" | "lane">, index: number): ForestProgressionLane {
+  return camp.stat === "damage" && index >= ENDLESS_DAMAGE_REGULARS ? "Dread Warden" : camp.lane;
+}
 export function proceduralMapCore(id: string) {
   const number = proceduralMapNumber(id);
   if (number === null) throw new RangeError("Invalid generated map");
@@ -116,21 +131,19 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
   const { number, tier, arrival, boss } = proceduralMapCore(id);
   const seed = Math.imul(number, 2654435761) ^ PROCEDURAL_MAP_VERSION;
   const random = mapRandom(seed);
-  // Regions doubled in 0.871 (radius 330 to 660). The slots were pushed apart
-  // until a region jittered anywhere within ±80 still clears its neighbours by
-  // 120, the arrival by 450 and the boss's 900 arena (src/game/world.test.ts).
+  // Six camps since 0.901.47, one a reward stat, eight enemies each, so the
+  // regions shrank from 660 to 520. The slots keep a region jittered anywhere
+  // within ±80 clear of its neighbours by 120, the arrival by 450 and the
+  // boss's 900 arena (src/game/world.test.ts).
   const slots = [
     { x: 1150, y: 1120 },
     { x: 2970, y: 900 },
     { x: 1200, y: 2790 },
     { x: 3620, y: 2430 },
+    { x: 680, y: 4080 },
+    { x: 2080, y: 3880 },
   ];
-  const lanes: Array<[ForestProgressionLane, RewardStat]> = [
-    ["Cindermaw", "damage"],
-    ["Bramble", "health"],
-    ["Mossback", "armor"],
-    ["Brood", "regen"],
-  ];
+  const lanes = ENDLESS_LANES.map(lane => [...lane] as [ForestProgressionLane, RewardStat]);
   for (let i = lanes.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
@@ -138,10 +151,10 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
   const camps = slots.map((slot, i) => ({
     x: slot.x + Math.round((random() - 0.5) * 2 * PROCEDURAL_CAMP_JITTER),
     y: slot.y + Math.round((random() - 0.5) * 2 * PROCEDURAL_CAMP_JITTER),
-    name: `${["Damage", "Health", "Armor", "Regen"][["damage", "health", "armor", "regen"].indexOf(lanes[i][1])]} Camp`,
+    name: `${ENDLESS_CAMP_NAMES[lanes[i][1]]} Camp`,
     lane: lanes[i][0],
     stat: lanes[i][1],
-    count: lanes[i][1] === "damage" ? 13 : lanes[i][1] === "regen" ? 8 : 6,
+    count: ENDLESS_CAMP_COUNT,
     radius: PROCEDURAL_CAMP_RADIUS,
   }));
   const paths: MapPath[] = [
@@ -220,6 +233,8 @@ export function generatedEnemyStats(
   reward.amount *=
     campaignEnemyRewardMultiplier(PROCEDURAL_FIRST_TIER - 1) /
     campaignEnemyRewardMultiplier(PROCEDURAL_FIRST_TIER) * scale.rewards;
+  // Attack speed and crit pay rating points, on their own curve (stat-rating.ts).
+  if (reward.type === "speed" || reward.type === "crit") reward.amount = ratingRewardPerKill(CAMPAIGN_MAPS.length + map.number);
   const combat = desertLaneCombatValue(lane, PROCEDURAL_FIRST_TIER);
   const armor = referenceBuildForMap(PROCEDURAL_FIRST_TIER).armor;
   return { hp: combat.hp * previous.hp / expectedPrevious.hp * scale.combatStats * scale.endurance,

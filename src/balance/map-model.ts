@@ -1,6 +1,6 @@
 import { resolveMapBalance } from "../../shared/map-balance";
 import type { BalanceSettings } from "../../shared/map-balance-types";
-import { generateMap, isProceduralMap } from "../../shared/procedural-maps";
+import { endlessSiteLane, generateMap, isProceduralMap } from "../../shared/procedural-maps";
 import type { SpawnSite } from "../game/world";
 import type { BalanceMapDefinition } from "./simulator";
 
@@ -27,7 +27,7 @@ export function simulationSiteDefinition(map: BalanceMapDefinition, site: SpawnS
   let index = site.id;
   for (const camp of generateMap(map.id).camps) {
     if (index < camp.count) {
-      const lane = camp.stat === "damage" && index >= 6 ? "Dread Warden" : camp.lane;
+      const lane = endlessSiteLane(camp, index);
       return { ...base, ...map.balance!.lanes[lane], elite: false };
     }
     index -= camp.count;

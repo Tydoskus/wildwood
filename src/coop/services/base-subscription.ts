@@ -357,6 +357,9 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   connection.db.playerWideStats.onInsert((_ctx, row) => progressAgain(row));
   connection.db.playerWideStats.onUpdate((_ctx, _oldRow, row) => progressAgain(row));
   connection.db.playerWideStats.onDelete((_ctx, row) => progressAgain(row));
+  connection.db.playerCombatRating.onInsert((_ctx, row) => progressAgain(row));
+  connection.db.playerCombatRating.onUpdate((_ctx, _oldRow, row) => progressAgain(row));
+  connection.db.playerCombatRating.onDelete((_ctx, row) => progressAgain(row));
   connection.db.playerResearch.onInsert((_ctx, row) => { if (shouldHandle()) handlers.research(row); });
   connection.db.playerResearch.onUpdate((_ctx, _oldRow, row) => { if (shouldHandle()) handlers.research(row); });
   connection.db.playerResearch.onDelete((_ctx, row) => { if (shouldHandle()) handlers.removeResearch(row); });
@@ -454,6 +457,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.playerProfile.where((profile) => profile.identity.eq(dependencies.identity)),
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
       tables.playerWideStats.where((wide) => wide.identity.eq(dependencies.identity)),
+      tables.playerCombatRating.where((rating) => rating.identity.eq(dependencies.identity)),
       tables.playerAccountStatus.where((status) => status.identity.eq(dependencies.identity)),
     ] : [
       tables.playerNameTag,
@@ -477,6 +481,7 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
       tables.releaseNotice,
       tables.playerProgress.where((progress) => progress.identity.eq(dependencies.identity)),
       tables.playerWideStats.where((wide) => wide.identity.eq(dependencies.identity)),
+      tables.playerCombatRating.where((rating) => rating.identity.eq(dependencies.identity)),
       tables.playerResearch.where((research) => research.identity.eq(dependencies.identity)),
       tables.activeResearch.where((research) => research.identity.eq(dependencies.identity)),
       tables.pausedResearch.where((research) => research.identity.eq(dependencies.identity)),

@@ -1,3 +1,4 @@
+import { cleanRating } from "../../../shared/stat-rating";
 import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "../../../shared/prestige-challenge";
 import { canonicalItemId, itemDefinition, STARTER_ITEM_IDS } from "../../../shared/items";
 import { fillEmptyHand } from "../../coop/services/server-loadout";
@@ -47,6 +48,18 @@ type ProgressDependencies = {
 /** Server progress persistence, legacy migration, bounds checks, and load state. */
 export function createProgressController(dependencies: ProgressDependencies) {
   let hasSavedProgress = false;
+  /**
+   * The crit rating the server last sent. Kills the client has not reported yet
+   * are on top of it, so a newer one only replaces the player's when it is
+   * higher, or lower than the last (a prestige or a challenge run starting).
+   */
+  let serverCritRating = 0;
+  function applyCritRating(value: number | undefined) {
+    const next = cleanRating(value);
+    const player = dependencies.player;
+    player.critRating = next < serverCritRating ? next : Math.max(next, player.critRating ?? 0);
+    serverCritRating = next;
+  }
   let progressLoaded = false;
   let progressLoadedIdentity = "";
   let waitingForFreshStart = false;
@@ -159,6 +172,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
         player.armor = boundedProgressValue(saved.armor, player.armor, 0, MAX_ARMOR);
         player.attackRate = boundedProgressValue(saved.attackRate, player.attackRate, CHALLENGE_ABSOLUTE_MIN_INTERVAL, 10);
         player.regen = boundedProgressValue(saved.regen, player.regen, 0, MAX_PLAYER_STAT);
+        applyCritRating(saved.critRating);
         player.projectileCount = saved.projectileCount;
         player.attackRange = boundedProgressValue(saved.attackRange, player.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 75);
         if (player.baseMaxHp !== saved.maxHp) setPlayerBaseMaxHealth(player, saved.maxHp, dependencies.healthMultiplierBonus());
@@ -190,6 +204,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
     player.baseMaxHp = boundedProgressValue(source.maxHp, player.baseMaxHp, 1, MAX_PLAYER_STAT);
     player.damage = boundedProgressValue(source.damage, player.damage, 1, MAX_PLAYER_STAT);
     player.attackRate = boundedProgressValue(source.attackRate, player.attackRate, CHALLENGE_ABSOLUTE_MIN_INTERVAL, 10);
+    serverCritRating = player.critRating = cleanRating(source.critRating);
     player.projectileSpeed = BASE_PROJECTILE_SPEED;
     player.projectileCount = Math.floor(boundedProgressValue(source.projectileCount, player.projectileCount, 1, 20));
     player.attackRange = boundedProgressValue(source.attackRange, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE, BASE_ATTACK_RANGE + 75);

@@ -18,7 +18,7 @@ describe("Verdant Catacombs", () => {
     expect(ENEMY_TYPES["Mossbound Stalker"].hp / ENEMY_TYPES["Circuit Prowler"].hp)
       .toBeCloseTo(3 * campaignEnemyHealthScale(13) / campaignEnemyHealthScale(12));
   });
-  it("has connected roads, five complete camps and a clear boss arena", () => {
+  it("has connected roads, seven complete camps and a clear boss arena", () => {
     const map = "verdant_catacombs";
     const { paths, decor } = createWorldLayout({ x: 580, y: 770 }, map);
     const reachable = new Set([0]);
@@ -26,10 +26,10 @@ describe("Verdant Catacombs", () => {
       if (paths.some((b, j) => reachable.has(j) && a.x <= b.x + b.w && a.x + a.w >= b.x && a.y <= b.y + b.h && a.y + a.h >= b.y)) reachable.add(i);
     });
     expect(reachable.size).toBe(paths.length);
-    expect(mapSpawnCamps(map)).toHaveLength(5);
+    expect(mapSpawnCamps(map)).toHaveLength(7);
     const sites = createSpawnSites({ x: 4050, y: 4050 }, map);
-    expect(sites).toHaveLength(32);
-    expect(new Set(sites.map(site => ENEMY_TYPES[site.type].reward.type)).size).toBe(4);
+    expect(sites).toHaveLength(48);
+    expect(new Set(sites.map(site => ENEMY_TYPES[site.type].reward.type)).size).toBe(6);
     for (const site of sites) expect(MAP_ASSET_GROUPS[map].enemies as readonly string[]).toContain(site.type);
     expect(decor.length).toBeGreaterThan(50);
     for (const item of decor) expect(Math.hypot(item.x - 4050, item.y - 4050)).toBeGreaterThan(680);

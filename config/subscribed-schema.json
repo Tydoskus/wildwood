@@ -1,5 +1,5 @@
 {
-  "protocolVersion": 110,
+  "protocolVersion": 111,
   "tables": {
     "active_item_upgrade_slot_three": [
       "identity:identity",
@@ -755,6 +755,10 @@
     "player_chat_hearts": [
       "identity:identity",
       "chatHeartsReceived:u64"
+    ],
+    "player_combat_rating": [
+      "identity:identity",
+      "critDamage:f64"
     ],
     "player_daily_quest": [
       "identity:identity",

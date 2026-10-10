@@ -1,3 +1,4 @@
+import { addAttackSpeedRating } from '../../../shared/stat-rating';
 import { describe, expect, it } from 'vitest';
 import { createGameBootstrap } from './game-bootstrap';
 import { createEnemyLifecycle } from './enemy-lifecycle';
@@ -140,6 +141,6 @@ describe('soul farm groups', () => {
     expect(evaluator.evaluate(soulFarmReward('health')).power).toBeCloseTo(now + 1);
     expect(evaluator.evaluate({ type: 'health', amount: 1 }).power).toBeCloseTo(now + 10);
     expect(evaluator.evaluate(soulFarmReward('critDamage')).power).toBeCloseTo(now);
-    expect(evaluator.evaluate(soulFarmReward('attackSpeed')).stats!.attackRate).toBeCloseTo(1 / 1.001);
+    expect(evaluator.evaluate(soulFarmReward('attackSpeed')).stats!.attackRate).toBeCloseTo(addAttackSpeedRating(1, 1, .2));
   });
 });

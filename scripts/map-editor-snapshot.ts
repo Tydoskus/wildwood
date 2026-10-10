@@ -30,7 +30,8 @@ const maps = (MAP_IDS as MapId[]).map((id): SavedMapDesign => {
     theme: mapVisualTheme(id),
     paths: layout.paths,
     decor: layout.decor,
-    spawnCamps: mapSpawnCamps(id).map((camp) => ({ ...camp, types: [...camp.types] })),
+    // keepClear is worked out from the map's gateways at runtime (world.ts), never saved.
+    spawnCamps: mapSpawnCamps(id).map(({ keepClear: _keepClear, ...camp }) => ({ ...camp, types: [...camp.types] })),
     gameplay: {
       arrival: { ...config.arrival },
       boss: bossPosition(id),

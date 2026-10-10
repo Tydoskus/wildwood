@@ -188,20 +188,22 @@ describe("balance simulator", () => {
     expect(result.diagnostics.some((diagnostic) => diagnostic.includes("Stat farming:"))).toBe(true);
 
     const nightEnemies = result.enemyMetrics[INFERNAL_DEPTHS_MAP_ID];
-    expect(nightEnemies).toHaveLength(6);
+    expect(nightEnemies).toHaveLength(8);
     for (const enemy of nightEnemies) {
       expect(enemy.hitPercentOfHealth).toBeGreaterThan(0);
       expect(enemy.incomingDamagePerSecond).toBeGreaterThan(0);
-      expect(enemy.survivalSeconds).toBeGreaterThan(0);
+      // Null when the entry build out-regenerates a gentler camp (see below).
+      if (enemy.survivalSeconds !== null) expect(enemy.survivalSeconds).toBeGreaterThan(0);
       expect(enemy.hitsToDefeatPlayer).toBeGreaterThan(0);
     }
 
     const waterEnemies = result.enemyMetrics[WATER_REACH_MAP_ID];
-    expect(waterEnemies).toHaveLength(6);
+    expect(waterEnemies).toHaveLength(8);
     for (const enemy of waterEnemies) {
       expect(enemy.hitPercentOfHealth).toBeGreaterThan(0);
       expect(enemy.incomingDamagePerSecond).toBeGreaterThan(0);
-      expect(enemy.survivalSeconds).toBeGreaterThan(0);
+      // Null when the entry build out-regenerates a gentler camp (see below).
+      if (enemy.survivalSeconds !== null) expect(enemy.survivalSeconds).toBeGreaterThan(0);
       expect(enemy.hitsToDefeatPlayer).toBeGreaterThan(0);
     }
 

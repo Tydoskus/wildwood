@@ -120,6 +120,7 @@ export function createGameBootstrap() {
     maxHp: PLAYER_BASE_HP,
     damage: PLAYER_BASE_DAMAGE,
     attackRate: DEFAULT_ATTACK_INTERVAL,
+    critRating: 0,
     projectileSpeed: BASE_PROJECTILE_SPEED,
     projectileCount: 1,
     attackRange: BASE_ATTACK_RANGE,

@@ -8,14 +8,13 @@
  * multiplier (the soul build has no research or prestige).
  */
 import { ENEMY_TYPES } from '../../enemies';
-import { mapSpawnCamps, createSpawnSites, type MapId, type SpawnSite } from '../../world';
+import { createSpawnSites, type MapId, type SpawnSite } from '../../world';
 import { regionSpawnPoints } from '../../region-scatter';
 import { soulCampName, soulCampStat, SOUL_ENEMY_SPECIES } from '../../soul-world';
 import { farmGroupOf } from '../auto-farm-priority';
 import { isSoulMap, SOUL_CAMPS, SOUL_STAT_DETAILS, soulEnemyStats, type SoulStatId } from '../../../../shared/soul-dimension';
 import { effectivePlayerPowerStats } from '../../../../shared/player-power';
 import { isProceduralMap, type ProceduralMapId } from '../../../../shared/procedural-maps';
-import { TUTORIAL_FOREST_MAP_ID } from '../../../../shared/rules';
 import { createEmptyResearchRanks } from '../../../../shared/research';
 import { prestigePerkValue } from '../../../../shared/prestige-perks';
 import { criticalDamageMultiplier } from '../../../../shared/critical-damage';
@@ -23,8 +22,8 @@ import { generatedMapContent } from '../../procedural-maps';
 import type { CalibrationBuild } from './forecast-builds';
 import type { VirtualPlayerProfile } from './virtual-player';
 
-const RUN_STAT: Record<SoulStatId, 'damage' | 'health' | 'armor' | 'regen' | 'speed'> = {
-  damage: 'damage', health: 'health', armor: 'armor', regen: 'regen', attackSpeed: 'speed', critDamage: 'damage',
+const RUN_STAT: Record<SoulStatId, 'damage' | 'health' | 'armor' | 'regen' | 'speed' | 'crit'> = {
+  damage: 'damage', health: 'health', armor: 'armor', regen: 'regen', attackSpeed: 'speed', critDamage: 'crit',
 };
 
 /** The soul sites the runtime would fill for this build at `tier`. */
@@ -36,16 +35,16 @@ export function soulSites(profile: VirtualPlayerProfile, tier: number): SpawnSit
   const dps = stats.damage * (1 + Math.min(1, critChance) * (critMultiplier - 1)) * Math.max(1, profile.projectileCount ?? 1) / Math.max(.05, stats.attackRate);
   const built = soulEnemyStats({ dps, maxHp: stats.maxHp, armor: stats.armor, regen: stats.regen });
   const sites: SpawnSite[] = [];
-  for (const [index, camp] of mapSpawnCamps(TUTORIAL_FOREST_MAP_ID).entries()) {
-    const soulCamp = SOUL_CAMPS[index];
-    const stat = soulCamp ? soulCampStat(soulCamp, tier) : null;
-    if (!soulCamp || !stat) continue;
+  for (const soulCamp of SOUL_CAMPS) {
+    const camp = soulCamp;
+    const stat = soulCampStat(soulCamp, tier);
+    if (!stat) continue;
     const species = ENEMY_TYPES[SOUL_ENEMY_SPECIES[stat]];
     for (const point of regionSpawnPoints(camp).slice(0, camp.count)) {
       sites.push({ id: sites.length, x: point.x, y: point.y, type: SOUL_ENEMY_SPECIES[stat], campName: soulCampName(stat, soulCamp),
         groupAggro: false, leashRange: Math.max(420, camp.radius * .9), alive: false, respawnAt: 0,
         definition: { ...species, hp: built.hp, damage: built.damage, attackSpeed: built.attackSpeed, regen: 0, armor: 0,
-          reward: { type: RUN_STAT[stat], amount: stat === 'critDamage' ? 0 : SOUL_STAT_DETAILS[stat].reward } } });
+          reward: { type: RUN_STAT[stat], amount: SOUL_STAT_DETAILS[stat].reward } } });
     }
   }
   return sites;

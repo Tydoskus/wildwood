@@ -35,7 +35,7 @@ describe("encounter experience contract", () => {
         const profile = ENCOUNTER_PROFILES[lane];
         expect(enemy.hp / (build.damage / build.attackInterval)).toBeCloseTo(profile.seconds);
         expect(damageAfterArmor(enemy.damage, build.armor) / build.maxHp).toBeCloseTo(profile.hitShare, 3);
-        if (reward.type !== "speed") {
+        if (reward.type !== "speed" && reward.type !== "crit") {
           const next = desertLaneRewardValue(lane, tier + 1);
           if (tier !== 1) expect(next.amount / reward.amount).toBeCloseTo(MAP_STAT_GROWTH * campaignEnemyRewardMultiplier(tier + 1) / campaignEnemyRewardMultiplier(tier), 8);
         }

@@ -12,6 +12,8 @@ export type PlayerPowerStats = {
   attackRate: number;
   armor: number;
   regen: number;
+  /** The run's crit damage rating (stat-rating.ts), where a caller tracks it. Not part of power. */
+  critRating?: number;
 };
 
 /**
@@ -19,7 +21,7 @@ export type PlayerPowerStats = {
  * and a perk respec all set them back to these.
  */
 export const PLAYER_STARTING_POWER: Readonly<PlayerPowerStats> = Object.freeze({
-  maxHp: PLAYER_BASE_HP, damage: PLAYER_BASE_DAMAGE, attackRate: DEFAULT_ATTACK_INTERVAL, armor: 0, regen: PLAYER_BASE_REGEN,
+  maxHp: PLAYER_BASE_HP, damage: PLAYER_BASE_DAMAGE, attackRate: DEFAULT_ATTACK_INTERVAL, armor: 0, regen: PLAYER_BASE_REGEN, critRating: 0,
 });
 
 export type PlayerPowerProgress = PlayerPowerStats & {

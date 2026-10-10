@@ -11,7 +11,7 @@ export const CAMPAIGN_PROGRESSION_FILE = 'shared/campaign-progression.ts';
 
 export function buildCampaignProgression(root = '.') {
  const settings = JSON.parse(readFileSync(`${root}/${CAMPAIGN_PROGRESSION_SOURCE.fixture}`,'utf8'));
- const baseline = { snapshots: CAMPAIGN_MAPS.map(m => resolveMapBalance(m.id,settings,CAMPAIGN_PROGRESSION_SOURCE.revision)) };
+ const baseline = { snapshots: CAMPAIGN_MAPS.map(m => resolveMapBalance(m.id,settings,CAMPAIGN_PROGRESSION_SOURCE.revision,2,{ ratingHealth: false })) };
  // The resolver now pays regen camps REGEN_REWARD_BOOST on top of this curve
  // (0.845, after the curve was fitted). Fit the pre-boost rewards so the boost
  // is applied once, not folded into the curve and applied again.

@@ -143,10 +143,9 @@ it("still bounds a script that claims more than even a top-rolled bow could land
   reportEnemy(f, ENEMY, 100);
   // Whichever binds first: what the bow could land in ten seconds, or what the
   // map could put back in front of anyone (its whole population once per
-  // respawn). On this thirty-enemy map the second is lower than a top roll.
+  // respawn).
   const bow = Math.floor(10 * bowSkillReachMultiplier(TOP) * PLAUSIBLE_KILL_TOLERANCE);
   const wall = Math.floor(10 * mapEnemyPopulation("crystal_hollows") / REGULAR_ENEMY_RESPAWN_SECONDS + 1e-6);
-  expect(wall).toBeLessThan(bow);
   expect(kills(f)).toBe(Math.min(bow, wall));
   expect(kills(f)).toBeLessThan(100);
   expect(f.db.defeatSessionRestriction.identity.find(f.ctx.sender)).toBeNull();

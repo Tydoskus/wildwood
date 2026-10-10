@@ -117,7 +117,9 @@ export function savedMainRun(json: string) {
   try {
     const saved = JSON.parse(json);
     const stats = ["maxHp", "damage", "armor", "regen", "attackRate"];
-    return saved && typeof saved === "object" && stats.every(stat => Number.isFinite(saved[stat])) && saved.maxHp > 0 && saved.attackRate > 0 ? saved : null;
+    if (!(saved && typeof saved === "object" && stats.every(stat => Number.isFinite(saved[stat])) && saved.maxHp > 0 && saved.attackRate > 0)) return null;
+    // A run saved before crit camps (0.901.47) had no crit rating: it comes back with none.
+    return { ...saved, critRating: Number.isFinite(saved.critRating) ? saved.critRating : 0 };
   } catch { return null; }
 }
 

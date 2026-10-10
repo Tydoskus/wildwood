@@ -19,6 +19,7 @@ import {
   DEATH_SCREEN_SECONDS, DIED_TO_CAMP_SECONDS, chaseSpeedFor, closeGapSeconds, enemyAggroRadius, fightParticipants, participantAttackers,
   type Point,
 } from '../../balance/death-model';
+import { addAttackSpeedRating } from '../../../shared/stat-rating';
 import { rankFarmCandidates, pickRankedCandidate, AUTO_REPLAN_SECONDS, type FarmReward } from './auto-farm-plan';
 import { AUTO_FARM_DEFEAT_LIMIT, AUTO_FARM_DEFEAT_WINDOW_MS, AUTO_FARM_REACH_MARGIN, BITE_SHARE } from './auto-farm-smart-controller';
 import { rangedEnemyHoldBand } from './ranged-enemy-range';
@@ -293,7 +294,8 @@ function applyReward(base: PlayerPowerStats, reward: FarmReward, multiplier: num
   else if (reward.type === 'health') next.maxHp += amount;
   else if (reward.type === 'armor') next.armor += amount;
   else if (reward.type === 'regen') next.regen += amount;
-  else if (reward.type === 'speed') next.attackRate = 1 / Math.min(1 / minAttackInterval, 1 / next.attackRate + amount);
+  else if (reward.type === 'speed') next.attackRate = addAttackSpeedRating(next.attackRate, amount, minAttackInterval);
+  // Crit damage (a rating, shared/stat-rating.ts) is not forecast: the build's crit multiplier holds for the horizon.
   return next;
 }
 

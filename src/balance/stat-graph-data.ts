@@ -198,7 +198,7 @@ function regularMapRewardSources(mapId: MapId): Record<RewardStat, RegularReward
       // campaign progression view, whose first damage source is Cindermaw.
       if (kind === "Spitter") continue;
       const enemy = ENEMY_TYPES[kind];
-      if (enemy.reward.type === "speed") continue;
+      if (enemy.reward.type === "speed" || enemy.reward.type === "crit") continue;
       sources[enemy.reward.type].push({ kind, amount: enemy.reward.amount });
     }
   }

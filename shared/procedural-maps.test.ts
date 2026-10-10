@@ -44,7 +44,7 @@ describe("procedural campaign definitions", () => {
         expect(portal.depth).toBe(portal.y);
         expect(Math.hypot(map.arrival.x - portal.x, map.arrival.y - (portal.y - portal.height * .32))).toBeGreaterThan(125);
       }
-      expect(map.camps.map(c => c.stat).sort()).toEqual(["armor", "damage", "health", "regen"]);
+      expect(map.camps.map(c => c.stat).sort()).toEqual(["armor", "crit", "damage", "health", "regen", "speed"]);
       expect(
         generateMap(map.portals[1].destination as `endless_${number}`)
           .portals[0].destination,

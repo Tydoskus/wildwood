@@ -126,6 +126,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerBowSkill", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerChatHearts", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerChatMute", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerCombatRating", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerController", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerCutsceneHistory", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerEndgameRebaseBackup", columns: ["identity"], pk: "identity", mode: "key" },

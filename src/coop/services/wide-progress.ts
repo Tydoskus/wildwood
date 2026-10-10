@@ -2,20 +2,27 @@ import { DUEL_WIDE_FIELDS, REPLAY_WIDE_FIELDS, applyWideFields, wideStatsApply }
 
 type Identified = { identity: { toHexString(): string } };
 type Stats = { maxHp: number; damage: number; armor: number; regen: number };
-type Connection = { db: { playerWideStats?: { iter(): Iterable<Identified & Stats> } } };
+type Connection = { db: {
+  playerWideStats?: { iter(): Iterable<Identified & Stats> };
+  playerCombatRating?: { iter(): Iterable<Identified & { critDamage: number }> };
+} };
 
 /**
  * A player_progress row with its full-precision stats from player_wide_stats
- * laid over it, the same way the server reads it (shared/wide-stats.ts). The
- * table holds a row only for players past f32's range, so this is a scan of
- * almost nothing.
+ * laid over it, the same way the server reads it (shared/wide-stats.ts), and
+ * the run's crit rating from player_combat_rating (0 without a row). Both
+ * tables hold rows for few players, so these are scans of almost nothing.
  */
-export function withWideProgress<T extends Identified & Stats>(connection: Connection, row: T): T {
+export function withWideProgress<T extends Identified & Stats>(connection: Connection, row: T): T & { critRating: number } {
   const id = row.identity.toHexString();
-  for (const wide of connection.db.playerWideStats?.iter() ?? []) {
-    if (wide.identity.toHexString() === id) return wideStatsApply(row, wide);
+  let critRating = 0;
+  for (const rating of connection.db.playerCombatRating?.iter() ?? []) {
+    if (rating.identity.toHexString() === id) { critRating = rating.critDamage; break; }
   }
-  return row;
+  for (const wide of connection.db.playerWideStats?.iter() ?? []) {
+    if (wide.identity.toHexString() === id) return { ...wideStatsApply(row, wide), critRating };
+  }
+  return { ...row, critRating };
 }
 
 type WideRows = { iter(): Iterable<{ statsJson: string } & Record<string, any>> };

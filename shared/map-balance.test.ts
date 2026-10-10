@@ -13,7 +13,7 @@ describe('server map balance snapshots', () => {
       const settings = defaultBalanceSettings();
       for (const factors of Object.values(settings.maps)) factors.bossHealth = 1;
       settings.endless = { rewardMultiplier: .1, statStep: .2, enduranceStep: .1, enduranceExponent: 6, rewardPerHealth: 1 };
-      const snapshot = resolveMapBalance(map, settings, 2);
+      const snapshot = resolveMapBalance(map, settings, 2, 2, { ratingHealth: false });
       expect(snapshot.boss!.hp).toBeCloseTo(personalBossDefinition(map)!.hp, -1);
     }
   });

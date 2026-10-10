@@ -20,13 +20,13 @@ it("continues through Ion into Endless and stops only at the last selected boss"
   expect(result.maps.at(-1)!.repeatBossKills).toBe(0);
   expect(result.samples.at(-1)!.power).toBe(result.maps.at(-1)!.exitPower);
 });
-it("uses generated rewards for all four lanes even when they share the same sprite", () => {
+it("uses generated rewards for every lane even when they share the same sprite", () => {
   const result = runBalanceSimulation({ durationSeconds: 60, trials: 1, endlessMaps: 2, researchPlan: "off" });
   for (const n of [1, 2] as const) {
     const rows = result.enemyMetrics[`endless_${n}`];
-    expect(rows).toHaveLength(5); // two damage roles plus health, armor, regen
-    expect(rows.reduce((sum, row) => sum + row.spawnCount, 0)).toBe(33);
-    for (const lane of ["Cindermaw", "Dread Warden", "Bramble", "Mossback", "Brood"] as const) {
+    expect(rows).toHaveLength(7); // two damage roles plus health, armor, regen, attack speed and crit
+    expect(rows.reduce((sum, row) => sum + row.spawnCount, 0)).toBe(48);
+    for (const lane of ["Cindermaw", "Dread Warden", "Bramble", "Mossback", "Brood", "Needle", "Striker"] as const) {
       const expected = resolveMapBalance(`endless_${n}`, defaultBalanceSettings(), 0).lanes[lane];
       const row = rows.find(r => r.hp === expected.hp && r.rewardType === expected.reward.type)!;
       expect(row).toBeDefined(); expect(row.rewardAmount).toBeCloseTo(expected.reward.amount);
@@ -37,10 +37,10 @@ it("uses generated rewards for all four lanes even when they share the same spri
 it("farms generated sites instead of their sprite's Forest stats", () => {
   const result = simulateExistingPlayer({ durationSeconds: 3600, endlessMaps: 1, requiredClears: 1,
     stopAfterCampaign: true, researchPlan: "off", steadyEquipmentUpgrades: false, strategy: "efficient" }, { ...ready, mapIndex: 15 });
-  expect(result.maps[0].regularKills).toBe(33);
-  expect(result.maps[0].statInvestments.health.rewardEvents).toBe(6); // Only regular enemies pay stats.
+  expect(result.maps[0].regularKills).toBe(48);
+  expect(result.maps[0].statInvestments.health.rewardEvents).toBe(8); // Only regular enemies pay stats.
   const snapshot = resolveMapBalance("endless_1", defaultBalanceSettings(), 0);
-  const expectedHealth = ready.stats.maxHp + 6 * snapshot.lanes.Bramble.reward.amount;
+  const expectedHealth = ready.stats.maxHp + 8 * snapshot.lanes.Bramble.reward.amount;
   expect(result.finalState.stats.maxHp / expectedHealth).toBeCloseTo(1, 12);
 });
 it("shows a sandbox kill-budget proposal without changing the input or authored boss", () => {

@@ -3,6 +3,8 @@ import { parseHTML } from 'linkedom';
 import { createAutoFarmPanel } from './auto-farm-panel';
 import { createAutoFarmController } from '../game/runtime/auto-farm-controller';
 import { createSpawnSites } from '../game/world';
+// Four of an Endless map's six reward camps (0.901.47 added attack speed and crit), which these slider tests were written for.
+const fourStatSites = (mapId: string) => createSpawnSites({ x: 580, y: 770 }, mapId as never).filter(site => !['speed', 'crit'].includes(site.definition?.reward.type ?? ''));
 import { createGameBootstrap } from '../game/runtime/game-bootstrap';
 import { ENEMY_TYPES, rewardAmountLabel } from '../game/enemies';
 import { AUTO_FARM_CHOICE_KEY, AUTO_FARM_SHARES_KEY, AUTO_FARM_WEIGHTS_KEY } from '../game/runtime/auto-farm-plan';
@@ -61,7 +63,7 @@ const shown = (s: ReturnType<typeof setup>) => Object.fromEntries([...s.document
 const sum = (shares: Record<string, number>) => Object.values(shares).reduce((total, share) => total + share, 0);
 it('opens on an even split, moves each slider on its own with its share of 100% beside it, starts farming, and stops from the card', () => {
   const s = setup(true, 'endless_1');
-  s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
+  s.spawnSites.push(...fourStatSites('endless_1'));
   s.click('.farm-toggle');
   expect(!s.content.hidden).toBe(true);
   // No Auto or Custom: the sliders are the choice.
@@ -101,7 +103,7 @@ it('opens on an even split, moves each slider on its own with its share of 100% 
 
 it('opened while farming, Go keeps farming, applying slider changes; the window shows the live switch lines', () => {
   const s = setup(true, 'endless_1');
-  s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
+  s.spawnSites.push(...fourStatSites('endless_1'));
   s.click('.farm-toggle');
   const keys = Object.keys(values(s));
   s.click('.farm-start');
@@ -127,7 +129,7 @@ it('opened while farming, Go keeps farming, applying slider changes; the window 
 });
 it('draws one slider per stat, in its colour, from 0 to 100; with every one at 0 there is nothing to start', () => {
   const s = setup(true, 'endless_1');
-  s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
+  s.spawnSites.push(...fourStatSites('endless_1'));
   s.click('.farm-toggle');
   const rows = [...s.document.querySelectorAll<HTMLElement>('.farm-weights [data-group]')];
   expect(rows.length).toBe(s.farm.choices().length);
@@ -142,7 +144,7 @@ it('draws one slider per stat, in its colour, from 0 to 100; with every one at 0
 });
 it('remembers the sliders for the next window, migrating the old 0-200% ones and an old Auto', () => {
   const s = setup(true, 'endless_1');
-  s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
+  s.spawnSites.push(...fourStatSites('endless_1'));
   vi.stubGlobal('localStorage', s.storage);
   // The old sliders: Damage at 200%, one at 0%, the rest never set (100%).
   const keys = s.farm.choices().map(choice => choice.key), zero = keys.find(key => key !== 'stat:damage')!;
@@ -191,7 +193,7 @@ it('explains an empty map and disables starting when gameplay becomes unavailabl
 
 it('shows four reward stat sliders for a generated map with one species, without enemy counts', () => {
   const s = setup(true, 'endless_1');
-  s.spawnSites.push(...createSpawnSites({x: 580, y: 770}, 'endless_1'));
+  s.spawnSites.push(...fourStatSites('endless_1'));
   s.click('.farm-toggle');
   const choices = [...s.document.querySelectorAll<HTMLElement>('[data-group]')];
   expect(choices).toHaveLength(4);
@@ -364,8 +366,8 @@ it('in the Soul Dimension draws a slider per soul stat present, in its soul colo
     expect(row(stat).style.getPropertyValue('--farm-stat-color')).toBe(SOUL_STAT_DETAILS[stat].color);
   }
   expect(row('damage').querySelector('.farm-weight-sub')!.textContent).toBe('+1');
-  expect(row('attackSpeed').querySelector('.farm-weight-sub')!.textContent).toBe('+0.001');
-  expect(row('critDamage').querySelector('.farm-weight-sub')!.textContent).toBe('+0.2%');
+  expect(row('attackSpeed').querySelector('.farm-weight-sub')!.textContent).toBe('+1');
+  expect(row('critDamage').querySelector('.farm-weight-sub')!.textContent).toBe('+1');
   // The campaign's Attack Speed pick opens as Soul Attack Speed at 100%; what it left unpicked is 0%.
   expect(['damage', 'attackSpeed', 'critDamage'].map(stat => slider(s, `soul:${stat}`).value)).toEqual(['0', '100', '0']);
   slide(s, 'soul:critDamage', 50);

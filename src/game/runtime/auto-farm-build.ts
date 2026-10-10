@@ -1,4 +1,5 @@
 import { effectivePlayerPowerStats, unroundedPlayerPower, type PlayerPowerProgress, type PlayerPowerResearch, type PlayerPowerStats } from '../../../shared/player-power';
+import { addAttackSpeedRating } from '../../../shared/stat-rating';
 import type { FarmEvaluation, FarmReward } from './auto-farm-plan';
 import { isProceduralMap, proceduralMapNumber } from '../../../shared/procedural-maps';
 import { MAP_IDS as CAMPAIGN_MAP_IDS } from '../../../shared/rules';
@@ -17,7 +18,8 @@ export function createFarmEvaluator(deps: {
   rewardMultiplier: () => number;
   minAttackInterval: () => number;
   criticalChance: () => number;
-  criticalMultiplier: () => number;
+  /** The crit multiplier, with this much more crit rating when asked (a crit reward's worth). */
+  criticalMultiplier: (extraRating?: number) => number;
 }) {
   function build(reward?: FarmReward) {
     const stats = { ...deps.base() };
@@ -29,7 +31,13 @@ export function createFarmEvaluator(deps: {
       else if (reward.type === 'health') stats.maxHp += amount;
       else if (reward.type === 'armor') stats.armor += amount;
       else if (reward.type === 'regen') stats.regen += amount;
-      else if (reward.type === 'speed') stats.attackRate = 1 / Math.min(1 / deps.minAttackInterval(), 1 / stats.attackRate + amount);
+      else if (reward.type === 'speed') stats.attackRate = addAttackSpeedRating(stats.attackRate, amount, deps.minAttackInterval());
+      // Crit damage is not in power: priced as the damage that would raise the average hit as much.
+      else if (reward.type === 'crit') {
+        const chance = Math.min(1, Math.max(0, deps.criticalChance()));
+        const now = 1 + chance * (Math.max(1, deps.criticalMultiplier()) - 1);
+        stats.damage *= (1 + chance * (Math.max(1, deps.criticalMultiplier(amount)) - 1)) / now;
+      }
     }
     return effectivePlayerPowerStats({ ...stats, ...deps.equipment() }, deps.research(), deps.upgradeLevel);
   }

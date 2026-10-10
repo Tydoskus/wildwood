@@ -3,9 +3,10 @@ import type { MapBalanceSnapshot } from "./map-balance-types";
 import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import * as camps from "./enemy-camps";
 import designs from "./map-designs.json";
-import { generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
+import { endlessSiteLane, generateMap, generatedEnemyStats, isProceduralMap } from "./procedural-maps";
 import { isSoulMap, soulRewardType, soulStatFromEnemyId, SOUL_POPULATION, SOUL_STAT_DETAILS, SOUL_STAT_ORDER } from "./soul-dimension";
 import { MAX_ARMOR, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "./rules";
+import { addAttackSpeedRating, cleanRating } from "./stat-rating";
 
 export type EnemyDefeat = { enemy: string; count: number };
 export const ENEMY_DEFEAT_BATCH_MAX = 100;
@@ -84,7 +85,7 @@ export function enemyDefeatDefinition(mapId: string, enemy: string, balance?: Ma
     const map = generatedDefinition(mapId);
     for (const camp of map.camps) {
       if (site < camp.count) {
-        const lane = camp.stat === "damage" && site >= 6 ? "Dread Warden" : camp.lane;
+        const lane = endlessSiteLane(camp, site);
         const stats = balance?.lanes[lane] ?? generatedEnemyStats(map, lane);
         return { reward: stats.reward, hp: stats.hp, population: 1, loot: true };
       }
@@ -164,7 +165,12 @@ export function defeatBudget(population: number, minRespawnSeconds = DEFEAT_MIN_
     perSecond,
   };
 }
-export function applyEnemyRewards<T extends { damage: number; maxHp: number; attackRate: number; armor: number; regen: number }>(
+/**
+ * Kill rewards onto a run's stats. Attack speed and crit damage are ratings
+ * (stat-rating.ts): speed adds to the rating behind the stored attack interval,
+ * crit to `critRating`, which a caller that tracks it carries on `base`.
+ */
+export function applyEnemyRewards<T extends { damage: number; maxHp: number; attackRate: number; armor: number; regen: number; critRating?: number }>(
   base: T, rewards: { type: string; amount: number; count: number }[], multiplier: number, minAttackInterval = MIN_ATTACK_INTERVAL,
 ): T {
   const next = { ...base };
@@ -175,7 +181,8 @@ export function applyEnemyRewards<T extends { damage: number; maxHp: number; att
       case "health": next.maxHp = Math.min(MAX_PLAYER_STAT, next.maxHp + amount); break;
       case "armor": next.armor = Math.min(MAX_ARMOR, next.armor + amount); break;
       case "regen": next.regen = Math.min(MAX_PLAYER_STAT, next.regen + amount); break;
-      case "speed": next.attackRate = 1 / Math.min(1 / minAttackInterval, 1 / next.attackRate + amount); break;
+      case "speed": next.attackRate = addAttackSpeedRating(next.attackRate, amount, minAttackInterval); break;
+      case "crit": next.critRating = cleanRating((next.critRating ?? 0) + amount); break;
     }
   }
   return next;

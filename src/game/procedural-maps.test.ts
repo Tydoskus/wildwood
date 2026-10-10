@@ -43,7 +43,7 @@ describe("generated campaign runtime adapters", () => {
     const enemies: EnemyState[] = [];
     const lifecycle = createEnemyLifecycle(enemies, sites, () => {});
     sites.forEach(lifecycle.spawnFromSite);
-    expect(enemies).toHaveLength(33);
+    expect(enemies).toHaveLength(48);
     for (let i = 0; i < sites.length; i++) {
       expect(enemies[i].maxHp).toBe(sites[i].definition!.hp);
       expect(enemies[i].reward).toEqual(sites[i].definition!.reward);
@@ -51,9 +51,9 @@ describe("generated campaign runtime adapters", () => {
     expect(
       new Set(mapGuideZones(sites).flatMap((z) => z.rewards.map((r) => r.type)))
         .size,
-    ).toBe(4);
+    ).toBe(6);
     expect(new Set(sites.map(site => site.type)).size).toBe(1);
-    expect(enemies.every(enemy => enemy.reward.type !== "speed")).toBe(true);
+    expect(enemies.some(enemy => enemy.reward.type === "speed") && enemies.some(enemy => enemy.reward.type === "crit")).toBe(true);
     const assets = MAP_ASSET_GROUPS.endless_4;
     expect(assets.enemies).toHaveLength(1);
     expect(sites.every((s) => assets.enemies.includes(s.type))).toBe(true);
@@ -81,7 +81,8 @@ it('uses exactly one species including the boss across generated maps', () => {
     const id = `endless_${n}` as const;
     const content = generatedMapContent(id);
     expect(new Set(content.sites.map(site => site.type))).toEqual(new Set([generatedBossArt(id)]));
-    expect(content.sites.every(site => site.definition!.reward.type !== 'speed')).toBe(true);
+    // Six camps, one a reward stat (0.901.47): attack speed and crit damage included.
+    expect(new Set(content.sites.map(site => site.definition!.reward.type)).size).toBe(6);
     expect(MAP_ASSET_GROUPS[id].enemies).toEqual(content.kinds);
   }
 });

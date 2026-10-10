@@ -1,5 +1,5 @@
 import { SOUL_STAT_DETAILS, soulEnemyId, type SoulStatId } from "../../../shared/soul-dimension";
-import { MIN_ATTACK_INTERVAL } from "../../../shared/rules";
+import { addAttackSpeedRating, cleanRating } from "../../../shared/stat-rating";
 import { compareAutoFarmTargets, farmGroupMatches, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm-priority';
 import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
@@ -174,6 +174,7 @@ export function createPlayerCombatController(options: {
     spawnDamageNumber, logPickup, saveProgress, recordDeath, endGame,
   } = options;
   const { projectiles, enemyShots } = projectileStore;
+  const attackCap = () => typeof minAttackInterval === "function" ? minAttackInterval() : minAttackInterval;
   const random = options.random ?? Math.random;
   // Reflect draws from a marble bag, so its rate corrects itself instead of
   // running dry for a hundred hits at 6%. Only hits it could answer draw.
@@ -513,7 +514,9 @@ export function createPlayerCombatController(options: {
     switch (enhanced.type) {
       case "damage": player.damage += enhanced.amount; break;
       case "health": addPlayerBaseMaxHealth(player, enhanced.amount, options.healthMultiplierBonus()); break;
-      case "speed": player.attackRate = 1 / Math.min(1 / (typeof minAttackInterval === "function" ? minAttackInterval() : minAttackInterval), 1 / player.attackRate + enhanced.amount); break;
+      // Attack speed and crit damage are ratings (shared/stat-rating.ts).
+      case "speed": player.attackRate = addAttackSpeedRating(player.attackRate, enhanced.amount, attackCap()); break;
+      case "crit": player.critRating = cleanRating((player.critRating ?? 0) + enhanced.amount); break;
       case "armor": player.armor += enhanced.amount; break;
       case "regen": player.regen += enhanced.amount; break;
     }
@@ -536,7 +539,8 @@ export function createPlayerCombatController(options: {
       case "health": addPlayerBaseMaxHealth(player, amount, options.healthMultiplierBonus()); break;
       case "armor": player.armor += amount; break;
       case "regen": player.regen += amount; break;
-      case "attackSpeed": player.attackRate = Math.min(player.attackRate, Math.max(MIN_ATTACK_INTERVAL, 1 / (1 / player.attackRate + amount))); break;
+      // The soul's rating adds to the run's; its crit damage is the Soul Dimension runtime's to count.
+      case "attackSpeed": player.attackRate = addAttackSpeedRating(player.attackRate, amount, attackCap()); break;
       case "critDamage": break;
     }
     options.onSoulKill?.(stat);

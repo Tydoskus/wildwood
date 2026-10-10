@@ -3,7 +3,7 @@ import { armorDamageReduction, damageAfterArmor } from "./combat";
 import { enemyDefeatDefinition } from "./enemy-defeats";
 import { ENEMY_TYPES, type EnemyKind } from "./enemy-definitions";
 import type { MapBalanceSnapshot } from "./map-balance-types";
-import { generateMap, generatedEnemyStats, isProceduralMap, proceduralMapId } from "./procedural-maps";
+import { endlessSiteLane, generateMap, generatedEnemyStats, isProceduralMap, proceduralMapId } from "./procedural-maps";
 import { MAP_IDS, REGULAR_ENEMY_RESPAWN_SECONDS } from "./rules";
 import { campaignMapUnlocked, type CampaignAccess } from "./equipment-access";
 import type { PlayerPowerStats } from "./player-power";
@@ -90,7 +90,7 @@ export function offlineEnemyRoster(mapId: string, balance?: MapBalanceSnapshot):
     for (const camp of map.camps) {
       for (let site = 0; site < camp.count; site += 1) {
         // Mirrors the reward lane that enemyDefeatDefinition resolves per site.
-        const lane = camp.stat === "damage" && site >= 6 ? "Dread Warden" : camp.lane;
+        const lane = endlessSiteLane(camp, site);
         const stats = balance?.lanes[lane] ?? generatedEnemyStats(map, lane);
         const existing = byLane.get(lane);
         if (existing) { existing.population += 1; continue; }

@@ -43,6 +43,22 @@ export function forgetBalanceCaches() {
   resolvedSnapshots.clear();
 }
 
+/**
+ * Every pinned visit resolved again at its own revision and wire version, for
+ * a release that changes what a map holds (0.901.47: new camps, rating rewards).
+ * A visit kept its old snapshot would pay attack speed kills as the old
+ * attacks a second, and know nothing of the new crit camps.
+ */
+export function repinMapBalances(ctx: Pick<Context, 'db'>) {
+  for (const row of [...ctx.db.playerMapBalance.iter()] as any[]) {
+    let old: MapBalanceSnapshot;
+    try { old = JSON.parse(row.snapshotJson); } catch { continue; }
+    const settings = storedSettings(ctx, old.revision) ?? defaultBalanceSettings();
+    const snapshotJson = JSON.stringify(resolveMapBalance(row.mapId, settings, old.revision, old.configurationVersion ?? 1));
+    if (snapshotJson !== row.snapshotJson) ctx.db.playerMapBalance.identity.update({ ...row, snapshotJson });
+  }
+}
+
 export function balanceEditorState(ctx: Pick<Context, 'db'>): BalanceEditorState {
   const revision = ctx.db.mapBalanceHead.id.find(0)?.revision ?? 0;
   return { revision, settings: storedSettings(ctx, revision) ?? defaultBalanceSettings(), previousRevision: revision > 0 ? revision - 1 : null };

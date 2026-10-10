@@ -62,7 +62,7 @@ it("allows four completions and disables earlier speed rewards on each challenge
     expect(state.completed).toBe(count);
     expect(1 / f.db.playerProgress.identity.find(f.ctx.sender).attackRate).toBeCloseTo(MAX_BASE_ATTACKS_PER_SECOND + .5 * count);
     expect(1 / challengeMinimumInterval(state)).toBe(MAX_BASE_ATTACKS_PER_SECOND + .5 * count);
-    expect(1 / applyEnemyRewards(f.saved, [{ type: "speed", amount: 99, count: 1 }], 1, challengeMinimumInterval(state)).attackRate).toBeCloseTo(MAX_BASE_ATTACKS_PER_SECOND + .5 * count);
+    expect(1 / applyEnemyRewards(f.saved, [{ type: "speed", amount: 1e300, count: 1 }], 1, challengeMinimumInterval(state)).attackRate).toBeCloseTo(MAX_BASE_ATTACKS_PER_SECOND + .5 * count);
   }
   expect(() => f.run(server.startPrestigeChallenge)).toThrow("four");
 });

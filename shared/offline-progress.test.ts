@@ -26,7 +26,7 @@ describe("offline enemy roster", () => {
   it("counts every authored camp spawn on a campaign map", () => {
     const roster = offlineEnemyRoster("beginner_desert");
     expect(roster.length).toBeGreaterThan(1);
-    expect(roster.reduce((sum, entry) => sum + entry.population, 0)).toBe(32);
+    expect(roster.reduce((sum, entry) => sum + entry.population, 0)).toBe(48);
     for (const entry of roster) {
       expect(entry.hp).toBeGreaterThan(0);
       expect(entry.damage).toBeGreaterThan(0);

@@ -6,6 +6,15 @@ export const playerWideStats = table({ name: "player_wide_stats", public: true }
 });
 
 /**
+ * The run's crit damage rating (shared/stat-rating.ts), from crit camps: reset on prestige like any run stat.
+ * Its own table, read and written with player_progress (wide-stats.ts), rather than a column every session's
+ * table would have to add. No row means 0. Attack speed has no column: its rating is read back from attackRate.
+ */
+export const playerCombatRating = table({ name: "player_combat_rating", public: true }, {
+  identity: t.identity().primaryKey(), critDamage: t.f64(),
+});
+
+/**
  * Duel stats past f32, as JSON beside the duel row (wide-stats.ts). The
  * challenger is kept so a client can subscribe to its own duels' rows.
  */

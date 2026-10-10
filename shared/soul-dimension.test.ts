@@ -1,9 +1,10 @@
-import { CHALLENGE_ABSOLUTE_MIN_INTERVAL, challengeMinimumInterval } from "./prestige-challenge";
+import { challengeMinimumInterval } from "./prestige-challenge";
+import { RATING_MAX, attackIntervalForRating, attackSpeedRatingForInterval } from "./stat-rating";
 import { describe, expect, it } from "vitest";
 import {
-  addSoulKills, cleanSoulStats, EMPTY_SOUL_STATS, SOUL_ATTACK_SPEED_CEILING, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, withoutSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
+  addSoulKills, cleanSoulStats, EMPTY_SOUL_STATS, soulDimensionAccess, soulEnemyStats, soulStatsUnlocked, soulTier, soulTierKillsNeeded, withSoulStats, withoutSoulStats, SOUL_CAMPS, SOUL_POPULATION, SOUL_TIER_KILL_TYPES,
 } from "./soul-dimension";
-import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL } from "./rules";
+import { MIN_ATTACK_INTERVAL } from "./rules";
 import { decodePlayerMapFrame, decodePlayerMotionFrame, encodePlayerMapFrame, encodePlayerMotionFrame } from "./player-motion-frame";
 
 const each = (count: number) => ({ damage: count, health: count, armor: count, regen: count, speed: count });
@@ -42,15 +43,15 @@ describe("soul stats", () => {
     soul = addSoulKills(soul, "critDamage", 5);
     expect(soul.damage).toBe(10);
     expect(soul.maxHp).toBe(3);
-    expect(soul.critDamage).toBeCloseTo(.01);
+    expect(soul.critDamage).toBe(5);
   });
 
-  it("add to a run's base stats, and attack speed stops at the cap without slowing a faster run", () => {
-    const run = { damage: 10, maxHp: 100, armor: 5, regen: 1, attackRate: 1.5 };
-    const boosted = withSoulStats(run, { damage: 2, maxHp: 50, armor: 1, regen: .5, attackSpeed: .5 });
+  it("add to a run's base stats, attack speed as rating on the run's, never past the cap nor slowing a faster run", () => {
+    const run = { damage: 10, maxHp: 100, armor: 5, regen: 1, attackRate: attackIntervalForRating(200) };
+    const boosted = withSoulStats(run, { damage: 2, maxHp: 50, armor: 1, regen: .5, attackSpeed: 100 });
     expect(boosted).toMatchObject({ damage: 12, maxHp: 150, armor: 6, regen: 1.5 });
-    expect(boosted.attackRate).toBeCloseTo(1 / (1 / 1.5 + .5));
-    expect(withSoulStats(run, { attackSpeed: 100 }).attackRate).toBeCloseTo(MIN_ATTACK_INTERVAL);
+    expect(boosted.attackRate).toBeCloseTo(attackIntervalForRating(300), 9);
+    expect(withSoulStats(run, { attackSpeed: RATING_MAX }).attackRate).toBeCloseTo(MIN_ATTACK_INTERVAL);
     const challenge = { ...run, attackRate: MIN_ATTACK_INTERVAL * .8 };
     expect(withSoulStats(challenge, { attackSpeed: 1 }).attackRate).toBe(challenge.attackRate);
     expect(withSoulStats(run, null)).toBe(run);
@@ -59,12 +60,13 @@ describe("soul stats", () => {
   it("let attack speed reach the cap Reflect Only wins raise, and undo exactly under it", () => {
     // Two wins: the base cap plus a whole attack a second, and a run already at the base cap.
     const cap = challengeMinimumInterval({ active: false, completed: 2 });
-    const run = { damage: 10, maxHp: 100, armor: 5, regen: 1, attackRate: MIN_ATTACK_INTERVAL };
-    const boosted = withSoulStats(run, { attackSpeed: .5 }, cap);
-    expect(1 / boosted.attackRate).toBeCloseTo(1 / MIN_ATTACK_INTERVAL + .5);
-    expect(withSoulStats(run, { attackSpeed: 100 }, cap).attackRate).toBeCloseTo(cap);
-    expect(withoutSoulStats(boosted, { attackSpeed: .5 }, 9, cap).attackRate).toBeCloseTo(MIN_ATTACK_INTERVAL);
-    // At the higher cap it cannot be undone exactly, so the saved interval stands.
+    const run = { damage: 10, maxHp: 100, armor: 5, regen: 1, attackRate: attackIntervalForRating(400, cap) };
+    const boosted = withSoulStats(run, { attackSpeed: 100 }, cap);
+    expect(attackSpeedRatingForInterval(boosted.attackRate, cap)).toBeCloseTo(500, 6);
+    expect(1 / boosted.attackRate).toBeGreaterThan(1 / attackIntervalForRating(500));
+    expect(withSoulStats(run, { attackSpeed: RATING_MAX }, cap).attackRate).toBeCloseTo(cap);
+    expect(withoutSoulStats(boosted, { attackSpeed: 100 }, 9, cap).attackRate).toBeCloseTo(run.attackRate, 9);
+    // At the cap it cannot be undone exactly, so the saved interval stands.
     expect(withoutSoulStats({ ...run, attackRate: cap }, { attackSpeed: 100 }, .7, cap).attackRate).toBe(.7);
   });
 });
@@ -119,11 +121,8 @@ describe("wide motion frames", () => {
   });
 });
 
-it("earns soul attack speed up to what caps a fresh character at the highest cap, and never past it", () => {
-  // A fresh character at 1.56s, plus the ceiling, attacks exactly at the highest cap.
-  expect(1 / DEFAULT_ATTACK_INTERVAL + SOUL_ATTACK_SPEED_CEILING).toBeCloseTo(1 / CHALLENGE_ABSOLUTE_MIN_INTERVAL);
-  const near = { ...EMPTY_SOUL_STATS, attackSpeed: SOUL_ATTACK_SPEED_CEILING - .0005 };
-  expect(addSoulKills(near, "attackSpeed", 10).attackSpeed).toBe(SOUL_ATTACK_SPEED_CEILING);
-  expect(cleanSoulStats({ attackSpeed: 50 }).attackSpeed).toBe(SOUL_ATTACK_SPEED_CEILING);
-  expect(addSoulKills(EMPTY_SOUL_STATS, "attackSpeed", 3).attackSpeed).toBeCloseTo(.003);
+it("keeps soul attack speed and crit damage as rating points: a point a kill, never past the rating's top", () => {
+  expect(addSoulKills(EMPTY_SOUL_STATS, "attackSpeed", 3).attackSpeed).toBe(3);
+  expect(addSoulKills({ ...EMPTY_SOUL_STATS, critDamage: RATING_MAX }, "critDamage", 10).critDamage).toBe(RATING_MAX);
+  expect(cleanSoulStats({ attackSpeed: 1e305 }).attackSpeed).toBe(RATING_MAX);
 });

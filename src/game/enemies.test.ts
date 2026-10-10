@@ -33,7 +33,8 @@ describe("generated encounter economy", () => {
     expect(ENEMY_TYPES["King Slime"].reward.type).toBe("health");
     expect(ENEMY_TYPES.Mossback.reward.type).toBe("armor");
     expect(ENEMY_TYPES["King Slime"].reward.amount).toBeGreaterThan(ENEMY_TYPES.Bramble.reward.amount);
-    expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 Atk/sec");
+    expect(rewardLabel({ type: "speed", amount: .25 })).toBe("+0.25 Attack Speed");
+    expect(rewardLabel({ type: "crit", amount: 2.5 })).toBe("+2.50 Crit Damage");
     expect(rewardLabel({ type: "damage", amount: 1.05 })).toBe("+1.05 Damage");
   });
   it("keeps every spawned encounter finite, rewarding, and within its role", () => {

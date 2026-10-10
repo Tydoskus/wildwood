@@ -42,9 +42,9 @@ export function createResearchController(options: ResearchControllerOptions) {
     criticalChance: () => ranks().criticalChance * .01 + prestigePerkValue(options.prestigePerks?.(), "keenEdge"),
     /** Everything critical damage adds up from but the soul's share, and the cap's rank. */
     criticalDamageParts: (): CriticalDamageParts => ({ researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), capRank: ranks().critCap }),
-    /** The capped multiplier, with the soul's critical damage when there is some. */
-    criticalDamageMultiplier: (soul = 0) => criticalDamageMultiplier({
-      researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), soul, capRank: ranks().critCap,
+    /** The capped multiplier: the run's crit rating, the soul's when there is some, research and Keen Edge. */
+    criticalDamageMultiplier: (soul = 0, rating = options.player.critRating ?? 0) => criticalDamageMultiplier({
+      researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), soul, rating, capRank: ranks().critCap,
     }),
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },
     /**

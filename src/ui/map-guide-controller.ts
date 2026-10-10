@@ -143,6 +143,7 @@ const MAP_GUIDE_REWARD_LABELS: Record<RewardType, string> = {
   speed: "Atk Speed",
   armor: "Armor",
   regen: "Regen",
+  crit: "Crit Damage",
 };
 
 /**

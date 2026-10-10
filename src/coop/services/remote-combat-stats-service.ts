@@ -105,7 +105,7 @@ export function remoteCombatStatsFromRows(
       : 1,
     attackRange: guildWeaponRange(progress.equippedRightHand || progress.equippedLeftHand, finitePositive(progress.attackRange, 200)),
     criticalChance: Math.max(0, Math.min(1, criticalChanceRank * .01)),
-    criticalDamageMultiplier: criticalDamageMultiplier({ researchRank: criticalDamageRank, capRank: normalizedRank(research?.critCap ?? 0) }),
+    criticalDamageMultiplier: criticalDamageMultiplier({ researchRank: criticalDamageRank, rating: (progress as { critRating?: number }).critRating, capRank: normalizedRank(research?.critCap ?? 0) }),
   };
 }
 
@@ -204,6 +204,7 @@ export function createRemoteCombatStatsService(dependencies: {
         .subscribe([
           tables.playerProgress.where((row) => row.identity.eq(dbIdentity)),
           tables.playerWideStats.where((row) => row.identity.eq(dbIdentity)),
+          tables.playerCombatRating.where((row) => row.identity.eq(dbIdentity)),
           tables.playerResearch.where((row) => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((row) => row.identity.eq(dbIdentity)),
         ]);

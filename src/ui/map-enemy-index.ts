@@ -3,7 +3,7 @@ import { formatCompactNumber } from "./number-format";
 import type { EnemyIndexRow } from "../game/runtime/enemy-index-rows";
 
 /** Short stat names: the reward's colour already says which stat. */
-export const SHORT_STAT: Record<RewardType, string> = { damage: "Atk", health: "HP", armor: "Armor", regen: "Regen", speed: "Spd" };
+export const SHORT_STAT: Record<RewardType, string> = { damage: "Atk", health: "HP", armor: "Armor", regen: "Regen", speed: "Spd", crit: "Crit" };
 
 /**
  * The Enemy Index table in the map window: one row per kind of enemy, weakest

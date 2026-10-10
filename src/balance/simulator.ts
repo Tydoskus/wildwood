@@ -17,8 +17,8 @@ import { isUpgradeableItem, itemUpgradeDurationMs, MAX_ITEM_UPGRADE_LEVEL } from
 import { BOSS_TARGET_SECONDS } from "../../shared/progression";
 import { ATTACK_WINDUP_SECONDS } from "../game/attack-timeline";
 import { BOSS_DAMAGE_PROFILES } from "../game/boss-damage";
-import { damageAfterArmor, paysSpeedRating, useCurveArmor, useSpeedRating } from "../game/combat";
-import { addSpeedRating } from "../../shared/attack-speed-rating";
+import { damageAfterArmor, useCurveArmor } from "../game/combat";
+import { addAttackSpeedRating, cleanRating } from "../../shared/stat-rating";
 import { curveArmorReduction } from "../../shared/balance-curve";
 import { ENEMY_TYPES, type EnemyKind, type EnemyDefinition, type RewardType } from "../game/enemies";
 import { createGameBootstrap } from "../game/runtime/game-bootstrap";
@@ -107,7 +107,6 @@ import {
   MIREMAW_REWARD_REGEN,
   PRISMSHELL_REWARD_REGEN, IRONHORN_REWARD_REGEN, DREADREAPER_REWARD_REGEN, VOLTWARDEN_REWARD_REGEN, GRAVEBLOOM_REWARD_REGEN, AEGIS_PRIME_REWARD_REGEN,
   MAP_DISPLAY_NAMES,
-  MAX_BASE_ATTACKS_PER_SECOND,
   MIN_ATTACK_INTERVAL,
   PLAYER_BASE_HP,
   PLAYER_BASE_DAMAGE,
@@ -191,6 +190,8 @@ export type PersistentStats = {
   attackRate: number;
   armor: number;
   regen: number;
+  /** The run's crit damage rating (shared/stat-rating.ts). */
+  critRating?: number;
 };
 
 type EquippedItems = {
@@ -236,7 +237,7 @@ type DropDefinition = {
   eligible?: (enemy: EnemyKind) => boolean;
 };
 
-type BossReward = { type: Exclude<RewardType, "speed">; amount: number };
+type BossReward = { type: Exclude<RewardType, "speed" | "crit">; amount: number };
 
 export type BossDefinition = {
   kind: keyof typeof BOSS_DAMAGE_PROFILES;
@@ -367,7 +368,7 @@ export type MapTimeBudget = {
   deathSeconds: number;
 };
 
-export const PROGRESSION_STAT_IDS = ["damage", "health", "armor", "regeneration", "attackSpeed"] as const;
+export const PROGRESSION_STAT_IDS = ["damage", "health", "armor", "regeneration", "attackSpeed", "critDamage"] as const;
 export type ProgressionStat = typeof PROGRESSION_STAT_IDS[number];
 
 type TrialStatInvestment = {
@@ -529,6 +530,8 @@ export type BalanceSimulationResult = {
   strategyMix: Record<GuidedFarmingStrategy | "boss-farm", number>;
   strategyTimelines?: StrategyTimeline[];
   strategyComparisonTrials?: number;
+  /** The representative run's state on reaching each map: the arrival build the scorecard checks. */
+  arrivalStates?: Partial<Record<BalanceMapId, SimulationStateSnapshot>>;
 };
 
 const SAMPLE_COUNT = 180;
@@ -749,7 +752,6 @@ function finiteRange(value: unknown, fallback: number, minimum: number, maximum:
  */
 function useCurveRules(maps: readonly BalanceMapDefinition[]) {
   useCurveArmor(maps.some(map => map.balance?.rules.ARMOR_CURVE === 1));
-  useSpeedRating(maps.some(map => map.balance?.rules.SPEED_RATING === 1));
 }
 
 export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings = defaultBalanceSettings()): BalanceMapDefinition[] {
@@ -1051,7 +1053,7 @@ export function createMapDefinitions(endlessMaps = 0, settings: BalanceSettings 
     const boss = generatedBossStats(generated);
     maps.push({ id, name: balanceMapName(id), arrival: generated.arrival, regularDrops: [],
       boss: { kind: "aegisPrime", name: `Endless ${generated.number} Warden`, hp: boss.hp,
-        strongestHit: boss.damage, ...generated.boss, rewards: boss.rewards.filter((reward): reward is BossReward => reward.type !== "speed"), drops: [] } });
+        strongestHit: boss.damage, ...generated.boss, rewards: boss.rewards.filter((reward): reward is BossReward => reward.type !== "speed" && reward.type !== "crit"), drops: [] } });
   }
   return maps.map(map => resolveSimulationMap(map, settings));
 }
@@ -1206,10 +1208,14 @@ function powerComponentsForState(state: EffectiveStatsState): PowerComponents {
   };
 }
 
+function criticalMultiplierFor(state: EffectiveStatsState) {
+  return criticalDamageMultiplier({ researchRank: state.research.criticalDamage, rating: state.stats.critRating, capRank: state.research.critCap });
+}
+
 function combatStats(state: EffectiveStatsState) {
   const effective = effectiveStats(state);
   const criticalChance = Math.min(1, Math.max(0, state.research.criticalChance * .01));
-  const criticalMultiplier = criticalDamageMultiplier({ researchRank: state.research.criticalDamage, capRank: state.research.critCap });
+  const criticalMultiplier = criticalMultiplierFor(state);
   const averageHit = effective.damage * (1 + criticalChance * (criticalMultiplier - 1));
   return {
     ...effective,
@@ -1246,18 +1252,15 @@ function applyRewardToStats(stats: PersistentStats, type: RewardType, amount: nu
     case "health": stats.maxHp += amount; break;
     case "armor": stats.armor += amount; break;
     case "regen": stats.regen += amount; break;
-    case "speed": {
-      // A curve map pays Speed points, which the game turns into attacks per second (attack-speed-rating.ts).
-      if (paysSpeedRating()) { stats.attackRate = addSpeedRating(stats.attackRate, amount); break; }
-      const attacksPerSecond = Math.min(MAX_BASE_ATTACKS_PER_SECOND, 1 / Math.max(MIN_ATTACK_INTERVAL, stats.attackRate) + amount);
-      stats.attackRate = 1 / attacksPerSecond;
-      break;
-    }
+    // Attack speed and crit damage pay rating points, as in the game (shared/stat-rating.ts).
+    case "speed": stats.attackRate = addAttackSpeedRating(stats.attackRate, amount); break;
+    case "crit": stats.critRating = cleanRating((stats.critRating ?? 0) + amount); break;
   }
 }
 
 function progressionStatForReward(type: RewardType): ProgressionStat {
   if (type === "speed") return "attackSpeed";
+  if (type === "crit") return "critDamage";
   if (type === "regen") return "regeneration";
   return type;
 }
@@ -1276,6 +1279,7 @@ function effectiveStatValue(state: EffectiveStatsState, stat: ProgressionStat) {
   if (stat === "health") return effective.maxHp;
   if (stat === "regeneration") return effective.regen;
   if (stat === "attackSpeed") return 1 / Math.max(MIN_ATTACK_INTERVAL, effective.attackRate);
+  if (stat === "critDamage") return criticalMultiplierFor(state);
   return effective[stat];
 }
 
@@ -1416,6 +1420,9 @@ function projectedRewardPowerGain(
   const projected = { ...state, stats: { ...state.stats } };
   const reward = enemy.reward;
   applyRewardToStats(projected.stats, reward.type, reward.amount * researchStatRewardMultiplier(state.research) * adjustment.reward);
+  // Crit damage is not in power: priced, as autofarm prices it (auto-farm-build.ts), as the damage
+  // that would raise the average hit as much.
+  if (reward.type === "crit") return Math.max(0, powerComponentsForStats(effectiveStats(state)).damage * (combatStats(projected).averageHit / combatStats(state).averageHit - 1));
   return Math.max(0, continuousPowerForState(projected) - before);
 }
 
@@ -1559,7 +1566,7 @@ function selectSite(
   const defensiveCandidates = defensiveTurn
     ? candidates.filter((site) => {
       const rewardType = siteEnemy(site).reward.type;
-      return rewardType !== "damage" && rewardType !== "speed";
+      return rewardType !== "damage" && rewardType !== "speed" && rewardType !== "crit";
     })
     : [];
   const selectedCandidates = defensiveCandidates.length ? defensiveCandidates : candidates;
@@ -1577,7 +1584,7 @@ function selectSite(
         fight: timeToKill(enemy.hp * adjustment.hp, combat.averageHit, combat.attackRate, enemy),
         power: bossGateActive ? 0 : projectedRewardPowerGain(state, enemy, adjustment),
         dps: bossGateActive ? 0 : projectedDpsGain(state, enemy, adjustment),
-        bossTtk: bossGateActive && (enemy.reward.type === "damage" || enemy.reward.type === "speed")
+        bossTtk: bossGateActive && (enemy.reward.type === "damage" || enemy.reward.type === "speed" || enemy.reward.type === "crit")
           ? projectedBossTtk(state, map, enemy, adjustment) : currentBossTtk,
       };
       projections.set(key, projection);
@@ -1595,10 +1602,12 @@ function selectSite(
       ? 0
       : projection.dps / duration;
     const reward = enemy.reward;
-    const focus = reward.type === "damage" || reward.type === "speed" ? 1 : .04;
+    const focus = reward.type === "damage" || reward.type === "speed" || reward.type === "crit" ? 1 : .04;
     const bossRushEfficiency = (bossGateActive ? 0 : powerEfficiency) * focus;
     const nextBossTtk = projection.bossTtk;
-    const readinessEfficiency = reward.type === "damage" || reward.type === "speed"
+    // Raw reward amounts only compare within one stat: attack speed and crit pay rating points (stat-rating.ts),
+    // whose worth reaches the boss through nextBossTtk below.
+    const readinessEfficiency = reward.type === "damage"
       ? rewardAmount(state, reward.amount, adjustment.reward) / duration
       : 0;
     return {
@@ -2754,15 +2763,16 @@ function buildDiagnostics(
       metric.stat === "health" ||
       metric.stat === "armor" ||
       metric.stat === "regeneration");
-    const hasAttackSpeedInvestment = current.statProgression.some((metric) =>
-      metric.stat === "attackSpeed" && metric.investmentSecondsMedian >= 1);
-    if (!hasAttackSpeedInvestment && timeTracks.length === 4 && timeTracks.every((metric) => metric.investmentSecondsMedian >= 1)) {
+    // Every map has attack speed and crit camps (0.901.47): the four tracks are weighed among themselves.
+    const trackSeconds = timeTracks.reduce((sum, metric) => sum + metric.investmentSecondsMedian, 0);
+    const trackShare = (metric: StatProgressionMetric | undefined) => metric ? metric.investmentSecondsMedian / Math.max(1e-9, trackSeconds) * 100 : 0;
+    if (timeTracks.length === 4 && timeTracks.every((metric) => metric.investmentSecondsMedian >= 1)) {
       measuredStatTimeBalances += 1;
       const targetShare = 100 / timeTracks.length;
-      const damageShare = timeTracks.find((metric) => metric.stat === "damage")?.investmentSharePercent ?? 0;
+      const damageShare = trackShare(timeTracks.find((metric) => metric.stat === "damage"));
       const defensiveShares = timeTracks
         .filter((metric) => metric.stat !== "damage")
-        .map((metric) => metric.investmentSharePercent);
+        .map(trackShare);
       const defensiveSpread = Math.max(...defensiveShares) - Math.min(...defensiveShares);
       if (
         damageShare <= targetShare * 2 &&
@@ -3085,6 +3095,27 @@ function runBalanceSimulationInternal(
     },
     simulatedCampaigns: trials.length,
     strategyMix,
+    arrivalStates: Object.fromEntries(representative.maps.map(record => [record.mapId, record.entryState])),
+  };
+}
+
+/**
+ * The arrival scorecard's view of one build on one map (scripts/balance-scorecard.ts):
+ * every enemy's metrics, and the boss fight played out from full health.
+ */
+export function arrivalChecks(config: Partial<BalanceSimulationConfig>, mapId: BalanceMapId, snapshot: SimulationStateSnapshot) {
+  const normalized = normalizeConfig(config);
+  const maps = createMapDefinitions(normalized.endlessMaps, normalized.balanceSettings);
+  useCurveRules(maps);
+  const map = maps.find(entry => entry.id === mapId);
+  if (!map) return null;
+  const adjustment = normalized.mapAdjustments[mapId];
+  const fightSeconds = bossFightSeconds(snapshot, map, adjustment);
+  return {
+    enemies: enemyMetricsForMap(map, snapshot, adjustment),
+    bossFightSeconds: fightSeconds,
+    bossOutcome: fightSeconds === null ? null : bossFightOutcome(snapshot, map, adjustment, fightSeconds),
+    bossStrongestHit: map.boss ? (map.boss.strongestHit ?? Math.max(...Object.values(BOSS_DAMAGE_PROFILES[map.boss.kind]))) * adjustment.damage : null,
   };
 }
 

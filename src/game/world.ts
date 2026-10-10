@@ -15,6 +15,7 @@ import { CAMPS, ENEMY_TYPES, type EnemyKind } from "./enemies";
 import { savedMapDesign } from "./map-design";
 import { isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
 import { gatewayClearings } from "../../shared/map-gateways";
+import { PLAYER_SPAWN } from "../../shared/rules";
 
 export type WorldPath = { x: number; y: number; w: number; h: number };
 type WorldDecorPlacement = { x: number; y: number; color?: string };
@@ -720,12 +721,37 @@ function authoredWorldLayout(playerSpawn: Point, mapId: MapId) {
   return { decor, paths };
 }
 
+/**
+ * Where no enemy of a campaign map may spawn: its arrival, its portals, in the forest where new
+ * characters start, and the edge of every other region (so two camps' enemies stand apart). Regions
+ * overlap some of these; since every map holds eight enemies a stat (0.901.47) their points are drawn
+ * around them rather than hoping the draw misses (world.test.ts holds the rules).
+ */
+const NEIGHBOUR_REGION_GAP = 80;
+const campaignKeepClear = new Map<string, readonly { x: number; y: number; r: number }[]>();
+function keepClearFor(mapId: string) {
+  let spots = campaignKeepClear.get(mapId);
+  if (!spots) {
+    const clearings = gatewayClearings(mapId);
+    spots = [...clearings.slice(0, -1).map(spot => ({ ...spot, r: 440 })), ...clearings.slice(-1).map(spot => ({ ...spot, r: 480 })),
+      ...(mapId === TUTORIAL_FOREST_MAP_ID ? [{ ...PLAYER_SPAWN, r: 480 }] : [])];
+    campaignKeepClear.set(mapId, spots);
+  }
+  return spots;
+}
+
 export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly SpawnCamp[] {
   // The Soul Dimension fills the forest's camps with each player's own (soul-dimension-runtime.ts).
   if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isTownMap(mapId)) return [];
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).camps;
+  const camps = authoredSpawnCamps(mapId);
+  return camps.map(camp => ({ ...camp, types: [...camp.types], keepClear: [...keepClearFor(mapId),
+    ...camps.filter(other => other !== camp).map(other => ({ x: other.x, y: other.y, r: other.radius + NEIGHBOUR_REGION_GAP }))] }));
+}
+
+function authoredSpawnCamps(mapId: MapId): readonly SpawnCamp[] {
   const saved = savedMapDesign(mapId);
-  if (saved?.spawnCamps.length) return saved.spawnCamps.map((camp) => ({ ...camp, types: [...camp.types] }));
+  if (saved?.spawnCamps.length) return saved.spawnCamps;
   return mapId === BEGINNER_DESERT_MAP_ID
     ? DESERT_CAMPS
     : mapId === INTERMEDIATE_SNOWLANDS_MAP_ID

@@ -1,19 +1,18 @@
 import {
   addSoulKills, cleanSoulStats, EMPTY_REWARD_KILLS, isSoulMap, soulDimensionAccess, soulEnemyStats, soulTier,
-  withSoulStats, withoutSoulStats, EMPTY_SOUL_STATS, SOUL_ATTACK_SPEED_CEILING, SOUL_CAMPS, SOUL_STAT_DETAILS,
+  withSoulStats, withoutSoulStats, EMPTY_SOUL_STATS, SOUL_CAMPS, SOUL_STAT_DETAILS,
   type RewardKillCounts, type SoulStatId, type SoulStats, type SoulStrength,
 } from "../../../shared/soul-dimension";
 import { TOWN_SOUL_PORTAL } from "../../../shared/town";
-import { TUTORIAL_FOREST_MAP_ID } from "../../../shared/rules";
 import { isDeveloperIdentity } from "../../app/developer";
 import { ENEMY_TYPES, type EnemyDefinition } from "../enemies";
 import { regionSpawnPoints } from "../region-scatter";
 import { soulCampName, soulCampStat, soulRewardText, soulStatOfCampName, SOUL_ENEMY_SPECIES } from "../soul-world";
-import { mapSpawnCamps, type MapId, type SpawnSite } from "../world";
+import type { MapId, SpawnSite } from "../world";
 import type { MapPortal } from "./map-controller";
 import type { EnemyState, PlayerState } from "./types";
 import { createSoulDefenseForce } from "./soul-defense-force";
-import { trimSoulCritDamage, type CriticalDamageParts } from "../../../shared/critical-damage";
+import { cleanRating } from "../../../shared/stat-rating";
 import { gameConfirm } from "../../ui/confirm-dialog";
 
 export type SoulDimensionSource = {
@@ -61,10 +60,8 @@ export function createSoulDimensionRuntime(deps: {
   message?: (text: string, color: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   sendToTown?: () => Promise<boolean>;
-  /** The capped critical damage multiplier with this much soul critical damage in it, as combat rolls it. */
+  /** The capped critical damage multiplier with this much soul crit damage rating in it, as combat rolls it. */
   researchCritMultiplier?: (soulCritDamage: number) => number;
-  /** Critical damage's other parts: soul critical damage shown never takes the total past 100×, as the server stores it. */
-  critDamageParts?: () => CriticalDamageParts;
 }) {
   let filledTier = -1;
   const defenseForce = createSoulDefenseForce({ identity: () => deps.source()?.localIdentity?.(), player: deps.player, enemies: deps.enemies,
@@ -84,8 +81,8 @@ export function createSoulDimensionRuntime(deps: {
     const base = cleanSoulStats(server);
     return {
       damage: base.damage + pending.damage, maxHp: base.maxHp + pending.maxHp, armor: base.armor + pending.armor,
-      regen: base.regen + pending.regen, attackSpeed: Math.min(SOUL_ATTACK_SPEED_CEILING, base.attackSpeed + pending.attackSpeed),
-      critDamage: deps.critDamageParts ? trimSoulCritDamage(base.critDamage + pending.critDamage, deps.critDamageParts()) : base.critDamage + pending.critDamage,
+      regen: base.regen + pending.regen, attackSpeed: cleanRating(base.attackSpeed + pending.attackSpeed),
+      critDamage: cleanRating(base.critDamage + pending.critDamage),
     };
   }
   /** The soul stats in play: all of them in a normal run, none during a challenge (Reflect Only or Aggro). */
@@ -117,11 +114,11 @@ export function createSoulDimensionRuntime(deps: {
     filledTier = currentTier;
     deps.enemies.length = 0;
     deps.spawnSites.length = 0;
-    const camps = mapSpawnCamps(TUTORIAL_FOREST_MAP_ID);
-    for (const [index, camp] of camps.entries()) {
-      const soulCamp = SOUL_CAMPS[index];
-      const stat = soulCamp ? soulCampStat(soulCamp, currentTier) : null;
-      if (!soulCamp || !stat) continue;
+    // The camps the forest had before 0.901.47: the Soul Dimension keeps them as they were.
+    for (const soulCamp of SOUL_CAMPS) {
+      const camp = soulCamp;
+      const stat = soulCampStat(soulCamp, currentTier);
+      if (!stat) continue;
       for (const point of regionSpawnPoints(camp).slice(0, camp.count)) {
         const site: SpawnSite = { id: deps.spawnSites.length, x: point.x, y: point.y, type: SOUL_ENEMY_SPECIES[stat], campName: soulCampName(stat, soulCamp),
           groupAggro: false, leashRange: Math.max(420, camp.radius * .9), alive: false, respawnAt: 0, definition: definitionFor(stat) };

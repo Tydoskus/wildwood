@@ -6,10 +6,9 @@ import { CRITICAL_DAMAGE_BASE, criticalDamage } from "../../shared/critical-dama
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber, formatRate } from "./number-format";
-import { paysSpeedRating } from "../game/combat";
-import { speedFromAttacksPerSecond } from "../../shared/attack-speed-rating";
+import { attackSpeedLabel, attackSpeedRatingForInterval, critDamageLabel } from "../../shared/stat-rating";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
-import { cleanSoulStats, SOUL_ATTACK_SPEED_CEILING, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
+import { cleanSoulStats, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
 
 export function formatPlayedTime(seconds: number) {
@@ -161,11 +160,12 @@ export function profileStatDisplayRows(
     return sources;
   };
   const baseAttackInterval = Math.max(minAttackInterval, progress.attackRate);
-  // On the curve Attack Speed is a rating that never reaches the cap; the
-  // expanded line names the rating behind the rate, as Armor names its Block.
-  const speedRating = paysSpeedRating() ? speedFromAttacksPerSecond(1 / baseAttackInterval) : null;
-  const attackSpeedMaxed = speedRating === null && baseAttackInterval <= minAttackInterval + .0001;
-  const baseAttackSpeed = `${(1 / baseAttackInterval).toFixed(2)}/s${attackSpeedMaxed ? " (Max)" : ""}`;
+  // Attack Speed is a rating on a curve that only closes in on the cap (shared/stat-rating.ts): the
+  // expanded line names the rating behind the rate, as Armor names its Block, and "(Max)" shows once
+  // the rate reads the same as the cap.
+  const speedRating = attackSpeedRatingForInterval(baseAttackInterval, minAttackInterval);
+  const ratingText = (rating: number) => rating >= 1_000 ? formatCompactNumber(rating) : Number(rating.toPrecision(3)).toString();
+  const baseAttackSpeed = attackSpeedLabel(1 / baseAttackInterval, 1 / minAttackInterval);
   const attackSpeed = `${(1 / effective.attackRate).toFixed(2)}/s`;
   const regen = `${formatRate(effective.regen)}/s`;
   const healthResearchBonus = researchBonus(ranks.vitality, 2);
@@ -206,10 +206,9 @@ export function profileStatDisplayRows(
       kind: "attack", label: "Attack Speed:", base: baseAttackSpeed,
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
-      ...(speedRating === null ? {} : { expandedDetail: `(${speedRating >= 1_000 ? formatCompactNumber(speedRating) : Number(speedRating.toPrecision(3))} Attack Speed)` }),
-      // The soul's own attack speed, as earned (a fresh unlock's few thousandths included), marked Max once
-      // it is all there is: enough for a fresh character to reach the highest cap (Ryan).
-      sources: soulSource(soul.attackSpeed, value => `${value >= .001 ? value.toFixed(3) : Number(value.toPrecision(2))}/s${value >= SOUL_ATTACK_SPEED_CEILING - 1e-9 ? " (Max)" : ""}`),
+      expandedDetail: `(${ratingText(speedRating)} Rating)`,
+      // The soul's own rating, which adds to the run's and is kept through prestige.
+      sources: soulSource(soul.attackSpeed, value => `${ratingText(value)} Rating`),
     },
     {
       kind: "range", label: "Attack Range:", base: statValue(baseRange),
@@ -265,19 +264,20 @@ export function profileStatDisplayRows(
       ...(perkCritical ? [{ label: "Prestige" as const, value: `+${percentPoints(perkCritical)}` }] : []),
     ],
   });
-  // Combat stops at the cap (50×, 10× more a Crit Cap rank), so the row does
-  // too. Research and Keen Edge never reach it; what the soul adds past it is
-  // still stored and counts again as the cap rises, so its line says (Max).
-  const crit = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: soul.critDamage, capRank: ranks.critCap });
-  const soulCritical = crit.capped ? Math.max(0, crit.cap - CRITICAL_DAMAGE_BASE - crit.research - crit.perk) : crit.soul;
+  // A rating on a curve toward 100× (shared/stat-rating.ts): crit camps' rating, the soul's on top, then
+  // research and Keen Edge, each a share closer. Combat stops at the cap (50×, 10× more a Crit Cap rank),
+  // so the row does too, and says (Max) once it reads the same as the cap.
+  const crit = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: soul.critDamage, rating: profile.progress.critRating, capRank: ranks.critCap });
+  const shown = (value: number) => `+${value.toFixed(2)}×`;
+  const bonusShare = (part: number) => crit.research + crit.perk > 0 ? crit.fromBonuses * part / (crit.research + crit.perk) : 0;
   stats.push({
     kind: "critical-damage", label: "Critical Damage:", base: `${CRITICAL_DAMAGE_BASE.toFixed(2)}×`, equationOperator: "+",
-    multiplier: `${(crit.multiplier - CRITICAL_DAMAGE_BASE).toFixed(2)}×`, total: `${crit.multiplier.toFixed(2)}×${crit.capped ? " (Max)" : ""}`,
-    equationTotal: `${crit.multiplier.toFixed(2)}×`, expandedDetail: `(${crit.cap}× Cap)`,
+    multiplier: `${(crit.multiplier - CRITICAL_DAMAGE_BASE).toFixed(2)}×`, total: critDamageLabel(crit.multiplier, crit.cap),
+    equationTotal: `${crit.multiplier.toFixed(2)}×`, expandedDetail: `(${ratingText(crit.rating)} Rating · ${crit.cap}× Cap)`,
     sources: [
-      ...(crit.research ? [{ label: "Tech" as const, value: `+${crit.research.toFixed(2)}×` }] : []),
-      ...(crit.perk ? [{ label: "Prestige" as const, value: `+${crit.perk.toFixed(2)}×` }] : []),
-      ...soulSource(soulCritical, value => `${value.toFixed(2)}×${crit.capped ? " (Max)" : ""}`),
+      ...(crit.research ? [{ label: "Tech" as const, value: shown(bonusShare(crit.research)) }] : []),
+      ...(crit.perk ? [{ label: "Prestige" as const, value: shown(bonusShare(crit.perk)) }] : []),
+      ...soulSource(crit.soul, value => `${ratingText(value)} Rating`),
     ],
   });
   // The remaining perks have no research behind them, so a row only appears

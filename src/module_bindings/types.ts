@@ -1777,6 +1777,12 @@ export const PlayerChatMute = __t.object("PlayerChatMute", {
 });
 export type PlayerChatMute = __Infer<typeof PlayerChatMute>;
 
+export const PlayerCombatRating = __t.object("PlayerCombatRating", {
+  identity: __t.identity(),
+  critDamage: __t.f64(),
+});
+export type PlayerCombatRating = __Infer<typeof PlayerCombatRating>;
+
 export const PlayerController = __t.object("PlayerController", {
   identity: __t.identity(),
   connectionId: __t.connectionId(),

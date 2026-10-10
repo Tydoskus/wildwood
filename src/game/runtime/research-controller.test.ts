@@ -1,3 +1,4 @@
+import { criticalDamageMultiplier } from "../../../shared/critical-damage";
 import { expect, it, vi } from "vitest";
 import { createEmptyResearchRanks } from "../../../shared/research";
 import { createResearchController } from "./research-controller";
@@ -26,9 +27,10 @@ it("rolls criticals at the cap: 50×, 10× more a Crit Cap rank", () => {
   const research = createResearchController({ player: {} as PlayerState, getRanks: () => ranks, isDueling: () => false, maxPlayerStat: 1e30,
     saveProgress: () => {}, prestigePerks: () => ({ keenEdge: 1 }) });
   expect(research.criticalDamageMultiplier()).toBeCloseTo(1.05 + .2 + .12);
-  expect(research.criticalDamageMultiplier(10)).toBeCloseTo(11.37);
-  expect(research.criticalDamageMultiplier(300)).toBe(50);
+  expect(research.criticalDamageMultiplier(10)).toBeCloseTo(criticalDamageMultiplier({ researchRank: 4, perks: { keenEdge: 1 }, soul: 10 }));
+  expect(research.criticalDamageMultiplier(0, 10)).toBeCloseTo(research.criticalDamageMultiplier(10));
+  expect(research.criticalDamageMultiplier(1e300)).toBe(50);
   ranks = { ...ranks, critCap: 4 };
-  expect(research.criticalDamageMultiplier(300)).toBe(90);
+  expect(research.criticalDamageMultiplier(1e300)).toBe(90);
   expect(research.criticalDamageParts()).toMatchObject({ researchRank: 4, capRank: 4 });
 });

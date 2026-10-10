@@ -3123,7 +3123,7 @@
           "x": 480,
           "y": 2020,
           "radius": 840,
-          "count": 6,
+          "count": 4,
           "types": [
             "Bramble"
           ],
@@ -3147,7 +3147,7 @@
           "x": 2950,
           "y": 1760,
           "radius": 720,
-          "count": 5,
+          "count": 8,
           "types": [
             "Needle"
           ],
@@ -3159,7 +3159,7 @@
           "x": 4360,
           "y": 2330,
           "radius": 760,
-          "count": 7,
+          "count": 8,
           "types": [
             "Brood"
           ],
@@ -3171,7 +3171,7 @@
           "x": 1900,
           "y": 2910,
           "radius": 800,
-          "count": 6,
+          "count": 5,
           "types": [
             "Mossback"
           ],
@@ -3183,9 +3183,8 @@
           "x": 4140,
           "y": 740,
           "radius": 800,
-          "count": 6,
+          "count": 3,
           "types": [
-            "Cindermaw",
             "Cindermaw",
             "Cindermaw",
             "Dread Warden"
@@ -3198,7 +3197,7 @@
           "x": 960,
           "y": 4190,
           "radius": 720,
-          "count": 4,
+          "count": 2,
           "types": [
             "Bramble"
           ],
@@ -3210,7 +3209,7 @@
           "x": 2430,
           "y": 4380,
           "radius": 720,
-          "count": 4,
+          "count": 3,
           "types": [
             "Mossback"
           ],
@@ -3228,6 +3227,18 @@
           ],
           "ground": "#405438",
           "ring": "#82bc68"
+        },
+        {
+          "name": "Razor Thicket",
+          "x": 1740,
+          "y": 1640,
+          "radius": 300,
+          "count": 8,
+          "types": [
+            "Striker"
+          ],
+          "ground": "#4a2a40",
+          "ring": "#d77ab4"
         }
       ],
       "gameplay": {
@@ -6209,10 +6220,8 @@
           "x": 2490,
           "y": 880,
           "radius": 820,
-          "count": 6,
+          "count": 8,
           "types": [
-            "Dune Archer",
-            "Dune Archer",
             "Dune Archer",
             "Dune Archer",
             "Dune Archer",
@@ -6224,7 +6233,7 @@
           "x": 4150,
           "y": 750,
           "radius": 460,
-          "count": 5,
+          "count": 8,
           "types": [
             "Blight Oracle"
           ]
@@ -6233,8 +6242,8 @@
           "name": "Reaper Approach",
           "x": 1770,
           "y": 1480,
-          "radius": 0,
-          "count": 1,
+          "radius": 90,
+          "count": 2,
           "types": [
             "Wastes Reaper"
           ]
@@ -6244,7 +6253,7 @@
           "x": 3800,
           "y": 2230,
           "radius": 940,
-          "count": 7,
+          "count": 4,
           "types": [
             "Venom Guard"
           ]
@@ -6254,9 +6263,29 @@
           "x": 2050,
           "y": 3650,
           "radius": 980,
-          "count": 7,
+          "count": 4,
           "types": [
             "Venom Guard"
+          ]
+        },
+        {
+          "name": "Whirlwind Pass",
+          "x": 540,
+          "y": 540,
+          "radius": 480,
+          "count": 8,
+          "types": [
+            "Dune Needle"
+          ]
+        },
+        {
+          "name": "Glint Ridge",
+          "x": 540,
+          "y": 4240,
+          "radius": 480,
+          "count": 8,
+          "types": [
+            "Dune Striker"
           ]
         }
       ],
@@ -7882,7 +7911,7 @@
           "x": 1370,
           "y": 1740,
           "radius": 800,
-          "count": 6,
+          "count": 4,
           "types": [
             "Gale Prowler"
           ]
@@ -7892,10 +7921,8 @@
           "x": 2990,
           "y": 880,
           "radius": 800,
-          "count": 6,
+          "count": 8,
           "types": [
-            "Nimbus Archer",
-            "Nimbus Archer",
             "Nimbus Archer",
             "Nimbus Archer",
             "Nimbus Archer",
@@ -7907,7 +7934,7 @@
           "x": 4040,
           "y": 2270,
           "radius": 880,
-          "count": 7,
+          "count": 8,
           "types": [
             "Skyguard Colossus"
           ]
@@ -7917,7 +7944,7 @@
           "x": 840,
           "y": 3540,
           "radius": 840,
-          "count": 7,
+          "count": 4,
           "types": [
             "Thunder Reaper"
           ]
@@ -7927,9 +7954,29 @@
           "x": 2390,
           "y": 4130,
           "radius": 760,
-          "count": 6,
+          "count": 8,
           "types": [
             "Tempest Oracle"
+          ]
+        },
+        {
+          "name": "Gust Run",
+          "x": 480,
+          "y": 480,
+          "radius": 420,
+          "count": 8,
+          "types": [
+            "Gale Needle"
+          ]
+        },
+        {
+          "name": "Lightning Ridge",
+          "x": 4320,
+          "y": 480,
+          "radius": 420,
+          "count": 8,
+          "types": [
+            "Gale Striker"
           ]
         }
       ],

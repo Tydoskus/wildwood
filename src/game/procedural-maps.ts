@@ -1,6 +1,7 @@
 import { runtimeMapBalance } from "../../shared/map-balance-runtime";
 import {
   PROCEDURAL_FIRST_TIER,
+  endlessSiteLane,
   generateMap,
   generatedEnemyStats,
   isProceduralMap,
@@ -28,7 +29,6 @@ export function generatedMapContent(id: ProceduralMapId) {
     // camp are what the server's site:N kill ids rely on, and they are unchanged.
     const points = regionSpawnPoints(camps[i]);
     for (let j = 0; j < camp.count; j++) {
-      const elite = camp.stat === "damage" && j >= 6;
       sites.push({
         id: sites.length,
         x: points[j].x,
@@ -40,7 +40,7 @@ export function generatedMapContent(id: ProceduralMapId) {
         respawnAt: 0,
         definition: {
           ...ENEMY_TYPES[kind],
-          ...generatedEnemyStats(map, elite ? "Dread Warden" : camp.lane),
+          ...generatedEnemyStats(map, endlessSiteLane(camp, j)),
           r: Math.min(GENERATED_ENEMY_MAX_RADIUS, ENEMY_TYPES[kind].r),
           speed: runtimeMapBalance(id)?.enemies[kind]?.speed ?? campaignMeleeChaseSpeed(PROCEDURAL_FIRST_TIER),
           elite: false,

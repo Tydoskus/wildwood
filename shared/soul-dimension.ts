@@ -15,11 +15,10 @@
  *   they spawn, and pay a flat reward that never grows.
  */
 import { armorDamageReduction } from "./combat";
-import { DEFAULT_ATTACK_INTERVAL, MIN_ATTACK_INTERVAL, TUTORIAL_FOREST_MAP_ID } from "./rules";
-import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "./prestige-challenge";
+import { MIN_ATTACK_INTERVAL, TUTORIAL_FOREST_MAP_ID } from "./rules";
 import { CAMPAIGN_GATEWAYS } from "./map-gateways";
-import designs from "./map-designs.json";
 import { TOWN_MAP_ID } from "./town";
+import { attackIntervalForRating, attackSpeedRatingForInterval, cleanRating, RATING_MAX } from "./stat-rating";
 
 export const SOUL_MAP_ID = "soul_dimension";
 export type SoulMapId = typeof SOUL_MAP_ID;
@@ -41,10 +40,9 @@ export const SOUL_STAT_DETAILS: Readonly<Record<SoulStatId, { label: string; sho
   health: { label: "Health", short: "HP", reward: 1, color: "#7ee08a" },
   armor: { label: "Armor", short: "Armor", reward: 1, color: "#9cc3ff" },
   regen: { label: "Regen", short: "Regen", reward: .1, color: "#7fe8d8" },
-  // Attacks a second, on top of the run's; the attack speed cap still holds.
-  attackSpeed: { label: "Attack Speed", short: "Atk Spd", reward: .001, color: "#ffd36e" },
-  // A share of a critical hit's multiplier: .002 is +0.2% critical damage.
-  critDamage: { label: "Crit Damage", short: "Crit Dmg", reward: .002, color: "#e7a6ff" },
+  // Rating points (stat-rating.ts) added to the run's. A map 1 attack speed kill pays 2.5, so these are small.
+  attackSpeed: { label: "Attack Speed", short: "Atk Spd", reward: 1, color: "#ffd36e" },
+  critDamage: { label: "Crit Damage", short: "Crit Dmg", reward: 1, color: "#e7a6ff" },
 };
 export const SOUL_TIER_COUNT = SOUL_STAT_ORDER.length;
 
@@ -53,8 +51,8 @@ export const SOUL_REWARD_KILL_TYPES = ["damage", "health", "armor", "regen", "sp
 export type RewardKillType = typeof SOUL_REWARD_KILL_TYPES[number];
 export type RewardKillCounts = Record<RewardKillType, number>;
 /**
- * The reward types every tier asks kills of. Not attack speed: few maps have attack speed enemies, so asking
- * for them held tiers back; these four are on every map, so farming anywhere fills them all.
+ * The reward types every tier asks kills of. Not attack speed: when tiers were set few maps had attack speed
+ * enemies (every map has since 0.901.47, and crit camps), and the tiers players have reached stay where they are.
  */
 export const SOUL_TIER_KILL_TYPES = ["damage", "health", "armor", "regen"] as const satisfies readonly RewardKillType[];
 export type SoulTierKillType = typeof SOUL_TIER_KILL_TYPES[number];
@@ -86,19 +84,11 @@ export function soulStatValue(soul: Partial<SoulStats> | null | undefined, stat:
   const value = Number(soul?.[SOUL_STAT_FIELD[stat]] ?? 0);
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
-/**
- * The most soul attack speed there is: what takes a fresh character (DEFAULT_ATTACK_INTERVAL) to the highest
- * attack speed cap, Reflect Only's four wins included (Ryan). Kills earn it up to here and never past it; it
- * counts in play only up to the player's own cap.
- */
-export const SOUL_ATTACK_SPEED_CEILING = 1 / CHALLENGE_ABSOLUTE_MIN_INTERVAL - 1 / DEFAULT_ATTACK_INTERVAL;
-
 /** Soul stats after `count` kills of one soul enemy. Flat: the reward never grows. */
 export function addSoulKills(soul: Partial<SoulStats> | null | undefined, stat: SoulStatId, count: number): SoulStats {
   const next = { ...EMPTY_SOUL_STATS, ...cleanSoulStats(soul) };
   const field = SOUL_STAT_FIELD[stat];
-  next[field] += SOUL_STAT_DETAILS[stat].reward * Math.max(0, Math.floor(count));
-  next.attackSpeed = Math.min(next.attackSpeed, SOUL_ATTACK_SPEED_CEILING);
+  next[field] = Math.min(RATING_MAX, next[field] + SOUL_STAT_DETAILS[stat].reward * Math.max(0, Math.floor(count)));
   return next;
 }
 export function cleanSoulStats(soul: Partial<SoulStats> | null | undefined): SoulStats {
@@ -107,16 +97,18 @@ export function cleanSoulStats(soul: Partial<SoulStats> | null | undefined): Sou
     const value = Number(soul?.[key] ?? 0);
     clean[key] = Number.isFinite(value) ? Math.max(0, value) : 0;
   }
-  clean.attackSpeed = Math.min(clean.attackSpeed, SOUL_ATTACK_SPEED_CEILING);
+  clean.attackSpeed = cleanRating(clean.attackSpeed);
+  clean.critDamage = cleanRating(clean.critDamage);
   return clean;
 }
 
 /**
  * A run's base stats with the soul's added: what every combat read starts
- * from. Attack speed adds attacks a second and stops at the player's cap,
- * `minInterval`: the usual one, or the higher one Reflect Only wins earn
- * (challengeMinimumInterval). Capping at the usual one wasted soul attack
- * speed on every Reflect winner, while the profile still listed all of it.
+ * from. Attack speed and crit damage are ratings (stat-rating.ts). The soul's
+ * attack speed adds to the run's, read back from its interval under the
+ * player's cap, `minInterval`: the usual one, or the higher one Reflect Only
+ * wins earn (challengeMinimumInterval). Crit damage adds where the multiplier
+ * is worked out (critical-damage.ts).
  */
 export function withSoulStats<T extends { damage: number; maxHp: number; armor: number; regen: number; attackRate: number }>(
   progress: T, soul: Partial<SoulStats> | null | undefined, minInterval = MIN_ATTACK_INTERVAL,
@@ -125,7 +117,8 @@ export function withSoulStats<T extends { damage: number; maxHp: number; armor: 
   const clean = cleanSoulStats(soul);
   if (!clean.damage && !clean.maxHp && !clean.armor && !clean.regen && !clean.attackSpeed) return progress;
   const interval = progress.attackRate > 0 ? progress.attackRate : 1;
-  const faster = clean.attackSpeed > 0 ? Math.max(minInterval, 1 / (1 / interval + clean.attackSpeed)) : interval;
+  const faster = clean.attackSpeed > 0
+    ? attackIntervalForRating(attackSpeedRatingForInterval(interval, minInterval) + clean.attackSpeed, minInterval) : interval;
   return {
     ...progress,
     damage: progress.damage + clean.damage,
@@ -149,8 +142,8 @@ export function withoutSoulStats<T extends { damage: number; maxHp: number; armo
   if (!clean.damage && !clean.maxHp && !clean.armor && !clean.regen && !clean.attackSpeed) return progress;
   let attackRate = progress.attackRate;
   if (clean.attackSpeed > 0) {
-    const slower = 1 / progress.attackRate - clean.attackSpeed;
-    attackRate = progress.attackRate > minInterval + 1e-9 && slower > 0 ? 1 / slower : savedAttackRate;
+    const total = attackSpeedRatingForInterval(progress.attackRate, minInterval);
+    attackRate = total < RATING_MAX && total > clean.attackSpeed ? attackIntervalForRating(total - clean.attackSpeed, minInterval) : savedAttackRate;
   }
   return {
     ...progress,
@@ -173,15 +166,22 @@ export function soulStatFromEnemyId(enemy: string): SoulStatId | null {
 }
 /** The reward type a soul kill carries through the kill report: run stats ignore it. */
 export const soulRewardType = (stat: SoulStatId) => `soul:${stat}`;
-export type SoulCamp = { key: string; x: number; y: number; radius: number; count: number; roll: number };
-type DesignCamp = { name: string; x: number; y: number; radius: number; count: number };
-const forestDesign = (designs.maps as unknown as Record<string, { status: string; spawnCamps: DesignCamp[] }>)[TUTORIAL_FOREST_MAP_ID];
+export type SoulCamp = { key: string; name: string; x: number; y: number; radius: number; count: number; roll: number };
 /**
- * Tutorial Forest's camps, as the Soul Dimension holds them: its live map design's, each with a roll fixed by
- * its place in the list. The stat each camp is depends on the player's tier, so that is left to `roll`.
+ * Tutorial Forest's camps as the Soul Dimension holds them, each with a roll fixed by its place in the list.
+ * The stat each camp is depends on the player's tier, so that is left to `roll`. Held here since 0.901.47,
+ * when the forest moved to eight enemies a stat: the Soul Dimension keeps the camps (and, by their names and
+ * sizes, the spawn points: region-scatter.ts) it had.
  */
-export const SOUL_CAMPS: readonly SoulCamp[] = (forestDesign?.status === "live" ? forestDesign.spawnCamps : []).map((camp, index) => Object.freeze({
-  key: `forest:${index}`, x: camp.x, y: camp.y, radius: camp.radius, count: camp.count,
+const SOUL_CAMP_LAYOUT: readonly { name: string; x: number; y: number; radius: number; count: number }[] = [
+  { name: "Ember Fen", x: 480, y: 2020, radius: 840, count: 6 }, { name: "Thornshot Rise", x: 2150, y: 520, radius: 720, count: 5 },
+  { name: "Glass Thicket", x: 2950, y: 1760, radius: 720, count: 5 }, { name: "Brine Marsh", x: 4360, y: 2330, radius: 760, count: 7 },
+  { name: "Mossfall Ruins", x: 1900, y: 2910, radius: 800, count: 6 }, { name: "Cinder Quarry", x: 4140, y: 740, radius: 800, count: 6 },
+  { name: "Moonroot Grove", x: 960, y: 4190, radius: 720, count: 4 }, { name: "Sunken Yard", x: 2430, y: 4380, radius: 720, count: 4 },
+  { name: "Royal Hollow", x: 3260, y: 3060, radius: 520, count: 2 },
+];
+export const SOUL_CAMPS: readonly SoulCamp[] = SOUL_CAMP_LAYOUT.map((camp, index) => Object.freeze({
+  key: `forest:${index}`, name: camp.name, x: camp.x, y: camp.y, radius: camp.radius, count: camp.count,
   // A golden-ratio step spreads the camps across the stats a tier has unlocked.
   roll: (index * .618_034 + .31) % 1,
 }));

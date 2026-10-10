@@ -10,7 +10,7 @@ import { DUEL_WIDE_FIELDS, narrowStat } from "../../shared/wide-stats";
 type SnapshotTable = "player" | "playerProgress" | "playerProfile" | "playerResearch"
   | "playerAccountStatus" | "playerItemUpgrade" | "duel";
 type Database = ReducerCtx<InferSchema<typeof schema>>["db"];
-type Context = { db: Pick<Database, SnapshotTable> & Partial<Pick<Database, "playerWideStats" | "duelWideStats">> };
+type Context = { db: Pick<Database, SnapshotTable> & Partial<Pick<Database, "playerWideStats" | "playerCombatRating" | "duelWideStats">> };
 type Row<T extends SnapshotTable> = Parameters<Database[T]["insert"]>[0];
 const primaryKey = (table: SnapshotTable) => table === "duel" ? "id" : table === "playerItemUpgrade" ? "key" : "identity";
 
@@ -45,6 +45,7 @@ export function updateSnapshotRow<T extends SnapshotTable>(ctx: Context, table: 
 }
 export function deleteSnapshotRow(ctx: Context, table: SnapshotTable, key: any) {
   if (table === "playerProgress" && ctx.db.playerWideStats?.identity.find(key)) ctx.db.playerWideStats.identity.delete(key);
+  if (table === "playerProgress" && ctx.db.playerCombatRating?.identity.find(key)) ctx.db.playerCombatRating.identity.delete(key);
   if (table === "duel") deleteDuelWide(ctx, key);
   return (ctx.db[table] as any)[primaryKey(table)].delete(key);
 }

@@ -1,5 +1,4 @@
 import { formatCompactNumber } from "../ui/number-format";
-import { paysSpeedRating } from "./combat";
 import { ENEMY_BOW_AIM_OFFSET_RADIANS, ENEMY_SPRITE_LAYOUTS, type EnemySpriteAnimationLayout } from "./enemy-sprite-layouts.mjs";
 
 export { ENEMY_BOW_AIM_OFFSET_RADIANS };
@@ -45,6 +44,7 @@ export const REWARD_DATA: Record<RewardType, { color: string }> = {
   speed: { color: "#ffe05d" },
   armor: { color: "#74d8ff" },
   regen: { color: "#ff7ccb" },
+  crit: { color: "#ff9a4d" },
 };
 
 
@@ -227,7 +227,6 @@ export function rewardLabel(reward: EnemyDefinition["reward"]) {
 }
 
 export function rewardAmountLabel(reward: EnemyDefinition["reward"]) {
-  if (reward.type === "speed" && !paysSpeedRating()) return `+${reward.amount.toFixed(2)}`;
   if (Math.abs(reward.amount) < 1_000 && !Number.isInteger(reward.amount)) return `+${reward.amount.toFixed(2)}`;
   return `+${formatCompactNumber(reward.amount)}`;
 }
@@ -235,7 +234,8 @@ export function rewardAmountLabel(reward: EnemyDefinition["reward"]) {
 export function rewardStatLabel(reward: EnemyDefinition["reward"]) {
   if (reward.type === "damage") return "Damage";
   if (reward.type === "health") return "Max Health";
-  if (reward.type === "speed") return paysSpeedRating() ? "Attack Speed" : "Atk/sec";
+  if (reward.type === "speed") return "Attack Speed";
+  if (reward.type === "crit") return "Crit Damage";
   if (reward.type === "armor") return "Armor";
   return "HP/sec";
 }

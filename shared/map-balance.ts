@@ -16,7 +16,15 @@ import { personalBossDefinition } from './personal-bosses';
 import { generateMap, isProceduralMap } from './procedural-maps';
 import { BOSS_DAMAGE_PROFILES } from './boss-damage';
 import { DEFAULT_BALANCE_FACTORS, type BalanceSettings, type MapBalanceSnapshot } from './map-balance-types';
+import { ratingRewardPerKill } from './stat-rating';
 const AUTHORED_RULES = { ...rules };
+/**
+ * Attack speed and crit camps (0.901.47) fight like their map's damage camp of the same rarity, and pay rating
+ * points on their own curve (stat-rating.ts): the map's per-kill rating, whatever its reward factors say.
+ */
+const paysRating = (type: string) => type === 'speed' || type === 'crit';
+const combatRole = (row: { elite?: boolean; reward: { type: string } }) =>
+  `${row.elite ? 'elite' : 'regular'}:${paysRating(row.reward.type) ? 'damage' : row.reward.type}`;
 const AUTHORED_ENEMIES = structuredCloneSafe(ENEMY_TYPES);
 function structuredCloneSafe<T>(value: T): T { return JSON.parse(JSON.stringify(value)); }
 export const BALANCE_MAPS: readonly (readonly [string, string, string])[] = [
@@ -79,11 +87,34 @@ export function validateBalanceSettings(value: unknown): BalanceSettings {
  */
 /** Every regen-paying enemy's reward, times this, campaign and Endless alike (Ryan, 2026-10-01). */
 export const REGEN_REWARD_BOOST = 1.5;
+/**
+ * Enemy and boss health, times this, on each campaign map since attack speed
+ * and crit damage became ratings and every map holds eight enemies a stat
+ * (0.901.47). The Balance Lab's typical player now arrives at map N with
+ * N - 1 levels of each (stat-rating.ts) instead of the 1.17 attacks a second
+ * the forest's Needles gave and research's crit alone: slower than before on
+ * the first maps, far harder-hitting later (crit damage near 35x by map 15).
+ * Fitted in the Lab (npm run balance:scorecard) so each map takes about as
+ * long as it did before the change. Endless inherits map 15's. The forest's
+ * (the Spitter baseline) stays at 1.
+ */
+export const RATING_HEALTH_FACTORS: Readonly<Record<string, number>> = Object.freeze({
+  beginner_desert: .367, intermediate_snowlands: .482, advanced_lava_wastes: .727, infernal_depths: .661, water_reach: .848,
+  samurai_garden: 1.572, cloudspire: 1.435, moonfen: 1.685, crystal_hollows: 1.927, clockwork_ruins: 2.264,
+  duskfall_orchard: 2.53, neon_bastion: 2.832, verdant_catacombs: 2.755, ion_citadel: 2.947,
+});
+/**
+ * A boss takes this share of its map's factor: at the full factor the Lab's
+ * bosses took about a quarter longer on arrival than before, and a player who
+ * farms only what power shows (no crit) stalled behind them.
+ */
+export const RATING_BOSS_HEALTH_SHARE = .8;
 
 export const ENDLESS_STEPS: Readonly<{ health: number; hit: number; reward: number; bossHealth: number }> = Object.freeze({ health: 5.2, hit: 5.68, reward: 4.75, bossHealth: 5.06 });
 
 /** Resolved numbers cross the wire; apps do not need the current scaling formula. */
-export function resolveMapBalance(mapId: string, settings: BalanceSettings, revision: number, configurationVersion: 1 | 2 = 2): MapBalanceSnapshot {
+/** `ratingHealth: false` resolves without RATING_HEALTH_FACTORS: the generators that bake older revisions use it. */
+export function resolveMapBalance(mapId: string, settings: BalanceSettings, revision: number, configurationVersion: 1 | 2 = 2, options: { ratingHealth?: boolean } = {}): MapBalanceSnapshot {
   // Also cover direct callers (Balance Lab and archived settings), not only server saves.
   if (settings.baselineVersion !== BALANCE_BASELINE_VERSION) settings = validateBalanceSettings(settings);
   const result: MapBalanceSnapshot = { schema: 1, enemyDamageVersion: 1, revision, mapId, enemies: {}, lanes: {}, boss: null, rules: {} };
@@ -98,7 +129,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     // ENDLESS_STEPS, the same for every camp.
     // Endless 1 is map 15 times the Endless factors; each map after grows by the steps.
     const map = generateMap(mapId), depth = Math.min(map.number - 1, 1_000);
-    const last = resolveMapBalance(CAMPAIGN_ENDPOINT.mapId, settings, revision, configurationVersion);
+    const last = resolveMapBalance(CAMPAIGN_ENDPOINT.mapId, settings, revision, configurationVersion, options);
     const cap = (n: number) => Math.min(rules.MAX_PLAYER_STAT, Number.isFinite(n) ? n : rules.MAX_PLAYER_STAT);
     const grow = (n: number, step: number) => cap(n * step ** depth);
     // A camp's values on map 15. It has some camps only as an elite (its regen
@@ -122,7 +153,8 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
       result.lanes[lane] = {
         hp: grow(now.hp * factors.enemyHealth, ENDLESS_STEPS.health),
         damage: grow(now.damage * factors.enemyDamage, ENDLESS_STEPS.hit),
-        reward: { ...now.reward, amount: grow(now.reward.amount * factors.enemyRewards, ENDLESS_STEPS.reward) },
+        reward: { ...now.reward, amount: paysRating(now.reward.type) ? ratingRewardPerKill(CAMPAIGN_MAPS.length + map.number)
+          : grow(now.reward.amount * factors.enemyRewards, ENDLESS_STEPS.reward) },
       };
     }
     // Generated camps reuse art, but receive these resolved combat values at spawn.
@@ -137,23 +169,29 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
       respawnSeconds: definition.respawnSeconds, attacks: {},
       rewards: {} };
   } else {
+    const ratingHealth = options.ratingHealth === false ? 1 : RATING_HEALTH_FACTORS[mapId] ?? 1;
+    const ratingBossHealth = ratingHealth === 1 ? 1 : ratingHealth * RATING_BOSS_HEALTH_SHARE;
     for (const kind of Object.keys(ENEMY_TYPES) as EnemyKind[]) {
       if (!enemyDefeatDefinition(mapId, kind)) continue;
       const row = AUTHORED_ENEMIES[kind];
       const curve = settings.campaignProgressionVersion === 1 && mapId !== CAMPAIGN_MAPS[0].id
-        ? CAMPAIGN_PROGRESSION_ENEMIES[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] : undefined;
+        ? CAMPAIGN_PROGRESSION_ENEMIES[mapId]?.[combatRole(row)] : undefined;
       result.enemies[kind] = { ...row, hp: row.hp * (settings.campaignHealthVersion === 1
-          ? CAMPAIGN_HEALTH_FACTORS[mapId]?.[`${row.elite ? 'elite' : 'regular'}:${row.reward.type}`] ?? 1 : 1) * (curve?.hp ?? 1) * factors.enemyHealth, damage: (curve?.damage ?? row.damage) * factors.enemyDamage,
+          ? CAMPAIGN_HEALTH_FACTORS[mapId]?.[combatRole(row)] ?? 1 : 1) * (curve?.hp ?? 1) * factors.enemyHealth * ratingHealth, damage: (curve?.damage ?? row.damage) * factors.enemyDamage,
         speed: row.speed * factors.enemySpeed, reward: { ...row.reward, amount: (curve?.reward ?? row.reward.amount) * factors.enemyRewards } };
     }
     if (settings.campaignRewardVersion === 1) applyCampaignRewardFloor(mapId, settings, result.enemies);
     // Regen camps pay half again (0.845); Endless inherits it from map 15.
     for (const enemy of Object.values(result.enemies)) if (enemy.reward.type === 'regen') enemy.reward = { ...enemy.reward, amount: enemy.reward.amount * REGEN_REWARD_BOOST };
+    const mapNumber = CAMPAIGN_MAPS.findIndex(map => map.id === mapId) + 1;
+    for (const enemy of Object.values(result.enemies)) {
+      if (paysRating(enemy.reward.type)) enemy.reward = { ...enemy.reward, amount: ratingRewardPerKill(mapNumber) };
+    }
     const prefix = BALANCE_MAPS.find(([id]) => id === mapId)![2];
     const rewardValues: Record<string, number> = {};
     for (const [key, value] of Object.entries(AUTHORED_RULES)) {
       if (typeof value !== 'number') continue;
-      if (key === `${prefix}_MAX_HP`) result.rules[key] = value * factors.bossHealth;
+      if (key === `${prefix}_MAX_HP`) result.rules[key] = value * factors.bossHealth * ratingBossHealth;
       // Bosses pay nothing: beating one opens the next map (Ryan, 2026-09-30).
       if (key.startsWith(`${prefix}_REWARD_`)) {
         result.rules[key] = 0;
@@ -166,7 +204,7 @@ export function resolveMapBalance(mapId: string, settings: BalanceSettings, revi
     if (!Object.keys(rewardValues).length) {
       for (const stat of ['damage', 'health', 'armor', 'regen'] as const) rewardValues[stat] = 0;
     }
-    result.boss = { ...definition, hp: definition.hp * factors.bossHealth, damage: 0,
+    result.boss = { ...definition, hp: definition.hp * factors.bossHealth * ratingBossHealth, damage: 0,
       attacks: Object.fromEntries(Object.entries(attacks).map(([key, value]) => [key, value * factors.bossDamage])), rewards: rewardValues };
   }
   if (configurationVersion === 2) {

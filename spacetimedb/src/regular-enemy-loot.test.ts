@@ -9,7 +9,7 @@ import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { rollRegularEnemyLoot } from "./regular-enemy-loot";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 const enemy = Object.keys(ENEMY_TYPES).find(kind => enemyDefeatDefinition("water_reach", kind)?.reward.type === "damage")!;
-const batch = { streamId: "test-stream-123456", sequence: 1n, mapId: "water_reach", enemies: [{ enemy, count: 20 }] };
+const batch = { streamId: "test-stream-123456", sequence: 1n, mapId: "water_reach", enemies: [{ enemy, count: 15 }] };
 it("awards Magma Armor for all seven winning outcomes, but not the next outcome", () => {
   const f = crystalFixture();
   for (let roll = 1; roll <= 8; roll++) {
@@ -25,13 +25,13 @@ it("calculates stats and independent loot rolls once in one transaction", () => 
   const update = vi.spyOn(f.db.playerProgress.identity, "update");
   reportKills(f, { ...batch, progress: { damage: 1e30 } });
   expect(update).toHaveBeenCalledTimes(1);
-  expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
-  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(20n);
-  expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(60);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 15);
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender).enemyKills).toBe(15n);
+  expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(45);
   f.patch("player", { mapId: "town" });
   reportKills(f, batch);
   expect(update).toHaveBeenCalledTimes(1);
-  expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(60);
+  expect(f.ctx.random.integerInRange).toHaveBeenCalledTimes(45);
 });
 it.each([
   { enemies: [{ enemy, count: 0 }] }, { sequence: 2n },
@@ -48,7 +48,7 @@ it("honours a report for the map the player left for the Town, paid by that map'
   f.patch("player", { mapId: "town" });
   f.db.homeReturnLocation.insert({ identity: f.ctx.sender, mapId: batch.mapId, x: 1, y: 1, facing: 0 });
   reportKills(f, batch);
-  expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 20);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 15);
   // Spawn budgets are the map's own; the account-wide clocks and the report
   // limiter have no map.
   const accountWide = [combatTimeKey, reportRateKey, simulationClockKey, killRateKey].map(key => key(f.ctx.sender));

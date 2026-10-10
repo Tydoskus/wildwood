@@ -2,11 +2,12 @@
 // and reward boosts. Do not multiply them by the old progression reward scales again.
 import type { EnemyDefinition } from "./enemy-definitions";
 import { ENDLESS_ENEMY_BASE_VALUES } from "./endless-enemies";
+import { ratingRewardPerKill } from "./stat-rating";
 
 export const ENEMY_BASE_VALUES = {
   ...ENDLESS_ENEMY_BASE_VALUES,
   "Bramble": {"speed": 205, "attackSpeed": 1, "r": 14, "color": "#d95738", "outline": "#5c1b13", "hp": 42, "damage": 14, "reward": {"type": "health", "amount": 42}},
-  "Needle": {"speed": 205, "attackSpeed": 1, "r": 10, "color": "#ffd34d", "outline": "#6f4a12", "hp": 90, "damage": 24, "reward": {"type": "speed", "amount": 0.05}},
+  "Needle": {"speed": 205, "attackSpeed": 1, "r": 10, "color": "#ffd34d", "outline": "#6f4a12", "hp": 90, "damage": 24, "reward": {"type": "speed", "amount": ratingRewardPerKill(1)}},
   "Mossback": {"speed": 205, "attackSpeed": 1, "r": 22, "color": "#768d51", "outline": "#2c3b20", "hp": 180, "damage": 29, "reward": {"type": "armor", "amount": 9}},
   "Spitter": {"speed": 205, "attackSpeed": 1, "r": 15, "color": "#b16ac8", "outline": "#4b235d", "hp": 8, "damage": 20, "reward": {"type": "damage", "amount": 1.5}},
   "Brood": {"speed": 205, "attackSpeed": 0.69, "r": 16, "color": "#45b6c2", "outline": "#174a54", "ranged": true, "hp": 220, "damage": 56, "reward": {"type": "regen", "amount": 2}},
@@ -97,4 +98,35 @@ export const ENEMY_BASE_VALUES = {
   "Signal Oracle": {"attackSpeed": 0.65, "speed": 305, "r": 43, "color": "#f0c58b", "outline": "#624862", "elite": true, "aggro": 340, "hp": 6964002864, "damage": 334880493.3963609, "reward": {"type": "regen", "amount": 413301.8995340399}},
   "Crypt Oracle": {"attackSpeed": 0.65, "speed": 305, "r": 43, "color": "#f0c58b", "outline": "#624862", "elite": true, "aggro": 340, "hp": 29845726560.000004, "damage": 1121726660.393717, "reward": {"type": "regen", "amount": 1107727.125847056}},
   "Reactor Warden": {"attackSpeed": 0.65, "speed": 305, "r": 43, "color": "#69ffb1", "outline": "#172d3a", "elite": true, "aggro": 340, "hp": 89537179680, "damage": 3757372332.6690316, "reward": {"type": "regen", "amount": 4170024.7117021442}},
+  // Attack speed and crit damage camps (0.901.47): regulars with their map's damage camp's strength (map-balance.ts
+  // resolves them as that role), paying rating points (stat-rating.ts).
+  "Striker": {"speed": 205, "attackSpeed": 1, "r": 11, "color": "#ff8fd0", "outline": "#6a1f4d", "hp": 90, "damage": 24, "reward": {"type": "crit", "amount": ratingRewardPerKill(1)}},
+  "Dune Needle": {"speed": 205, "attackSpeed": 0.65, "r": 19, "color": "#ffd34d", "outline": "#5f3c18", "hp": 3120.0000000000005, "damage": 499.8697007283747, "reward": {"type": "speed", "amount": ratingRewardPerKill(2)}},
+  "Dune Striker": {"speed": 205, "attackSpeed": 0.65, "r": 19, "color": "#ff8fd0", "outline": "#5f3c18", "hp": 3120.0000000000005, "damage": 499.8697007283747, "reward": {"type": "crit", "amount": ratingRewardPerKill(2)}},
+  "Frost Needle": {"speed": 230, "attackSpeed": 0.65, "r": 21, "color": "#ffd34d", "outline": "#315778", "hp": 24336, "damage": 1566.560046862593, "reward": {"type": "speed", "amount": ratingRewardPerKill(3)}},
+  "Frost Striker": {"speed": 230, "attackSpeed": 0.65, "r": 21, "color": "#ff8fd0", "outline": "#315778", "hp": 24336, "damage": 1566.560046862593, "reward": {"type": "crit", "amount": ratingRewardPerKill(3)}},
+  "Cinder Needle": {"speed": 230, "attackSpeed": 0.65, "r": 23, "color": "#ffd34d", "outline": "#6d2418", "hp": 280800.00000000006, "damage": 6308.340555625948, "reward": {"type": "speed", "amount": ratingRewardPerKill(4)}},
+  "Cinder Striker": {"speed": 230, "attackSpeed": 0.65, "r": 23, "color": "#ff8fd0", "outline": "#6d2418", "hp": 280800.00000000006, "damage": 6308.340555625948, "reward": {"type": "crit", "amount": ratingRewardPerKill(4)}},
+  "Abyss Needle": {"speed": 235, "attackSpeed": 0.65, "r": 25, "color": "#ffd34d", "outline": "#4a1717", "hp": 842400.0000000001, "damage": 21130.62397968097, "reward": {"type": "speed", "amount": ratingRewardPerKill(5)}},
+  "Abyss Striker": {"speed": 235, "attackSpeed": 0.65, "r": 25, "color": "#ff8fd0", "outline": "#4a1717", "hp": 842400.0000000001, "damage": 21130.62397968097, "reward": {"type": "crit", "amount": ratingRewardPerKill(5)}},
+  "Reef Needle": {"speed": 240, "attackSpeed": 0.65, "r": 27, "color": "#ffd34d", "outline": "#123b58", "hp": 2527200.0000000005, "damage": 70779.82962927784, "reward": {"type": "speed", "amount": ratingRewardPerKill(6)}},
+  "Reef Striker": {"speed": 240, "attackSpeed": 0.65, "r": 27, "color": "#ff8fd0", "outline": "#123b58", "hp": 2527200.0000000005, "damage": 70779.82962927784, "reward": {"type": "crit", "amount": ratingRewardPerKill(6)}},
+  "Petal Needle": {"speed": 245, "attackSpeed": 0.65, "r": 29, "color": "#ffd34d", "outline": "#54233f", "hp": 3790800.0000000005, "damage": 237086.4337544865, "reward": {"type": "speed", "amount": ratingRewardPerKill(7)}},
+  "Petal Striker": {"speed": 245, "attackSpeed": 0.65, "r": 29, "color": "#ff8fd0", "outline": "#54233f", "hp": 3790800.0000000005, "damage": 237086.4337544865, "reward": {"type": "crit", "amount": ratingRewardPerKill(7)}},
+  "Gale Needle": {"speed": 250, "attackSpeed": 0.65, "r": 30, "color": "#ffd34d", "outline": "#203f68", "hp": 22744800, "damage": 794152.4776879296, "reward": {"type": "speed", "amount": ratingRewardPerKill(8)}},
+  "Gale Striker": {"speed": 250, "attackSpeed": 0.65, "r": 30, "color": "#ff8fd0", "outline": "#203f68", "hp": 22744800, "damage": 794152.4776879296, "reward": {"type": "crit", "amount": ratingRewardPerKill(8)}},
+  "Fen Needle": {"speed": 255, "attackSpeed": 0.65, "r": 31, "color": "#ffd34d", "outline": "#173f3b", "hp": 68234400.00000001, "damage": 2660119.129679823, "reward": {"type": "speed", "amount": ratingRewardPerKill(9)}},
+  "Fen Striker": {"speed": 255, "attackSpeed": 0.65, "r": 31, "color": "#ff8fd0", "outline": "#173f3b", "hp": 68234400.00000001, "damage": 2660119.129679823, "reward": {"type": "crit", "amount": ratingRewardPerKill(9)}},
+  "Shard Needle": {"speed": 260, "attackSpeed": 0.65, "r": 30, "color": "#ffd34d", "outline": "#303d5b", "hp": 204703200, "damage": 8910422.095124677, "reward": {"type": "speed", "amount": ratingRewardPerKill(10)}},
+  "Shard Striker": {"speed": 260, "attackSpeed": 0.65, "r": 30, "color": "#ff8fd0", "outline": "#303d5b", "hp": 204703200, "damage": 8910422.095124677, "reward": {"type": "crit", "amount": ratingRewardPerKill(10)}},
+  "Gear Needle": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ffd34d", "outline": "#303d5b", "hp": 614109600.0000001, "damage": 29846641.463325106, "reward": {"type": "speed", "amount": ratingRewardPerKill(11)}},
+  "Gear Striker": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ff8fd0", "outline": "#303d5b", "hp": 614109600.0000001, "damage": 29846641.463325106, "reward": {"type": "crit", "amount": ratingRewardPerKill(11)}},
+  "Gourd Needle": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ffd34d", "outline": "#303d5b", "hp": 1842328800.0000002, "damage": 99975287.04366192, "reward": {"type": "speed", "amount": ratingRewardPerKill(12)}},
+  "Gourd Striker": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ff8fd0", "outline": "#303d5b", "hp": 1842328800.0000002, "damage": 99975287.04366192, "reward": {"type": "crit", "amount": ratingRewardPerKill(12)}},
+  "Circuit Needle": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ffd34d", "outline": "#303d5b", "hp": 3868890479.9999995, "damage": 334880493.3963609, "reward": {"type": "speed", "amount": ratingRewardPerKill(13)}},
+  "Circuit Striker": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ff8fd0", "outline": "#303d5b", "hp": 3868890479.9999995, "damage": 334880493.3963609, "reward": {"type": "crit", "amount": ratingRewardPerKill(13)}},
+  "Moss Needle": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ffd34d", "outline": "#273e29", "hp": 16580959200.000002, "damage": 1121726660.393717, "reward": {"type": "speed", "amount": ratingRewardPerKill(14)}},
+  "Moss Striker": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ff8fd0", "outline": "#273e29", "hp": 16580959200.000002, "damage": 1121726660.393717, "reward": {"type": "crit", "amount": ratingRewardPerKill(14)}},
+  "Ion Needle": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ffd34d", "outline": "#172d3a", "hp": 49742877600, "damage": 3757372332.6690316, "reward": {"type": "speed", "amount": ratingRewardPerKill(15)}},
+  "Ion Striker": {"speed": 305, "attackSpeed": 0.65, "r": 30, "color": "#ff8fd0", "outline": "#172d3a", "hp": 49742877600, "damage": 3757372332.6690316, "reward": {"type": "crit", "amount": ratingRewardPerKill(15)}},
 } satisfies Record<string, EnemyDefinition>;

@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
-import {
-  CRIT_CAP_CEILING, criticalDamage, criticalDamageMultiplier, critCapForRank, soulCritDamageCeiling, trimSoulCritDamage,
-} from "./critical-damage";
+import { CRIT_CAP_CEILING, criticalDamage, criticalDamageMultiplier, critCapForRank } from "./critical-damage";
 import { RESEARCH_DEFINITIONS } from "./research";
+import { RATING_MAX, critDamageForLevels, ratingForLevels } from "./stat-rating";
 
 describe("critical damage", () => {
-  it("adds research, Keen Edge and the soul onto 1.05×, as before", () => {
+  it("is research and Keen Edge's old bonus from nothing, and a rating's level on the curve", () => {
     expect(criticalDamageMultiplier({})).toBeCloseTo(1.05);
-    expect(criticalDamageMultiplier({ researchRank: 3, perks: { keenEdge: 5 }, soul: .1 })).toBeCloseTo(1.05 + .15 + .6 + .1);
+    expect(criticalDamageMultiplier({ researchRank: 3, perks: { keenEdge: 5 } })).toBeCloseTo(1.05 + .15 + .6);
+    // One level (100 rating): 3% of the way to 100x.
+    expect(criticalDamageMultiplier({ rating: 100 })).toBeCloseTo(critDamageForLevels(1));
+    // The soul's rating adds to the run's.
+    expect(criticalDamageMultiplier({ rating: 50, soul: 50 })).toBeCloseTo(criticalDamageMultiplier({ rating: 100 }));
   });
 
   it("caps at 50×, 10× more a Crit Cap rank, up to 100× at the fifth", () => {
@@ -16,11 +19,11 @@ describe("critical damage", () => {
     expect(critCapForRank(-1)).toBe(50);
     expect(critCapForRank(Number.NaN)).toBe(50);
     expect(CRIT_CAP_CEILING).toBe(100);
-    expect(criticalDamageMultiplier({ soul: 200 })).toBe(50);
-    expect(criticalDamageMultiplier({ soul: 200, capRank: 2 })).toBe(70);
-    expect(criticalDamageMultiplier({ soul: 200, capRank: 5 })).toBe(100);
-    expect(criticalDamage({ soul: 60, capRank: 1 })).toMatchObject({ multiplier: 60, uncapped: 61.05, cap: 60, capped: true });
-    expect(criticalDamage({ soul: 10 })).toMatchObject({ capped: false });
+    expect(criticalDamageMultiplier({ soul: RATING_MAX })).toBe(50);
+    expect(criticalDamageMultiplier({ soul: RATING_MAX, capRank: 2 })).toBe(70);
+    expect(criticalDamageMultiplier({ soul: RATING_MAX, capRank: 5 })).toBeLessThanOrEqual(100);
+    expect(criticalDamage({ rating: ratingForLevels(60), capRank: 1 })).toMatchObject({ multiplier: 60, cap: 60, capped: true });
+    expect(criticalDamage({ rating: ratingForLevels(10) })).toMatchObject({ capped: false });
   });
 
   it("never lets research and Keen Edge alone near the cap", () => {
@@ -29,14 +32,10 @@ describe("critical damage", () => {
     expect(criticalDamage({ researchRank: 1e6 }).research).toBeCloseTo(1);
   });
 
-  it("trims stored soul critical damage to what brings the total to exactly 100×, and keeps anything under it", () => {
-    const parts = { researchRank: 20, perks: { keenEdge: 5 } };
-    expect(soulCritDamageCeiling(parts)).toBeCloseTo(100 - 2.65);
-    expect(trimSoulCritDamage(500, parts)).toBeCloseTo(97.35);
-    expect(1.05 + 1 + .6 + trimSoulCritDamage(500, parts)).toBeCloseTo(100);
-    expect(trimSoulCritDamage(60, parts)).toBe(60);
-    expect(trimSoulCritDamage(97, {})).toBe(97);
-    expect(trimSoulCritDamage(99, {})).toBeCloseTo(98.95);
-    expect(trimSoulCritDamage(-1, {})).toBe(0);
+  it("splits the multiplier into the rating's, the soul's and research's shares", () => {
+    const crit = criticalDamage({ rating: ratingForLevels(5), soul: ratingForLevels(6) - ratingForLevels(5), researchRank: 20 });
+    expect(crit.fromRating).toBeCloseTo(critDamageForLevels(5) - 1.05);
+    expect(crit.fromRating + crit.fromSoul).toBeCloseTo(critDamageForLevels(6) - 1.05);
+    expect(1.05 + crit.fromRating + crit.fromSoul + crit.fromBonuses).toBeCloseTo(crit.uncapped);
   });
 });

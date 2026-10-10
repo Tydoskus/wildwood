@@ -298,7 +298,8 @@ export function createGrowthContextSource(deps: {
   rewardMultiplier: () => number;
   minAttackInterval: () => number;
   criticalChance: () => number;
-  criticalMultiplier: () => number;
+  /** The crit multiplier, with this much more crit rating when asked (a crit reward's worth). */
+  criticalMultiplier: (extraRating?: number) => number;
   moveSpeed: () => number;
   bowSkills: () => Partial<BowSkillRoll> | null | undefined;
   perks: () => Partial<PrestigePerkRanks> | null | undefined;

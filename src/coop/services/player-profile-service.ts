@@ -244,6 +244,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.playerAccountStatus.where((status) => status.identity.eq(dbIdentity)),
           tables.playerProgress.where((progress) => progress.identity.eq(dbIdentity)),
           tables.playerWideStats.where((wide) => wide.identity.eq(dbIdentity)),
+          tables.playerCombatRating.where((rating) => rating.identity.eq(dbIdentity)),
           tables.playerChatHearts.where(row => row.identity.eq(dbIdentity)),
           tables.playerLifetime.where((lifetime) => lifetime.identity.eq(dbIdentity)),
           tables.playerResearch.where((research) => research.identity.eq(dbIdentity)),

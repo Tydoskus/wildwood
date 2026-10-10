@@ -390,6 +390,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
     const identity = row.identity.toHexString();
     const progress: PlayerProgress = {
       bossRewardClaims: row.bossRewardClaims ?? 0,
+      critRating: (row as { critRating?: number }).critRating ?? 0,
       maxHp: row.maxHp,
       damage: row.damage,
       attackRate: row.attackRate,

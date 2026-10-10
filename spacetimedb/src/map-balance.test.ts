@@ -206,7 +206,7 @@ it('runs pending campaign migrations from the connection path only once', () => 
   f.seed('mapBalanceVersion', { revision: 73, settingsJson: JSON.stringify(bakeFixture.settings), editor: f.ctx.sender, createdAt: f.ctx.timestamp });
   f.ctx.connectionId = null;
   f.run(server.onConnect);
-  expect(f.db.moduleMigrationState.id.find(0).version).toBe(53);
+  expect(f.db.moduleMigrationState.id.find(0).version).toBe(54);
   expect(f.db.mapBalanceVersion.revision.find(75).settingsJson).toBe(JSON.stringify(validateBalanceSettings(revision75)));
   // 45 made revision 76, 46 raised its enemy hits as revision 77, 48 its boss hits as 78, and 49 eased Endless as 79.
   expectProgressionCurve(JSON.parse(f.db.mapBalanceVersion.revision.find(76).settingsJson));
@@ -290,7 +290,10 @@ it('migration 48 has every boss from the desert on hit 11x its map regular, Endl
   const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
   for (const id of [...Object.keys(BOSS_DAMAGE_REBALANCE).filter(id => id !== 'endless'), 'endless_1', 'endless_4']) {
     const balance: any = resolveMapBalance(id, settings, revision);
-    const rows: any[] = id.startsWith('endless_') ? Object.entries(balance.lanes).map(([kind, lane]: any) => ({ elite: /Warden|King/.test(kind), ...lane })) : Object.values(balance.enemies);
+    // The attack speed and crit camps (0.901.47) copy the damage camp's hit; the ratio is to the original roles.
+    const rating = (type: string) => type === 'speed' || type === 'crit';
+    const rows: any[] = (id.startsWith('endless_') ? Object.entries(balance.lanes).map(([kind, lane]: any) => ({ elite: /Warden|King/.test(kind), ...lane })) : Object.values(balance.enemies))
+      .filter((row: any) => !rating(row.reward.type));
     const heaviest = Math.max(balance.boss.damage ?? 0, ...Object.values(balance.boss.attacks ?? {}) as number[]);
     expect(heaviest / median(rows.filter(row => !row.elite).map(row => row.damage)), id).toBeCloseTo(11, 1);
   }
@@ -312,7 +315,7 @@ it('migration 49 eases Endless and keeps its boss at 11x a regular hit', () => {
   const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
   for (const id of ['endless_1', 'endless_5']) {
     const balance: any = resolveMapBalance(id, settings, revision);
-    const regular = median(Object.entries(balance.lanes).filter(([kind]) => !/Warden|King/.test(kind)).map(([, lane]: any) => lane.damage));
+    const regular = median(Object.entries(balance.lanes).filter(([kind, lane]: any) => !/Warden|King/.test(kind) && !['speed', 'crit'].includes(lane.reward.type)).map(([, lane]: any) => lane.damage));
     expect(balance.boss.damage / regular, id).toBeCloseTo(11, 1);
   }
 });

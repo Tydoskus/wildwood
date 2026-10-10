@@ -14,7 +14,7 @@ import { enemyRespawnSecondsWithResearch, offlineWindowSecondsWithResearch } fro
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../../shared/rules";
 import type { PlayerPowerStats } from "../../shared/player-power";
 import type { MapBalanceSnapshot } from "../../shared/map-balance-types";
-import { readPlayerProgress } from "./wide-stats";
+import { readCritRating, readPlayerProgress } from "./wide-stats";
 
 export const offlineProgressTables = {
   /**
@@ -225,7 +225,9 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
     storeOfflineGrant(ctx, ctx.sender, grant, { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 });
     return progress;
   }
-  const next = applyEnemyRewards(progress, grant.outcome.rewards, ports.statMultiplier(ctx, ctx.sender), challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
+  // Crit kills add to the run's rating, which a row read without it would otherwise write over.
+  const rated = { ...progress, critRating: progress.critRating ?? readCritRating(ctx, ctx.sender) };
+  const next = applyEnemyRewards(rated, grant.outcome.rewards, ports.statMultiplier(ctx, ctx.sender), challengeMinimumInterval(ctx.db.playerPrestigeChallenge.identity.find(ctx.sender)));
   storeOfflineGrant(ctx, ctx.sender, grant, {
     damage: next.damage - progress.damage,
     health: next.maxHp - progress.maxHp,

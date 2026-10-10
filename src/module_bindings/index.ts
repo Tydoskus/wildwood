@@ -350,6 +350,7 @@ import PlayerAggroChallengeRow from "./player_aggro_challenge_table";
 import PlayerAggroChallengeParkedRow from "./player_aggro_challenge_parked_table";
 import PlayerAutoFarmPuppetRow from "./player_auto_farm_puppet_table";
 import PlayerChatHeartsRow from "./player_chat_hearts_table";
+import PlayerCombatRatingRow from "./player_combat_rating_table";
 import PlayerDailyQuestRow from "./player_daily_quest_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
 import PlayerFreeRespecRow from "./player_free_respec_table";
@@ -898,6 +899,17 @@ const tablesSchema = __schema({
       { name: 'player_chat_hearts_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerChatHeartsRow),
+  playerCombatRating: __table({
+    name: 'player_combat_rating',
+    indexes: [
+      { accessor: 'identity', name: 'player_combat_rating_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_combat_rating_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerCombatRatingRow),
   playerDailyQuest: __table({
     name: 'player_daily_quest',
     indexes: [

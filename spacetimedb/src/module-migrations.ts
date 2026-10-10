@@ -46,9 +46,9 @@ import { enrollInPrestigeChallenge } from "./prestige-challenge";
 import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
 import { moveSoloQuestsToGuild } from "./daily-quests";
 import { rebuildParkedAggroRun } from "./aggro-challenge";
-import { trimStoredSoulCritDamage } from "./soul-dimension";
+import { convertToStatRatings, trimStoredSoulCritDamage } from "./stat-rating-migration";
 
-export const MODULE_MIGRATION_VERSION = 53;
+export const MODULE_MIGRATION_VERSION = 54;
 
 /**
  * Migration 50 (0.856): the ranking snapshot moves to leaderboard_entry_v2,
@@ -560,6 +560,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // 53 (0.901.37): critical damage is capped, 100× at the most; soul critical
     // damage that put a player's total above 100× is trimmed to it.
     if (currentVersion < 53) trimStoredSoulCritDamage(ctx);
+    // 54 (0.901.47): attack speed and crit damage become ratings; soul stats converted so nobody is weaker (stat-rating-migration.ts).
+    if (currentVersion < 54) convertToStatRatings(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

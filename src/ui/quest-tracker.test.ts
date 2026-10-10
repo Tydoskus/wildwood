@@ -15,5 +15,5 @@ it("names each quest's stat in the words the enemies' own labels use", () => {
   installQuestTracker({ view: () => view, hiddenHere: () => false, storage: { getItem: () => null, setItem: () => {} }, enabled: () => true });
   const stats = [...document.querySelectorAll(".quest-tracker-stat")].map(stat => stat.textContent);
   // Not "Atk" for damage, which read as attack speed.
-  expect(stats).toEqual(["Damage", "Atk/sec", "HP/sec"]);
+  expect(stats).toEqual(["Damage", "Attack Speed", "HP/sec"]);
 });

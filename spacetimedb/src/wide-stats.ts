@@ -16,6 +16,8 @@ import { DUEL_WIDE_FIELDS, F32_STAT_LIMIT, REPLAY_WIDE_FIELDS, WIDE_STAT_FIELDS,
  * write to player_progress always wins over a stale one.
  */
 
+import { cleanRating } from "../../shared/stat-rating";
+
 type Ctx = { db: any };
 type Progress = { identity: any; maxHp: number; damage: number; armor: number; regen: number };
 
@@ -24,8 +26,12 @@ type Progress = { identity: any; maxHp: number; damage: number; armor: number; r
  * drops a stale one when none does), and the row clamped for player_progress.
  */
 export function writeWideStats<T extends Progress>(ctx: Ctx, written: T): T {
+  // The run's crit rating rides on progress but lives in its own table: written
+  // when the row carries one (a reset carries 0), left alone when it does not.
+  const { critRating, ...stats } = written as T & { critRating?: number };
+  if (critRating !== undefined) writeCritRating(ctx, stats.identity, critRating);
   // A row read without its wide stats still carries the clamp; keep what is behind it.
-  const row = withWideStats(ctx, written);
+  const row = withWideStats(ctx, stats as T);
   const existing = ctx.db.playerWideStats?.identity.find(row.identity);
   if (!needsWideStats(row)) {
     if (existing) ctx.db.playerWideStats.identity.delete(row.identity);
@@ -45,14 +51,29 @@ export function withWideStats<T extends Progress | null | undefined>(ctx: Ctx, r
   return wideStatsApply(row, ctx.db.playerWideStats?.identity.find(row.identity)) as T;
 }
 
-/** The one way to read a player's progress: player_progress with any wide stats laid over it. */
+/** The run's crit damage rating (player_combat_rating): 0 without a row. */
+export function readCritRating(ctx: Ctx, identity: any) {
+  return cleanRating(ctx.db.playerCombatRating?.identity.find(identity)?.critDamage ?? 0);
+}
+function writeCritRating(ctx: Ctx, identity: any, rating: number) {
+  const table = ctx.db.playerCombatRating;
+  if (!table) return;
+  const critDamage = cleanRating(rating), existing = table.identity.find(identity);
+  if (!critDamage) { if (existing) table.identity.delete(identity); return; }
+  if (existing?.critDamage === critDamage) return;
+  if (existing) table.identity.update({ identity, critDamage }); else table.insert({ identity, critDamage });
+}
+const withCritRating = <T extends Progress | null | undefined>(ctx: Ctx, row: T) =>
+  row ? { ...row, critRating: readCritRating(ctx, row.identity) } as T & { critRating: number } : row;
+
+/** The one way to read a player's progress: player_progress with any wide stats and its crit rating laid over it. */
 export function readPlayerProgress(ctx: Ctx, identity: any) {
-  return withWideStats(ctx, ctx.db.playerProgress.identity.find(identity));
+  return withCritRating(ctx, withWideStats(ctx, ctx.db.playerProgress.identity.find(identity)));
 }
 
-/** Every player's progress, wide stats included. */
+/** Every player's progress, wide stats and crit rating included. */
 export function* iterPlayerProgress(ctx: Ctx): Generator<any> {
-  for (const row of ctx.db.playerProgress.iter() as Iterable<any>) yield withWideStats(ctx, row);
+  for (const row of ctx.db.playerProgress.iter() as Iterable<any>) yield withCritRating(ctx, withWideStats(ctx, row));
 }
 
 /**

@@ -44,8 +44,8 @@ export type DamageCampRoster = { raider: number; reaper: number };
 export function damageCampRosterForMap(mapIndex: number): DamageCampRoster {
   return { raider: 6, reaper: mapIndex < 2 ? 1 : 7 };
 }
-export type RewardStat = "damage" | "health" | "speed" | "armor" | "regen";
-export type ForestProgressionLane = "Bramble" | "Needle" | "Mossback" | "Spitter" | "Brood" | "Cindermaw" | "King Slime" | "Dread Warden";
+export type RewardStat = "damage" | "health" | "speed" | "armor" | "regen" | "crit";
+export type ForestProgressionLane = "Bramble" | "Needle" | "Mossback" | "Spitter" | "Brood" | "Cindermaw" | "King Slime" | "Dread Warden" | "Striker";
 export type ForestLaneBase = { hp: number; damage: number; reward: { type: RewardStat; amount: number } };
 
 // Preserve the tutorial's cheap fragile attackers, useful defensive camps,
@@ -53,6 +53,7 @@ export type ForestLaneBase = { hp: number; damage: number; reward: { type: Rewar
 export const FOREST_LANE_BASES: Record<ForestProgressionLane, ForestLaneBase> = {
   Bramble: { hp: 42, damage: 14, reward: { type: "health", amount: 7 } },
   Needle: { hp: 90, damage: 24, reward: { type: "speed", amount: .05 } },
+  Striker: { hp: 90, damage: 24, reward: { type: "crit", amount: 2.5 } },
   Mossback: { hp: 180, damage: 29, reward: { type: "armor", amount: 1 } },
   Spitter: { hp: 24, damage: 20, reward: { type: "damage", amount: 1 } },
   Brood: { hp: 220, damage: 56, reward: { type: "regen", amount: 1 } },
@@ -72,6 +73,7 @@ export const DESERT_REFERENCE = { damage: 2400, maxHp: 4000, armor: 275, regen: 
 export const ENCOUNTER_PROFILES: Record<ForestProgressionLane, { seconds: number; hitShare: number; rewardShare: number; stat: RewardStat }> = {
   Bramble: { seconds: 7, hitShare: .06, rewardShare: .0075, stat: "health" },
   Needle: { seconds: 6, hitShare: .06, rewardShare: .02, stat: "speed" },
+  Striker: { seconds: 6, hitShare: .06, rewardShare: .02, stat: "crit" },
   Mossback: { seconds: 10, hitShare: .07, rewardShare: 2 / 165, stat: "armor" },
   Spitter: { seconds: 4, hitShare: .12, rewardShare: .025, stat: "damage" },
   Brood: { seconds: 9, hitShare: .08, rewardShare: .09, stat: "regen" },
@@ -118,7 +120,7 @@ export function desertLaneCombatValue(lane: ForestProgressionLane, mapIndex: num
 export function desertLaneRewardValue(lane: ForestProgressionLane, mapIndex: number, roster = damageCampRosterForMap(mapIndex)) {
   const build = referenceBuildForMap(mapIndex);
   const profile = ENCOUNTER_PROFILES[lane];
-  const base = profile.stat === "health" ? build.maxHp : profile.stat === "speed" ? 1 : build[profile.stat];
+  const base = profile.stat === "health" ? build.maxHp : profile.stat === "speed" || profile.stat === "crit" ? 1 : build[profile.stat];
   // Early maps have six raiders and one reaper; later maps have six and
   // seven. Keep the damage budget per clear stable when adding elite sites.
   const damageBudget = 6 * ENCOUNTER_PROFILES.Cindermaw.rewardShare + ENCOUNTER_PROFILES["Dread Warden"].rewardShare;
@@ -153,7 +155,7 @@ export const DESERT_BOSS_BASE_HEAVY_HIT = bossHeavyHitAt(0);
 export const BOSS_REWARD_TRACK_BASES: Record<RewardStat, { amount: number; unlockMapIndex: number }> = {
   damage: { amount: 50, unlockMapIndex: 0 }, health: { amount: 1500, unlockMapIndex: 0 },
   speed: { amount: 0, unlockMapIndex: 0 }, armor: { amount: 28.125, unlockMapIndex: 1 },
-  regen: { amount: 15, unlockMapIndex: 2 },
+  regen: { amount: 15, unlockMapIndex: 2 }, crit: { amount: 0, unlockMapIndex: 0 },
 };
 export function bossRewardValue(stat: RewardStat, mapIndex: number) {
   const base = BOSS_REWARD_TRACK_BASES[stat];

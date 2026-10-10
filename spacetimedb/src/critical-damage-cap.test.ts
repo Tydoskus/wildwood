@@ -8,6 +8,10 @@ import { createEmptyResearchRanks } from "../../shared/research";
 import { createCombatReport } from "./boss-combat";
 import { createDuelRuntime } from "./duel-runtime";
 import { MODULE_MIGRATION_VERSION } from "./module-migrations";
+import { criticalDamage } from "../../shared/critical-damage";
+import { RATING_MAX, attackIntervalForRating, critDamageForLevels, ratingForLevels } from "../../shared/stat-rating";
+import { withSoulStats } from "../../shared/soul-dimension";
+import { DEFAULT_ATTACK_INTERVAL } from "../../shared/rules";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const soulRow = (f: any, critDamage: number, identity = f.ctx.sender) =>
@@ -16,8 +20,9 @@ const research = (f: any, ranks: Record<string, number>) =>
   f.seed("playerResearch", { identity: f.ctx.sender, frontierMastery: 0, ...createEmptyResearchRanks(), ...ranks });
 
 /** The kill bound's damage a second for a critting bow player with this much soul critical damage. */
-function boundDps(critDamage: number, critCap = 0) {
+function boundDps(critDamage: number, critCap = 0, runRating = 0) {
   const f = crystalFixture();
+  if (runRating) f.seed("playerCombatRating", { identity: f.ctx.sender, critDamage: runRating });
   f.patch("playerProgress", { damage: 1_000, equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]' });
   research(f, { criticalChance: 1, critCap });
   soulRow(f, critDamage);
@@ -33,26 +38,28 @@ function boundDps(critDamage: number, critCap = 0) {
   return combatBoundForReport(f.ctx as any).preview({ type: "health", amount: 0, count: 0 }).dps;
 }
 
-it("bounds kills by the capped critical, never by stored critical damage above the cap", () => {
+it("bounds kills by the capped critical, the run's crit rating and the soul's together", () => {
   const base = boundDps(0);
-  expect(boundDps(200) / base).toBeCloseTo(50 / 1.05);
-  expect(boundDps(48.95) / base).toBeCloseTo(50 / 1.05);
-  expect(boundDps(10) / base).toBeCloseTo(11.05 / 1.05);
-  expect(boundDps(200, 3) / base).toBeCloseTo(80 / 1.05);
-  expect(boundDps(200, 5) / base).toBeCloseTo(100 / 1.05);
+  expect(boundDps(RATING_MAX) / base).toBeCloseTo(50 / 1.05);
+  expect(boundDps(ratingForLevels(10)) / base).toBeCloseTo(critDamageForLevels(10) / 1.05);
+  expect(boundDps(0, 0, ratingForLevels(10)) / base).toBeCloseTo(critDamageForLevels(10) / 1.05);
+  expect(boundDps(RATING_MAX, 3) / base).toBeCloseTo(80 / 1.05);
+  expect(boundDps(RATING_MAX, 5) / base).toBeCloseTo(100 / 1.05);
 });
 
-it("deals the capped critical in duels", () => {
+it("deals the capped critical in duels, the run's crit rating included", () => {
   const { duelDamage } = createDuelRuntime({ researchedDamage: (_ctx: any, _identity: any, damage: number) => damage } as any);
-  const duel = (critDamage: number, critCap = 0) => {
+  const duel = (critDamage: number, critCap = 0, runRating = 0) => {
     const f = crystalFixture();
     research(f, { criticalChance: 100, critCap });
     soulRow(f, critDamage);
+    if (runRating) f.seed("playerCombatRating", { identity: f.ctx.sender, critDamage: runRating });
     return duelDamage(f.ctx, f.ctx.sender, 10);
   };
   expect(duel(0)).toBeCloseTo(10.5);
-  expect(duel(500)).toBeCloseTo(500);
-  expect(duel(500, 1)).toBeCloseTo(600);
+  expect(duel(0, 0, 100)).toBeCloseTo(10 * critDamageForLevels(1));
+  expect(duel(RATING_MAX)).toBeCloseTo(500);
+  expect(duel(RATING_MAX, 1)).toBeCloseTo(600);
 });
 
 it("raises the cap when Crit Cap research completes", () => {
@@ -72,26 +79,36 @@ it("refuses Crit Cap before Attack Range", () => {
   expect(() => f.run(server.startResearch, { researchId: "critCap" })).toThrow("Research prerequisites not met.");
 });
 
-it("trims stored soul critical damage above 100× once, and leaves the rest alone", () => {
+it("migration 54 turns soul attack speed and crit damage into ratings, nobody weaker than before", () => {
   const f = crystalFixture();
   const other = identity("2");
   f.seed("moduleMigrationState", { id: 0, version: 52 });
   research(f, { criticalDamage: 20 });
   f.seed("playerPrestigePerk", { identity: f.ctx.sender, keenEdge: 5 });
-  soulRow(f, 500);
+  // Old units: soul crit damage added to the multiplier, soul attack speed added attacks a second.
+  f.seed("playerSoulStats", { identity: f.ctx.sender, damage: 0, maxHp: 0, armor: 0, regen: 0, attackSpeed: 1, critDamage: 500, kills: 0n });
+  f.patch("playerProgress", { attackRate: 1 / 1.5 });
   soulRow(f, 60, other);
   f.ctx.connectionId = null;
   f.run(server.onConnect);
-  // 1.05 + 1.00 research + 0.60 Keen Edge leaves 97.35 for the soul.
-  expect(f.db.playerSoulStats.identity.find(f.ctx.sender).critDamage).toBeCloseTo(97.35);
-  expect(f.db.playerSoulStats.identity.find(other).critDamage).toBe(60);
   expect(f.db.moduleMigrationState.id.find(0).version).toBe(MODULE_MIGRATION_VERSION);
-  f.patch("playerSoulStats", { critDamage: 500 });
+  const mine = f.db.playerSoulStats.identity.find(f.ctx.sender);
+  // 53 trimmed it to 100x with research and Keen Edge; 54 keeps 100x: the rating's top.
+  expect(mine.critDamage).toBe(RATING_MAX);
+  // 1.05 + 60 was 61.05x (capped at 50 then as now): the rating gives exactly that.
+  expect(criticalDamage({ soul: f.db.playerSoulStats.identity.find(other).critDamage }).uncapped).toBeCloseTo(61.05, 6);
+  // A fresh run with this soul starts at 0.64 + 1 attacks a second, as it did.
+  expect(1 / withSoulStats({ damage: 1, maxHp: 1, armor: 0, regen: 0, attackRate: DEFAULT_ATTACK_INTERVAL }, mine).attackRate).toBeCloseTo(1 / DEFAULT_ATTACK_INTERVAL + 1, 5);
+  // This run at 1.5 a second plus the soul's 1 was 2.5: its interval is raised so the two still give 2.5.
+  const progress = f.db.playerProgress.identity.find(f.ctx.sender);
+  expect(1 / withSoulStats(progress, mine).attackRate).toBeCloseTo(2.5, 4);
+  // Running it again changes nothing.
   f.run(server.onConnect);
-  expect(f.db.playerSoulStats.identity.find(f.ctx.sender).critDamage).toBe(500);
+  expect(f.db.playerSoulStats.identity.find(f.ctx.sender).attackSpeed).toBe(mine.attackSpeed);
+  expect(attackIntervalForRating(0)).toBeCloseTo(DEFAULT_ATTACK_INTERVAL);
 });
 
-it("stops paying soul critical damage at 100×", () => {
+it("pays soul crit damage a rating point a kill, past where 100x used to stop it", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1_000 });
   f.seed("playerPrestige", { identity: f.ctx.sender, level: 1, perkPoints: 0, peakPower: 0, prestigedAt: new Timestamp(0n) });
@@ -103,5 +120,5 @@ it("stops paying soul critical damage at 100×", () => {
   reportKills(f, { streamId: "soul-stream-000001", sequence: 1n, mapId: SOUL_MAP_ID, enemies: [{ enemy: "soul:critDamage", count: 50 }] });
   const row = f.db.playerSoulStats.identity.find(f.ctx.sender);
   expect(row.kills).toBe(50n);
-  expect(row.critDamage).toBeCloseTo(98.95);
+  expect(row.critDamage).toBeCloseTo(148.9);
 });

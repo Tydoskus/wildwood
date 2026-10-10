@@ -18,6 +18,7 @@ const STAT_REWARD_PRESENTATION: Readonly<Record<string, StatRewardPresentation>>
   ARMOR: { icon: "🛡️", label: "Armor" },
   "ATK/SEC": { icon: "⚡", label: "Attack Speed" },
   "ATTACK SPEED": { icon: "⚡", label: "Attack Speed" },
+  "CRIT DAMAGE": { icon: "✦", label: "Crit Damage" },
   "HP/SEC": { icon: "✚", label: "Regeneration" },
   // Soul kills (soul-dimension-runtime.ts): shown as stat gains, kept apart from the run's own so totals never mix.
   "SOUL DAMAGE": { icon: "⚔️", label: "Soul Damage" },
@@ -27,8 +28,8 @@ const STAT_REWARD_PRESENTATION: Readonly<Record<string, StatRewardPresentation>>
   "SOUL ATTACK SPEED": { icon: "⚡", label: "Soul Attack Speed" },
   "SOUL CRIT DAMAGE": { icon: "✦", label: "Soul Crit Damage" },
 };
-/** Stats whose gains read as a percentage (+0.2%). */
-const PERCENT_STATS = new Set(["SOUL CRIT DAMAGE"]);
+/** Stats whose gains read as a percentage (+0.2%): none since crit damage became a rating (0.901.47). */
+const PERCENT_STATS = new Set<string>();
 
 const COMPACT_MULTIPLIERS: Readonly<Record<string, number>> = {
   "": 1,
@@ -70,8 +71,6 @@ function statRewardValue(amount: string) {
 
 export function formatStatRewardToastAmount(stat: string, value: number) {
   if (PERCENT_STATS.has(stat)) return `+${+value.toFixed(2)}%`;
-  // Soul attack speed comes a thousandth at a time.
-  if (stat === "SOUL ATTACK SPEED") return `+${+value.toFixed(3)}`;
   if (stat === "ATK/SEC" || (Math.abs(value) < 1_000 && !Number.isInteger(value))) {
     return `+${value.toFixed(2)}`;
   }

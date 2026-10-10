@@ -4,12 +4,12 @@ import { MAP_DISPLAY_NAMES, MAP_IDS } from "../../shared/rules";
 import { createSpawnSites, type MapId } from "../game/world";
 import { AUTHORED_MAPS } from "./stat-graph-data";
 
-export const REWARD_STATS: readonly RewardType[] = ["damage", "health", "armor", "regen", "speed"];
+export const REWARD_STATS: readonly RewardType[] = ["damage", "health", "armor", "regen", "speed", "crit"];
 export const REWARD_LABELS: Record<RewardType, string> = {
-  damage: "Damage", health: "Health", armor: "Armor", regen: "Regeneration", speed: "Attack speed",
+  damage: "Damage", health: "Health", armor: "Armor", regen: "Regeneration", speed: "Attack speed", crit: "Crit damage",
 };
 export const REWARD_COLORS: Record<RewardType, string> = {
-  damage: "#cf453e", health: "#26834d", armor: "#3975c3", regen: "#9460bb", speed: "#a4770e",
+  damage: "#cf453e", health: "#26834d", armor: "#3975c3", regen: "#9460bb", speed: "#a4770e", crit: "#b4458f",
 };
 export type RewardHealthRow = {
   id: string; enemyId: string; mapId: string; mapName: string; enemy: string;

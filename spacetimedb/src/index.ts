@@ -231,7 +231,7 @@ import {
   WORLD_WIDTH, isBaseStoredSpeed,
 } from "../../shared/rules";
 import { readPlayerProgress, iterPlayerProgress, withDuelWide, deleteReplayWide } from "./wide-stats";
-import { playerWideStats, duelWideStats, duelReplayWideStats } from "./wide-stats-table";
+import { playerWideStats, duelWideStats, duelReplayWideStats, playerCombatRating } from "./wide-stats-table";
 import { narrowStat } from "../../shared/wide-stats";
 
 // Cached clients parse these exact wire messages. Current clients rebrand them
@@ -1746,7 +1746,7 @@ const spacetimedb = schema({
   playerEndlessRebaseBackup,
   playerPrestige,
   playerPrestigePerk,
-  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, aggroChallengeRun, playerAggroChallengeParked, playerAutoFarmPuppet, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, playerWideStats, duelWideStats, duelReplayWideStats, prestigeExpansion,
+  playerPrestigeChallenge, prestigeChallengeBackup, prestigeChallengeRun, playerPrestigeChallengeParked, playerAggroChallenge, aggroChallengeRun, playerAggroChallengeParked, playerAutoFarmPuppet, playerFreeRespec, playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, playerWideStats, playerCombatRating, duelWideStats, duelReplayWideStats, prestigeExpansion,
   playerPrestigeExpansionPerk,
   duelRiposte, duelCombatSnapshot,
   playerSessionAnalytics,

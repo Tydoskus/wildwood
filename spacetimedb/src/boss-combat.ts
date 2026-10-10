@@ -119,8 +119,10 @@ export function createCombatReport(deps: CombatReportDeps) {
       // Keen Edge grants crit on its own, so a player with no crit research can
       // still be critting; the bound has to know that or it clips them.
       const ranks = prestigePerkRanks(ctx, ctx.sender);
-      const critical = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0
-        ? criticalDamageMultiplier({ researchRank: research?.criticalDamage, perks: ranks, soul: soul?.critDamage, capRank: research?.critCap }) : 1;
+      // Crit kills inside the report raise the run's rating, so the multiplier is read per entry.
+      const crits = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0;
+      const critical = (rating = 0) => crits
+        ? criticalDamageMultiplier({ researchRank: research?.criticalDamage, perks: ranks, soul: soul?.critDamage, rating, capRank: research?.critCap }) : 1;
       // Double Strike is more damage per swing; Split Shot and Riposte are more
       // enemies reached per swing. The first belongs in damage per second, the
       // second in how many kills per second that damage can finish. The bow's
@@ -150,7 +152,7 @@ export function createCombatReport(deps: CombatReportDeps) {
         const progress = withSoulStats(earned!.preview(reward), soul, minInterval);
         const attackInterval = attackIntervalForProgress(progress);
         if (!gear) return { dps: 0, attackInterval, projectiles: 1 };
-        const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.critical * gear.swing * gear.projectiles / attackInterval : 0;
+        const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.critical(progress.critRating) * gear.swing * gear.projectiles / attackInterval : 0;
         // Reflect throws a hit back as it arrived before armor
         // (capped at max health outside Reflect Only). What got through can
         // never total more than the player's health, what regen restores and

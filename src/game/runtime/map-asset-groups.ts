@@ -59,58 +59,58 @@ const AUTHORED_MAP_ASSET_GROUPS = {
   [TUTORIAL_FOREST_MAP_ID]: {
     // Its trees and grass are the pack's (pack-forest.ts).
     art: ["forestBoss", "packNature", "forestRoad"],
-    enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"],
+    enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden", "Striker"],
   },
   [BEGINNER_DESERT_MAP_ID]: {
     art: ["desertBoss"],
-    enemies: ["Dune Raider", "Dune Archer", "Dune Regent", "Venom Guard", "Wastes Reaper", "Blight Oracle"],
+    enemies: ["Dune Raider", "Dune Needle", "Dune Striker", "Dune Archer", "Dune Regent", "Venom Guard", "Wastes Reaper", "Blight Oracle"],
   },
   [INTERMEDIATE_SNOWLANDS_MAP_ID]: {
     art: ["snowBoss", "snowDecor"],
-    enemies: ["Frost Raider", "Glacier Archer", "Glacier Regent", "Rime Guard", "Whiteout Reaper", "Aurora Oracle"],
+    enemies: ["Frost Raider", "Frost Needle", "Frost Striker", "Glacier Archer", "Glacier Regent", "Rime Guard", "Whiteout Reaper", "Aurora Oracle"],
   },
   [ADVANCED_LAVA_WASTES_MAP_ID]: {
     art: ["lavaBoss", "lavaDecor"],
-    enemies: ["Ember Raider", "Cinder Archer", "Cinder Regent", "Magma Guard", "Ash Reaper", "Inferno Oracle"],
+    enemies: ["Ember Raider", "Cinder Needle", "Cinder Striker", "Cinder Archer", "Cinder Regent", "Magma Guard", "Ash Reaper", "Inferno Oracle"],
   },
   [INFERNAL_DEPTHS_MAP_ID]: {
     art: ["nightBoss", "nightDecor"],
-    enemies: ["Depth Raider", "Abyss Archer", "Abyss Regent", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"],
+    enemies: ["Depth Raider", "Abyss Needle", "Abyss Striker", "Abyss Archer", "Abyss Regent", "Obsidian Colossus", "Doom Reaper", "Nether Oracle"],
   },
   [WATER_REACH_MAP_ID]: {
     art: ["waterBoss"],
-    enemies: ["Tide Raider", "Reef Archer", "Reef Regent", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
+    enemies: ["Tide Raider", "Reef Needle", "Reef Striker", "Reef Archer", "Reef Regent", "Coral Colossus", "Drowned Reaper", "Tidal Oracle"],
   },
   [SAMURAI_GARDEN_MAP_ID]: {
     art: ["samuraiBoss", "cherryDecor"],
-    enemies: ["Sakura Ronin", "Petal Archer", "Petal Regent", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
+    enemies: ["Sakura Ronin", "Petal Needle", "Petal Striker", "Petal Archer", "Petal Regent", "Bamboo Guardian", "Moonblade Reaper", "Shrine Oracle"],
   },
   [CLOUDSPIRE_MAP_ID]: {
     art: ["cloudspireBoss"],
-    enemies: ["Gale Prowler", "Nimbus Archer", "Nimbus Regent", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
+    enemies: ["Gale Prowler", "Gale Needle", "Gale Striker", "Nimbus Archer", "Nimbus Regent", "Skyguard Colossus", "Thunder Reaper", "Tempest Oracle"],
   },
   [MOONFEN_MAP_ID]: {
     art: ["moonfenBoss"],
-    enemies: ["Fen Prowler", "Glowcap Archer", "Glowcap Regent", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
+    enemies: ["Fen Prowler", "Fen Needle", "Fen Striker", "Glowcap Archer", "Glowcap Regent", "Bog Colossus", "Moonmire Reaper", "Wisp Oracle"],
   },
   [CRYSTAL_HOLLOWS_MAP_ID]: {
     art: ["crystalHollowsBoss"],
-    enemies: ["Shard Hopper", "Crystal Spitter", "Crystal Regent", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
+    enemies: ["Shard Hopper", "Shard Needle", "Shard Striker", "Crystal Spitter", "Crystal Regent", "Geode Guardian", "Prism Reaver", "Hollow Oracle"],
   }, [CLOCKWORK_RUINS_MAP_ID]: {
     art: ["clockworkRuinsBoss"],
-    enemies: ["Gear Prowler", "Rivet Spitter", "Gear Regent", "Iron Guardian", "Scrap Reaver", "Spark Oracle"],
+    enemies: ["Gear Prowler", "Gear Needle", "Gear Striker", "Rivet Spitter", "Gear Regent", "Iron Guardian", "Scrap Reaver", "Spark Oracle"],
   }, [DUSKFALL_ORCHARD_MAP_ID]: {
     art: ["duskfallOrchardBoss", "orchardDecor"],
-    enemies: ["Gourd Prowler", "Seed Spitter", "Harvest Regent", "Husk Guardian", "Thorn Reaver", "Harvest Oracle"],
+    enemies: ["Gourd Prowler", "Gourd Needle", "Gourd Striker", "Seed Spitter", "Harvest Regent", "Husk Guardian", "Thorn Reaver", "Harvest Oracle"],
   }, [NEON_BASTION_MAP_ID]: {
     art: ["neonBastionBoss"],
-    enemies: ["Circuit Prowler", "Pulse Spitter", "Voltage Regent", "Relay Guardian", "Arc Reaver", "Signal Oracle"],
+    enemies: ["Circuit Prowler", "Circuit Needle", "Circuit Striker", "Pulse Spitter", "Voltage Regent", "Relay Guardian", "Arc Reaver", "Signal Oracle"],
   }, [VERDANT_CATACOMBS_MAP_ID]: {
     art: ["verdantCatacombsBoss", "forestDecor"],
-    enemies: ["Mossbound Stalker", "Spore Slinger", "Mycelial Regent", "Ossuary Guardian", "Briar Reaver", "Crypt Oracle"],
+    enemies: ["Mossbound Stalker", "Moss Needle", "Moss Striker", "Spore Slinger", "Mycelial Regent", "Ossuary Guardian", "Briar Reaver", "Crypt Oracle"],
   }, [ION_CITADEL_MAP_ID]: {
     art: ["ionCitadelBoss"],
-    enemies: ["Ion Patrol", "Capacitor Gunner", "Citadel Marshal", "Bastion Defender", "Flux Enforcer", "Reactor Warden"],
+    enemies: ["Ion Patrol", "Ion Needle", "Ion Striker", "Capacitor Gunner", "Citadel Marshal", "Bastion Defender", "Flux Enforcer", "Reactor Warden"],
   },
 } as const satisfies Record<MapId, MapAssetGroup>;
 

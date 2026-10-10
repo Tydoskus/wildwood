@@ -21,6 +21,8 @@ export type PlayerState = Circle & {
   maxHp: number;
   damage: number;
   attackRate: number;
+  /** The run's crit damage rating (shared/stat-rating.ts): the server's, plus crit kills not yet reported. */
+  critRating?: number;
   projectileSpeed: number;
   projectileCount: number;
   attackRange: number;

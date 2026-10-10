@@ -1,7 +1,7 @@
 import { ENEMY_TOP_CHASE_SPEED } from "./rules";
 import { ENEMY_BASE_VALUES } from "./enemy-base-values";
 
-export type RewardType = "damage" | "health" | "speed" | "armor" | "regen";
+export type RewardType = "damage" | "health" | "speed" | "armor" | "regen" | "crit";
 
 export type EnemyDefinition = {
   hp: number;

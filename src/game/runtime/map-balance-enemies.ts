@@ -1,5 +1,5 @@
 import type { MapBalanceSnapshot } from '../../../shared/map-balance-types';
-import { generateMap, isProceduralMap } from '../../../shared/procedural-maps';
+import { endlessSiteLane, generateMap, isProceduralMap } from '../../../shared/procedural-maps';
 import { ENEMY_TYPES, type EnemyDefinition } from '../../../shared/enemy-definitions';
 import type { SpawnSite } from '../world';
 import type { EnemyState } from './types';
@@ -18,7 +18,7 @@ export function balancedSiteDefinition(snapshot: MapBalanceSnapshot, site: Pick<
   let index = site.id;
   for (const camp of camps) {
     if (index < camp.count) {
-      const lane = camp.stat === 'damage' && index >= 6 ? 'Dread Warden' : camp.lane;
+      const lane = endlessSiteLane(camp, index);
       return { ...base, ...snapshot.lanes[lane], elite: false };
     }
     index -= camp.count;
