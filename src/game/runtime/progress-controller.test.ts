@@ -1,4 +1,4 @@
-import { MOONFEN_ARMOR, CLOUDSPIRE_BOW } from "../../../shared/items";
+import { MOONFEN_ARMOR, CLOUDSPIRE_BOW, DIAMOND_GALAXY_ARMOR } from "../../../shared/items";
 import { ALPHA_TESTER_GIFT_ITEM } from "../../../shared/item-gifts";
 import { mergeProgress } from "../../coop/services/progress";
 import { describe, expect, it, vi } from "vitest";
@@ -95,6 +95,27 @@ describe("loaded progress reconciliation", () => {
     expect(state.inventory.equippedHead).toBe(headBefore);
     expect(state.inventory.itemIds).toEqual([...baseItems, ALPHA_TESTER_GIFT_ITEM]);
     expect(renderInventory).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a worn look the server saved, through a new device, an update and a membership still loading", () => {
+    const state = createGameBootstrap();
+    // Worn in the row, owned through a membership this client has not heard back about (lentLooks null).
+    let saved = { ...savedProgress(), cosmeticChest: DIAMOND_GALAXY_ARMOR, cosmeticItemsJson: "[]" };
+    const saveRemoteProgress = vi.fn();
+    const controller = createProgressController({
+      player: state.player, inventory: state.inventory, bootsPickup: state.bootsPickup,
+      legacyStorageKey: "unused", getSavedProgress: () => saved,
+      saveRemoteProgress, localIdentity: () => "player", lifetimeEnemyKills: () => 0,
+      isDeveloper: () => false, lentLooks: () => null, getTotalKills: () => 0, setTotalKills: vi.fn(),
+      researchVitalityRank: () => 0, healthMultiplierBonus: () => 0,
+      setAppliedVitalityRank: vi.fn(), renderInventory: vi.fn(), onLoaded: vi.fn(),
+    });
+    controller.load();
+    expect(state.inventory.cosmeticChest).toBe(DIAMOND_GALAXY_ARMOR);
+    // A later row (new loot changes the bag) reconciles ownership again; the look stays on.
+    saved = { ...saved, inventoryJson: JSON.stringify([...state.inventory.itemIds, CLOUDSPIRE_BOW]), cloudspireUnlocked: true };
+    controller.load();
+    expect(state.inventory.cosmeticChest).toBe(DIAMOND_GALAXY_ARMOR);
   });
 
   it("repairs a bag after missed completion hydration and removes items held by upgrades", () => {

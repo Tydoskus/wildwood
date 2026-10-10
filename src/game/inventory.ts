@@ -283,14 +283,13 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const resolvedLeftHand = savedRightHand ? "" : savedLeftHand;
   // Account looks: bought or converted ones, and any a membership lends right now (patreon-cosmetics.ts).
   const cosmeticItemIds = [...new Set([...cosmeticUnlocks(cosmeticItemsJson), ...(lentLooks ?? [])])];
-  const ownedItemIds = new Set([...items, ...cosmeticItemIds]);
-  // `lentLooks` null: the membership is not known yet. A lent piece the server saved stays
-  // on rather than coming off and being saved off; the server checks every save anyway.
-  const awaitingLend = (itemId: string) => lentLooks === null && itemDefinition(itemId)?.acquisition === "PATREON_DIAMOND";
+  // Worn looks are kept as saved. The server checks each one against what the account owns on
+  // every save and takes off what it does not; the client used to judge first, from what it had
+  // loaded so far (a membership still on its way, a new device, an update), and saved the guess.
   const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
     if (isHiddenCosmeticItem(requestedItem)) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(requestedItem);
-    return itemId && (ownedItemIds.has(itemId) || awaitingLend(itemId)) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
+    return itemId && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
   };
   const savedCosmeticHead = cosmeticItem(cosmeticHead, "HEAD");
   const savedCosmeticChest = cosmeticItem(cosmeticChest, "CHEST");

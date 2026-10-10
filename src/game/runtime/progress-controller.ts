@@ -96,10 +96,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
     inventory.cosmeticItemIds = [...ownedCosmetics];
     // Keep local loadout choices. Server ownership still determines what can
     // be equipped; upgrading/destroying an item must not leave ghost equipment.
-    for (const field of ["equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand",
-      "cosmeticHead", "cosmeticChest", "cosmeticFeet", "cosmeticRightHand", "cosmeticLeftHand"] as const) {
-      if (itemDefinition(inventory[field]) && !ownedItems.includes(inventory[field]) &&
-          !(field.startsWith("cosmetic") && ownedCosmetics.includes(inventory[field]))) inventory[field] = "";
+    // Worn looks are left to the server, which takes off any the account does not own on every
+    // save: judged here, a look still loading (a Patreon tier, a new device) came off and was saved off.
+    for (const field of ["equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand"] as const) {
+      if (itemDefinition(inventory[field]) && !ownedItems.includes(inventory[field])) inventory[field] = "";
     }
     // Gear taken away or locked again must not leave the player unable to attack.
     // Hands the player emptied stay empty (unarmed Reflect runs): new loot

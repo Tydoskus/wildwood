@@ -44,18 +44,20 @@ describe("the Diamond Galaxy set", () => {
     expect(loading.cosmeticChest).toBe(DIAMOND_GALAXY_ARMOR);
     // Nothing to pick from yet, though: it is not offered until the tier says so.
     expect(cosmeticInventoryStacks(loading).map(stack => stack.itemId)).not.toContain(DIAMOND_GALAXY_HELMET);
-    // Only the lent set waits; a plain cosmetic the account does not own still comes off.
-    expect(inventoryFromSave("[]", "", "", "", false, false, "", "", "", GALAXY_ARMOR, "", "", "", "[]", null).cosmeticChest).toBe("");
+    // Every worn look stays as the server saved it: the server is the one that takes off what is not owned.
+    expect(inventoryFromSave("[]", "", "", "", false, false, "", "", "", GALAXY_ARMOR, "", "", "", "[]", null).cosmeticChest).toBe(GALAXY_ARMOR);
   });
 
-  it("shows in Cosmetics only while a membership lends it, and comes off once it stops", () => {
+  it("shows in Cosmetics only while a membership lends it, and the server takes it off once it stops", () => {
     const save = (lent: readonly string[] | null) => inventoryFromSave("[]", "", "", "", false, false, "", "", "", DIAMOND_GALAXY_ARMOR, "", "", "", "[]", lent);
     const lent = save(patreonLooks(true));
     expect(cosmeticInventoryStacks(lent).map(stack => stack.itemId)).toEqual(expect.arrayContaining(DIAMOND_SET));
     expect(lent.cosmeticChest).toBe(DIAMOND_GALAXY_ARMOR);
     const lapsed = save(patreonLooks(false));
     expect(cosmeticInventoryStacks(lapsed).map(stack => stack.itemId)).not.toContain(DIAMOND_GALAXY_ARMOR);
-    expect(lapsed.cosmeticChest).toBe("");
+    // Not offered once the membership stops; worn, it stays as saved until the server's next check
+    // takes it off (spacetimedb/src/diamond-galaxy.test.ts), so a guess here never saves anything off.
+    expect(lapsed.cosmeticChest).toBe(DIAMOND_GALAXY_ARMOR);
     expect(wearsUnlentLook({ cosmeticChest: DIAMOND_GALAXY_ARMOR }, patreonLooks(false))).toBe(true);
     expect(wearsUnlentLook({ cosmeticChest: DIAMOND_GALAXY_ARMOR }, patreonLooks(true))).toBe(false);
     expect(wearsUnlentLook({ cosmeticChest: GALAXY_ARMOR }, [])).toBe(false);
