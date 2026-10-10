@@ -11,8 +11,8 @@ it('applies campaign pacing once and changes no combat, boss, drop or timer valu
   delete settings.campaignRewardVersion;
   expect(validateBalanceSettings(settings)).toEqual(settings);
   for (const map of CAMPAIGN_MAPS) for (const version of [1, 2] as const) {
-    const before = resolveMapBalance(map.id, fixture.settings, 0, version, { ratingHealth: false });
-    const after = resolveMapBalance(map.id, settings, 0, version, { ratingHealth: false });
+    const before = resolveMapBalance(map.id, fixture.settings, 0, version);
+    const after = resolveMapBalance(map.id, settings, 0, version);
     for (const [kind, row] of Object.entries(before.enemies)) {
       // Rating rewards (attack speed, crit) are the map's own, whatever its reward factor.
       if (row.reward.type !== 'speed' && row.reward.type !== 'crit') expect(after.enemies[kind].reward.amount / (row.reward.amount * CAMPAIGN_PACING_REWARDS[map.id])).toBeCloseTo(1, 12);

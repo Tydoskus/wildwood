@@ -36,7 +36,7 @@ function fit(values: number[]) {
 export function buildCampaignHealthCurve(root = '.') {
   const fixture = JSON.parse(readFileSync(`${root}/${CAMPAIGN_HEALTH_SOURCE.fixture}`, 'utf8'));
   const baseline = validateBalanceSettings(fixture.settings);
-  const maps = CAMPAIGN_MAPS.map(m => resolveMapBalance(m.id, baseline, 0, 2, { ratingHealth: false }));
+  const maps = CAMPAIGN_MAPS.map(m => resolveMapBalance(m.id, baseline, 0, 2));
   const tracks = maps.map((m, index) => Object.fromEntries(roles.map(role => {
     const [rank, type] = role.split(':');
     const enemies = Object.values(m.enemies);

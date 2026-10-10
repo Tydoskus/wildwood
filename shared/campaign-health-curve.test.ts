@@ -8,8 +8,8 @@ it('changes only campaign HP and preserves both endpoints exactly', () => {
   const settings = validateBalanceSettings(fixture.settings);
   const smoothed = { ...settings, campaignHealthVersion: 1 as const };
   for (const [index, map] of CAMPAIGN_MAPS.entries()) for (const version of [1, 2] as const) {
-    const before = resolveMapBalance(map.id, settings, 73, version, { ratingHealth: false });
-    const after = resolveMapBalance(map.id, smoothed, 73, version, { ratingHealth: false });
+    const before = resolveMapBalance(map.id, settings, 73, version);
+    const after = resolveMapBalance(map.id, smoothed, 73, version);
     for (const [kind, row] of Object.entries(before.enemies)) {
       // Attack speed and crit camps take their damage camp's curve (map-balance.ts).
       const track = `${row.elite ? 'elite' : 'regular'}:${row.reward.type === 'speed' || row.reward.type === 'crit' ? 'damage' : row.reward.type}`;
@@ -28,7 +28,7 @@ it('has growing HP with gradually decreasing growth ratios in all six tracks', (
   for (const role of roles) {
     const [rank, type] = role.split(':');
     const hp = CAMPAIGN_MAPS.map((map, index) => {
-      const enemies = Object.values(resolveMapBalance(map.id, settings, 0, 2, { ratingHealth: false }).enemies);
+      const enemies = Object.values(resolveMapBalance(map.id, settings, 0, 2).enemies);
       let matches = enemies.filter(e => Boolean(e.elite) === (rank === 'elite') && e.reward.type === type);
       if (!matches.length && index === 0 && role === 'elite:regen') matches = enemies.filter(e => e.reward.type === 'regen');
       return Math.max(...matches.map(e => e.hp));
