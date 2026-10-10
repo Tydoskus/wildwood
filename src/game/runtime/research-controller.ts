@@ -3,7 +3,8 @@ import { createEmptyResearchRanks, researchStatRewardMultiplier, utilityMovement
 import { applyPlayerMaxHealthMultiplierBonus } from "./player-health";
 import { movementSpeedMultiplier } from "../../../shared/rules";
 import { prestigeStatMultiplier } from "../../../shared/prestige";
-import { prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../../shared/prestige-perks";
+import { prestigePerkValue, type PrestigePerkRanks } from "../../../shared/prestige-perks";
+import { criticalDamageMultiplier, type CriticalDamageParts } from "../../../shared/critical-damage";
 
 export type { ResearchRanks } from "../../../shared/research";
 
@@ -39,7 +40,12 @@ export function createResearchController(options: ResearchControllerOptions) {
     effectiveArmor: () => options.player.armor * (1 + ranks().precision * .02),
     regenerationMultiplier: () => 1 + ranks().regeneration * .02,
     criticalChance: () => ranks().criticalChance * .01 + prestigePerkValue(options.prestigePerks?.(), "keenEdge"),
-    criticalDamageMultiplier: () => 1.05 + ranks().criticalDamage * .05 + prestigeCriticalDamageBonus(options.prestigePerks?.()),
+    /** Everything critical damage adds up from but the soul's share, and the cap's rank. */
+    criticalDamageParts: (): CriticalDamageParts => ({ researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), capRank: ranks().critCap }),
+    /** The capped multiplier, with the soul's critical damage when there is some. */
+    criticalDamageMultiplier: (soul = 0) => criticalDamageMultiplier({
+      researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), soul, capRank: ranks().critCap,
+    }),
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },
     /**
      * Vitality is part of the health bonus (main.ts healthMultiplierBonus), so a

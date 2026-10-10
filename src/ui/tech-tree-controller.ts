@@ -330,6 +330,7 @@ export function createTechTreeController(elements: TechTreeControllerElements, h
       : definition.unit === "min" ? `+${definition.valuePerRank} MIN`
         : definition.unit === "speed" ? `+${definition.valuePerRank} SPEED`
           : definition.unit === "range" ? `+${definition.valuePerRank} RANGE`
+          : definition.unit === "x" ? `+${definition.valuePerRank}×`
           : `+${definition.valuePerRank}%`;
     description.textContent = `${value} PER RANK`;
     detailContent.append(title, description);

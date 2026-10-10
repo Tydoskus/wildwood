@@ -1,5 +1,5 @@
 {
-  "protocolVersion": 109,
+  "protocolVersion": 110,
   "tables": {
     "active_item_upgrade_slot_three": [
       "identity:identity",
@@ -970,7 +970,8 @@
       "bossRespawn:u32",
       "offlineWindow:u32",
       "utilityMoveSpeed:u32",
-      "utilityAttackRange:u32"
+      "utilityAttackRange:u32",
+      "critCap:u32"
     ],
     "player": [
       "identity:identity",

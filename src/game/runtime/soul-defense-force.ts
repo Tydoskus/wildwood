@@ -67,7 +67,7 @@ export function createSoulDefenseForce(deps: {
   notice?: (text: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   storage?: () => Pick<Storage, "getItem" | "setItem"> | undefined;
-  /** The player's critical damage multiplier, research and soul together, as combat uses it. */
+  /** The player's critical damage multiplier, research and soul together and capped, as combat uses it. */
   critMultiplier?: () => number;
   /** The Town trip; false while the server still has the player down, so it is tried again. */
   sendToTown?: () => Promise<boolean>;

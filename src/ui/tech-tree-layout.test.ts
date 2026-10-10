@@ -14,13 +14,15 @@ describe("tech tree layout", () => {
     expect(new Set(layout.nodes.map((node) => node.id)).size).toBe(layout.nodes.length);
   });
 
-  it("shows each utility technology once with its own rank cap, and Enemy Respawn again at the bottom", () => {
+  it("shows each utility technology once with its own rank cap, and Enemy Respawn again beside Crit Cap at the bottom", () => {
     const layout = createTechTreeLayout("utility");
-    expect(layout.nodes.map(node => node.researchId)).toEqual([...UTILITY_RESEARCH_IDS, "enemyRespawn"]);
-    expect(layout.rows.map(row => row.length)).toEqual([1, 2, 1, 2, 1, 1]);
-    expect(layout.nodes.slice(0, -1).map(node => node.endRank))
-      .toEqual(UTILITY_RESEARCH_IDS.map(id => Math.min(5, RESEARCH_DEFINITIONS[id].maxRank)));
-    expect(layout.nodes.at(-1)).toMatchObject({ id: "tech-utility-enemyRespawn-2", startRank: 5, endRank: 10 });
+    const once = UTILITY_RESEARCH_IDS.filter(id => id !== "critCap");
+    expect(layout.nodes.map(node => node.researchId)).toEqual([...once, "enemyRespawn", "critCap"]);
+    expect(layout.rows.map(row => row.length)).toEqual([1, 2, 1, 2, 1, 2]);
+    expect(layout.nodes.slice(0, -2).map(node => node.endRank))
+      .toEqual(once.map(id => Math.min(5, RESEARCH_DEFINITIONS[id].maxRank)));
+    expect(layout.nodes.at(-2)).toMatchObject({ id: "tech-utility-enemyRespawn-2", startRank: 5, endRank: 10 });
+    expect(layout.nodes.at(-1)).toMatchObject({ id: "tech-utility-critCap", startRank: 0, endRank: 5 });
     expect(layout.paths).toEqual([
       ["tech-utility-researchSpeed", "tech-utility-slotUpgradeSpeed"],
       ["tech-utility-researchSpeed", "tech-utility-enemyRespawn"],
@@ -31,6 +33,7 @@ describe("tech tree layout", () => {
       ["tech-utility-offlineWindow", "tech-utility-utilityAttackRange"],
       ["tech-utility-utilityMoveSpeed", "tech-utility-utilityAttackRange"],
       ["tech-utility-utilityAttackRange", "tech-utility-enemyRespawn-2"],
+      ["tech-utility-utilityAttackRange", "tech-utility-critCap"],
     ]);
   });
 

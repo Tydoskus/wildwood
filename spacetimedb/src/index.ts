@@ -762,6 +762,7 @@ const playerResearch = table(
     offlineWindow: t.u32().default(0),
     utilityMoveSpeed: t.u32().default(0),
     utilityAttackRange: t.u32().default(0),
+    critCap: t.u32().default(0),
   },
 );
 

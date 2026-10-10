@@ -13,6 +13,7 @@ import { mapSpawnCamps, type MapId, type SpawnSite } from "../world";
 import type { MapPortal } from "./map-controller";
 import type { EnemyState, PlayerState } from "./types";
 import { createSoulDefenseForce } from "./soul-defense-force";
+import { trimSoulCritDamage, type CriticalDamageParts } from "../../../shared/critical-damage";
 import { gameConfirm } from "../../ui/confirm-dialog";
 
 export type SoulDimensionSource = {
@@ -55,13 +56,15 @@ export function createSoulDimensionRuntime(deps: {
   message?: (text: string, color: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   sendToTown?: () => Promise<boolean>;
-  /** Critical damage from research; the soul's own is added here, as combat adds it. */
-  researchCritMultiplier?: () => number;
+  /** The capped critical damage multiplier with this much soul critical damage in it, as combat rolls it. */
+  researchCritMultiplier?: (soulCritDamage: number) => number;
+  /** Critical damage's other parts: soul critical damage shown never takes the total past 100×, as the server stores it. */
+  critDamageParts?: () => CriticalDamageParts;
 }) {
   let filledTier = -1;
   const defenseForce = createSoulDefenseForce({ identity: () => deps.source()?.localIdentity?.(), player: deps.player, enemies: deps.enemies,
     strength: deps.strength, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown,
-    critMultiplier: deps.researchCritMultiplier && (() => deps.researchCritMultiplier!() + inPlay().critDamage),
+    critMultiplier: deps.researchCritMultiplier && (() => deps.researchCritMultiplier!(inPlay().critDamage)),
     notice: text => { void gameConfirm({ message: text, confirmLabel: "OK", cancelLabel: "" }); } });
   let strengthClock = 0;
   /** Soul kills this client has made since the server's soul row last changed: shown and fought with at once. */
@@ -76,7 +79,8 @@ export function createSoulDimensionRuntime(deps: {
     const base = cleanSoulStats(server);
     return {
       damage: base.damage + pending.damage, maxHp: base.maxHp + pending.maxHp, armor: base.armor + pending.armor,
-      regen: base.regen + pending.regen, attackSpeed: base.attackSpeed + pending.attackSpeed, critDamage: base.critDamage + pending.critDamage,
+      regen: base.regen + pending.regen, attackSpeed: base.attackSpeed + pending.attackSpeed,
+      critDamage: deps.critDamageParts ? trimSoulCritDamage(base.critDamage + pending.critDamage, deps.critDamageParts()) : base.critDamage + pending.critDamage,
     };
   }
   /** The soul stats in play: all of them in a normal run, none during a challenge (Reflect Only or Aggro). */

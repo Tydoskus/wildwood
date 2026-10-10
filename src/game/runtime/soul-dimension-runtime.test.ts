@@ -82,3 +82,17 @@ it("adds the soul stats once, however many saves and loads go round, and none du
   expect(runtime.withSoul(saved)).toMatchObject({ damage: 50, maxHp: 500, armor: 10, regen: 1, attackRate: 1 });
   expect(runtime.critDamage()).toBe(0);
 });
+
+it("never shows or fights with soul critical damage that would take the total past 100×", () => {
+  const soul = { damage: 0, maxHp: 0, armor: 0, regen: 0, attackSpeed: 0, critDamage: 98.9 };
+  const runtime = createSoulDimensionRuntime({
+    source: () => ({ soulStats: () => soul }),
+    player: { x: 0, y: 0 } as never, enemies: [], spawnSites: [], currentMapId: () => "tutorial_forest", spawnFromSite: () => {}, townMap: {},
+    strength: () => ({ dps: 10, maxHp: 100, armor: 0, regen: 0 }),
+    critDamageParts: () => ({ researchRank: 0, capRank: 5 }),
+  });
+  expect(runtime.critDamage()).toBeCloseTo(98.9);
+  for (let kill = 0; kill < 100; kill++) runtime.soulKill("critDamage");
+  // 1.05× + 98.95× is 100×: the hundred kills' +0.2× stops there, as the server stores it.
+  expect(runtime.critDamage()).toBeCloseTo(98.95);
+});

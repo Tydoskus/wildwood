@@ -20,7 +20,8 @@ import {
 import { advanceDuelCombat, duelOutcome, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { prestigePerkRanks } from "./prestige";
-import { prestigeCriticalDamageBonus, prestigePerkValue, prestigeRiposteChance, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { prestigePerkValue, prestigeRiposteChance, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { duelBowSkillFields } from "./bow-skills";
 import { readPlayerProgress } from "./wide-stats";
 
@@ -110,7 +111,8 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const ranks = prestigePerkRanks(ctx, identity);
     const baseDamage = researchedDamage(ctx, identity, damage);
     const criticalChance = (research?.criticalChance ?? 0) * .01 + prestigePerkValue(ranks, "keenEdge");
-    const criticalMultiplier = 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks) + (soulStatsFor(ctx, identity)?.critDamage ?? 0);
+    const criticalMultiplier = criticalDamageMultiplier({ researchRank: research?.criticalDamage, perks: ranks,
+      soul: soulStatsFor(ctx, identity)?.critDamage, capRank: research?.critCap });
     // Duel simulation is deterministic and both sides replay it, so random
     // rolls fold into expected damage. Criticals and Double Strike both do.
     return baseDamage * (1 + criticalChance * (criticalMultiplier - 1)) * prestigeSwingMultiplier(ranks);

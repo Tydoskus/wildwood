@@ -2277,6 +2277,7 @@ export const PlayerResearch = __t.object("PlayerResearch", {
   offlineWindow: __t.u32(),
   utilityMoveSpeed: __t.u32(),
   utilityAttackRange: __t.u32(),
+  critCap: __t.u32(),
 });
 export type PlayerResearch = __Infer<typeof PlayerResearch>;
 

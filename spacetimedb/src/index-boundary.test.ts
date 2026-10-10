@@ -195,7 +195,9 @@ import { describe, expect, it } from "vitest";
 // set_soul_dimension_open reducer's export line, one import line, its portal
 // on home's list of portals, and the open-to-you check on change_map. The
 // rules, tables and reducer bodies live in soul-dimension.ts.
-const MAX_LINES = 6_586;
+// 6_587: player_research's critCap column, the Crit Cap research rank. The
+// cap itself lives in shared/critical-damage.ts.
+const MAX_LINES = 6_587;
 const TARGET_LINES = 3_500;
 
 describe("server module boundary", () => {

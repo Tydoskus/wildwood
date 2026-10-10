@@ -57,7 +57,8 @@ export function createTechTreeLayout(tree: ResearchTree = "power"): TechTreeLayo
       [node("bossRespawn")],
       [node("offlineWindow"), node("utilityMoveSpeed")],
       [node("utilityAttackRange")],
-      [node("enemyRespawn", 1)],
+      // Both hang behind Attack Range: Enemy Respawn's second band and Crit Cap.
+      [node("enemyRespawn", 1), node("critCap")],
     ];
     const paths: TechTreeLayout["paths"] = [];
     for (let row = 0; row < rows.length - 1; row += 1) {

@@ -58,6 +58,11 @@ describe("research timer curve", () => {
     ranks.utilityMoveSpeed = 0;
     ranks.offlineWindow = 1;
     expect(researchIsAvailable("utilityAttackRange", ranks)).toBe(true);
+    expect(researchIsAvailable("critCap", ranks)).toBe(false);
+    ranks.utilityAttackRange = 1;
+    expect(researchIsAvailable("critCap", ranks)).toBe(true);
+    ranks.critCap = 5;
+    expect(researchIsAvailable("critCap", ranks)).toBe(false);
 
     ranks.researchSpeed = 5;
     ranks.offlineWindow = 3;

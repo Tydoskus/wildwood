@@ -11,6 +11,7 @@ import { itemTier } from "../../shared/item-tier";
 import { REGULAR_ENEMY_RESPAWN_SECONDS } from "../game/runtime/regular-enemy-respawn";
 import { ONBOARDING_DAMAGE_REWARD, ONBOARDING_REGEN_REWARD } from "../../shared/onboarding";
 import { BLACK_BOOTS } from "../../shared/items";
+import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { BALANCE_TARGET_MAP_DURATION_STEP_SECONDS } from "../../shared/rules";
 import { isUpgradeableItem, itemUpgradeDurationMs, MAX_ITEM_UPGRADE_LEVEL } from "../../shared/items";
 import { BOSS_TARGET_SECONDS } from "../../shared/progression";
@@ -1208,7 +1209,7 @@ function powerComponentsForState(state: EffectiveStatsState): PowerComponents {
 function combatStats(state: EffectiveStatsState) {
   const effective = effectiveStats(state);
   const criticalChance = Math.min(1, Math.max(0, state.research.criticalChance * .01));
-  const criticalMultiplier = 1.05 + state.research.criticalDamage * .05;
+  const criticalMultiplier = criticalDamageMultiplier({ researchRank: state.research.criticalDamage, capRank: state.research.critCap });
   const averageHit = effective.damage * (1 + criticalChance * (criticalMultiplier - 1));
   return {
     ...effective,

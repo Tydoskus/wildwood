@@ -29,4 +29,5 @@ export default __t.row({
   offlineWindow: __t.u32().name("offline_window"),
   utilityMoveSpeed: __t.u32().name("utility_move_speed"),
   utilityAttackRange: __t.u32().name("utility_attack_range"),
+  critCap: __t.u32().name("crit_cap"),
 });

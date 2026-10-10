@@ -18,6 +18,7 @@ import { isProceduralMap, type ProceduralMapId } from '../../../../shared/proced
 import { TUTORIAL_FOREST_MAP_ID } from '../../../../shared/rules';
 import { createEmptyResearchRanks } from '../../../../shared/research';
 import { prestigePerkValue } from '../../../../shared/prestige-perks';
+import { criticalDamageMultiplier } from '../../../../shared/critical-damage';
 import { generatedMapContent } from '../../procedural-maps';
 import type { CalibrationBuild } from './forecast-builds';
 import type { VirtualPlayerProfile } from './virtual-player';
@@ -31,7 +32,7 @@ export function soulSites(profile: VirtualPlayerProfile, tier: number): SpawnSit
   const research = { ...createEmptyResearchRanks(), ...profile.research };
   const stats = effectivePlayerPowerStats({ ...profile.base, equippedHead: profile.head ?? '', equippedChest: profile.chest ?? '', equippedRightHand: profile.weapon }, research);
   const critChance = research.criticalChance * .01 + prestigePerkValue(profile.perks, 'keenEdge');
-  const critMultiplier = 1.05 + research.criticalDamage * .05;
+  const critMultiplier = criticalDamageMultiplier({ researchRank: research.criticalDamage, capRank: research.critCap });
   const dps = stats.damage * (1 + Math.min(1, critChance) * (critMultiplier - 1)) * Math.max(1, profile.projectileCount ?? 1) / Math.max(.05, stats.attackRate);
   const built = soulEnemyStats({ dps, maxHp: stats.maxHp, armor: stats.armor, regen: stats.regen });
   const sites: SpawnSite[] = [];

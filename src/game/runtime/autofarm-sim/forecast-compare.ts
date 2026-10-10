@@ -6,7 +6,8 @@ import { resolveMapBalance } from '../../../../shared/map-balance';
 import { LIVE_BALANCE } from '../../../balance/live-balance';
 import { createEmptyResearchRanks, researchStatRewardMultiplier } from '../../../../shared/research';
 import { prestigeStatMultiplier } from '../../../../shared/prestige';
-import { prestigeCriticalDamageBonus, prestigePerkValue } from '../../../../shared/prestige-perks';
+import { prestigePerkValue } from '../../../../shared/prestige-perks';
+import { criticalDamageMultiplier } from '../../../../shared/critical-damage';
 import { challengeMinimumInterval } from '../../../../shared/prestige-challenge';
 import { isSoulMap } from '../../../../shared/soul-dimension';
 import { movementSpeedMultiplier, PLAYER_SPEED } from '../../../../shared/rules';
@@ -50,7 +51,7 @@ export function calibrationInputs(build: CalibrationBuild, profile: VirtualPlaye
     rewardMultiplier: researchStatRewardMultiplier(research) * prestigeStatMultiplier(profile.prestigeLevel ?? 0),
     minAttackInterval: challengeMinimumInterval(null),
     criticalChance: research.criticalChance * .01 + prestigePerkValue(perks, 'keenEdge'),
-    criticalMultiplier: 1.05 + research.criticalDamage * .05 + prestigeCriticalDamageBonus(perks),
+    criticalMultiplier: criticalDamageMultiplier({ researchRank: research.criticalDamage, perks, capRank: research.critCap }),
     projectileCount: profile.projectileCount ?? 1,
     melee: isMeleeWeapon(profile.weapon),
     reach: weaponAttackRange(profile.weapon, BASE_ATTACK_RANGE),

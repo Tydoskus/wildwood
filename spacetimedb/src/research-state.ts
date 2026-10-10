@@ -7,7 +7,7 @@ export function createResearchState(deps: {
     return { identity, warcraft: 0, foraging: 0, frontierMastery: 0, vitality: 0, precision: 0, regeneration: 0,
       criticalChance: 0, criticalDamage: 0, moveSpeed: 0, prosperity: 0, researchSpeed: 0,
       slotUpgradeSpeed: 0, enemyRespawn: 0, bossRespawn: 0, offlineWindow: 0, utilityMoveSpeed: 0,
-      utilityAttackRange: 0 };
+      utilityAttackRange: 0, critCap: 0 };
   }
 
   return function researchForPlayer(ctx: any, identity: any) {

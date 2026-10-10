@@ -342,6 +342,19 @@ it("adds the soul stats in play to each row's base, before the multipliers, and 
   expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL, undefined, 0, null, 1, null)).toEqual(plain);
 });
 
+it("holds critical damage at the cap, says so, and lists only the soul's share that counts", () => {
+  const profile = { progress: progress(), research: createEmptyResearchRanks(), itemUpgradeLevels: {} } as Parameters<typeof profileStatDisplayRows>[0];
+  const row = (critCap: number, critDamage: number) => profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL,
+    { ...createEmptyResearchRanks(), criticalDamage: 20, critCap }, 0, null, 1, { critDamage }).find(entry => entry.kind === "critical-damage")!;
+  // 1.05 + 1.00 research + 97.95 soul is 100×; the 50× cap holds it.
+  expect(row(0, 97.95)).toMatchObject({ total: "50.00× (Max)", equationTotal: "50.00×", multiplier: "48.95×", expandedDetail: "(50× Cap)",
+    sources: [{ label: "Tech", value: "+1.00×" }, { label: "Soul", value: "+47.95× (Max)" }] });
+  // Three Crit Cap ranks: 80×.
+  expect(row(3, 97.95)).toMatchObject({ total: "80.00× (Max)", expandedDetail: "(80× Cap)" });
+  expect(row(5, 97.95)).toMatchObject({ total: "100.00×", expandedDetail: "(100× Cap)", sources: [{ label: "Tech", value: "+1.00×" }, { label: "Soul", value: "+97.95×" }] });
+  expect(row(0, 10)).toMatchObject({ total: "12.05×", multiplier: "11.00×" });
+});
+
 it("counts soul attack speed up to a Reflect winner's raised cap, and lists only what it adds", () => {
   const profile = {
     progress: { ...progress(), attackRate: MIN_ATTACK_INTERVAL },

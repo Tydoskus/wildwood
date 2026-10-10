@@ -6,8 +6,9 @@ import { preparePlayerPowerStats, playerPowerForStats, legacyU32Power } from "..
 import { equipmentDamageMultiplierBonus, itemDefinition } from "../../shared/items";
 import { createEnemyRewardAccumulator, type EnemyStatReward } from "../../shared/enemy-reward-accumulator";
 import { statRewardMultiplier, prestigePerkRanks } from "./prestige";
-import { WORLD_REFLECT_SHARE, preArmorFactor, prestigeCriticalDamageBonus, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
+import { WORLD_REFLECT_SHARE, preArmorFactor, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { armorDamageReduction } from "../../shared/combat";
+import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { soulStatsFor, withSoulStats } from "./soul-dimension";
 import { bowSkillRollFor } from "./bow-skills";
 import { bowSkillReachMultiplier } from "../../shared/bow-skills";
@@ -113,12 +114,13 @@ export function createCombatReport(deps: CombatReportDeps) {
       // Empty hands still earn through Reflect (an unarmed Reflect run): the
       // bound must not read no weapon as no combat, which paid them nothing.
       const armed = Boolean(loadout.weapon);
-      // Use the possible maximum so legitimate lucky streaks are never clipped.
+      // Use the possible maximum so legitimate lucky streaks are never clipped,
+      // and no more than the critical damage cap lets a hit deal.
       // Keen Edge grants crit on its own, so a player with no crit research can
       // still be critting; the bound has to know that or it clips them.
       const ranks = prestigePerkRanks(ctx, ctx.sender);
       const critical = (research?.criticalChance ?? 0) > 0 || prestigePerkValue(ranks, "keenEdge") > 0
-        ? Math.max(1, 1.05 + (research?.criticalDamage ?? 0) * .05 + prestigeCriticalDamageBonus(ranks) + (soul?.critDamage ?? 0)) : 1;
+        ? criticalDamageMultiplier({ researchRank: research?.criticalDamage, perks: ranks, soul: soul?.critDamage, capRank: research?.critCap }) : 1;
       // Double Strike is more damage per swing; Split Shot and Riposte are more
       // enemies reached per swing. The first belongs in damage per second, the
       // second in how many kills per second that damage can finish. The bow's

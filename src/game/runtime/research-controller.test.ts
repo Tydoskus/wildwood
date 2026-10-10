@@ -20,3 +20,15 @@ it("never rewrites saved health for Vitality, so research arriving after stats c
   expect(player.maxHp).toBeCloseTo(1_400);
   expect(saveProgress).not.toHaveBeenCalled();
 });
+
+it("rolls criticals at the cap: 50×, 10× more a Crit Cap rank", () => {
+  let ranks = { ...createEmptyResearchRanks(), criticalDamage: 4 };
+  const research = createResearchController({ player: {} as PlayerState, getRanks: () => ranks, isDueling: () => false, maxPlayerStat: 1e30,
+    saveProgress: () => {}, prestigePerks: () => ({ keenEdge: 1 }) });
+  expect(research.criticalDamageMultiplier()).toBeCloseTo(1.05 + .2 + .12);
+  expect(research.criticalDamageMultiplier(10)).toBeCloseTo(11.37);
+  expect(research.criticalDamageMultiplier(300)).toBe(50);
+  ranks = { ...ranks, critCap: 4 };
+  expect(research.criticalDamageMultiplier(300)).toBe(90);
+  expect(research.criticalDamageParts()).toMatchObject({ researchRank: 4, capRank: 4 });
+});

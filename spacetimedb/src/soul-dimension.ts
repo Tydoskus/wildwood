@@ -5,6 +5,8 @@ import { isProceduralMap } from "../../shared/procedural-maps";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import { challengeActive } from "./prestige-challenge";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
+import { trimSoulCritDamage } from "../../shared/critical-damage";
+import { storedPrestigePerkRanks } from "./prestige";
 import {
   addSoulKills, cleanSoulStats, isSoulMap, soulDimensionAccess, soulStatsUnlocked, soulTier,
   SOUL_STAT_ORDER, SOUL_REWARD_KILL_TYPES, type RewardKillCounts, type SoulStatId, type SoulStats,
@@ -93,6 +95,29 @@ export function rewardKillsFor(ctx: any, identity: any): RewardKillCounts {
   };
 }
 
+/**
+ * Soul critical damage as it may be stored: never more than brings this
+ * player's total to 100×, the highest cap Crit Cap research reaches. Up to
+ * that it is all kept, counted only up to the cap they have now. The perks
+ * they own count, in play or not, so an Aggro run does not move the line.
+ */
+export function trimmedSoulCritDamage(ctx: any, identity: any, critDamage: number) {
+  return trimSoulCritDamage(critDamage, {
+    researchRank: ctx.db.playerResearch.identity.find(identity)?.criticalDamage, perks: storedPrestigePerkRanks(ctx, identity),
+  });
+}
+
+/**
+ * Migration 53 (0.901.37): every stored soul row trimmed to the 100× line
+ * above. Rows at or under it are left as they are, so running it again changes nothing.
+ */
+export function trimStoredSoulCritDamage(ctx: any) {
+  for (const row of [...ctx.db.playerSoulStats.iter()] as any[]) {
+    const critDamage = trimmedSoulCritDamage(ctx, row.identity, row.critDamage);
+    if (critDamage < row.critDamage) ctx.db.playerSoulStats.identity.update({ ...row, critDamage });
+  }
+}
+
 const COUNTED = new Set<string>(SOUL_REWARD_KILL_TYPES);
 const isTierMap = (mapId: string) => CAMPAIGN_MAPS.some(map => map.id === mapId) || isProceduralMap(mapId);
 
@@ -138,7 +163,7 @@ export function noteEnemyDefeats(ctx: any, mapId: string, rewards: readonly { ty
     kills += BigInt(Math.floor(reward.count));
   }
   if (kills === (row?.kills ?? 0n)) return;
-  const next = { identity: ctx.sender, ...soul, kills };
+  const next = { identity: ctx.sender, ...soul, critDamage: trimmedSoulCritDamage(ctx, ctx.sender, soul.critDamage), kills };
   if (row) ctx.db.playerSoulStats.identity.update(next); else ctx.db.playerSoulStats.insert(next);
 }
 
@@ -161,7 +186,8 @@ export function mergeSoulDimensionRows(ctx: any, from: any, into: any) {
     const target = ctx.db.playerSoulStats.identity.find(into);
     const a = cleanSoulStats(soul), b = cleanSoulStats(target);
     const next = { identity: into, damage: a.damage + b.damage, maxHp: a.maxHp + b.maxHp, armor: a.armor + b.armor, regen: a.regen + b.regen,
-      attackSpeed: a.attackSpeed + b.attackSpeed, critDamage: a.critDamage + b.critDamage, kills: soul.kills + (target?.kills ?? 0n) };
+      attackSpeed: a.attackSpeed + b.attackSpeed, critDamage: trimmedSoulCritDamage(ctx, into, a.critDamage + b.critDamage),
+      kills: soul.kills + (target?.kills ?? 0n) };
     if (target) ctx.db.playerSoulStats.identity.update(next); else ctx.db.playerSoulStats.insert(next);
   }
   removeSoulDimensionRows(ctx, from);

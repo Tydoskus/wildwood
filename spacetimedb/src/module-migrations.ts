@@ -46,8 +46,9 @@ import { enrollInPrestigeChallenge } from "./prestige-challenge";
 import { readPlayerProgress, iterPlayerProgress } from "./wide-stats";
 import { moveSoloQuestsToGuild } from "./daily-quests";
 import { rebuildParkedAggroRun } from "./aggro-challenge";
+import { trimStoredSoulCritDamage } from "./soul-dimension";
 
-export const MODULE_MIGRATION_VERSION = 52;
+export const MODULE_MIGRATION_VERSION = 53;
 
 /**
  * Migration 50 (0.856): the ranking snapshot moves to leaderboard_entry_v2,
@@ -556,6 +557,9 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     // 52 (0.894): Phoe's Aggro run was thrown away on drop-out before drop-outs
     // parked runs. Park one rebuilt at the power she had, about 317k.
     if (currentVersion < 52) rebuildParkedAggroRun(ctx, "phoe", 317_000);
+    // 53 (0.901.37): critical damage is capped, 100× at the most; soul critical
+    // damage that put a player's total above 100× is trimmed to it.
+    if (currentVersion < 53) trimStoredSoulCritDamage(ctx);
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

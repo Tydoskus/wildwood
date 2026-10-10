@@ -650,7 +650,7 @@ import {
     ),
     researchDamageMultiplier,
     researchCriticalChance,
-    researchCriticalDamageMultiplier: () => researchCriticalDamageMultiplier() + soulDimension.critDamage(),
+    researchCriticalDamageMultiplier: () => researchCriticalDamageMultiplier(soulDimension.critDamage()),
     researchRewardMultiplier,
     displayRewardAmount: rewardDisplay.displayedAmount,
     prestigeBossSlayer: () => prestigePerkValue(coop?.prestigePerks?.(), "bossSlayer"),
@@ -809,7 +809,7 @@ import {
     pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id as MapId]?.name ?? id, showProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target) });
   const homeTravel = createHomeTravelController({ source: () => coop, travel: mapController.travelFromHome, departure: mapController.homeDeparture, atHome: () => currentMapId === "town", pause: () => {}, clearInput: playerInput.clear, mapName: id => MAP_CONFIG[id].name, guildHall: () => guildHall.hallMap() });
   const soulDimension = createSoulDimension({ source: () => coop, player, enemies, spawnSites, decor, currentMapId: () => currentMapId, spawnFromSite, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), townMap: MAP_CONFIG.town,
-    strength: () => ({ dps: playerCombat.expectedDps(), maxHp: player.maxHp, armor: effectiveArmor(), regen: regenerationPerSecond() }), logPickup, damagePlayer: (damage, source) => playerCombat.damagePlayer(damage, source), message: showMessage, burst: spawnBurst, sendToTown: () => mapController.teleportHome(), researchCritMultiplier: () => researchCriticalDamageMultiplier(),
+    strength: () => ({ dps: playerCombat.expectedDps(), maxHp: player.maxHp, armor: effectiveArmor(), regen: regenerationPerSecond() }), logPickup, damagePlayer: (damage, source) => playerCombat.damagePlayer(damage, source), message: showMessage, burst: spawnBurst, sendToTown: () => mapController.teleportHome(), researchCritMultiplier: researchCriticalDamageMultiplier, critDamageParts: research.criticalDamageParts,
     attackCap: () => challengeMinimumInterval(coop?.aggroChallenge?.()?.active ? null : coop?.prestigeChallenge?.()), travel: mapController.travelFromHome, clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms) });
   const guildHall = createGuildHall({ source: () => coop, player, decor, currentMapId: () => currentMapId, invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), clearInput: playerInput.clear, fadeToWorld: (action, ms) => session.fadeToWorld(action, ms),
     travel: mapId => { autoFarm.stop("Autofarm stopped for the Guild Hall"); return mapController.teleportToMap(mapId, async () => Boolean(await coop?.changeMap?.(mapId, player.x, player.y))); } });

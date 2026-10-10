@@ -3,6 +3,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import { effectivePlayerPowerStats } from "../../../shared/player-power";
 import { itemDefinition, normalizeItemUpgradeLevel } from "../../../shared/items";
 import { guildWeaponRange } from "../../../shared/guild-combat";
+import { criticalDamageMultiplier } from "../../../shared/critical-damage";
 import type { RemoteCombatStats } from "../contracts";
 import { withWideProgress } from "./wide-progress";
 
@@ -46,6 +47,7 @@ type ResearchRow = {
   regeneration: number;
   criticalChance: number;
   criticalDamage: number;
+  critCap?: number;
 };
 
 type UpgradeRow = {
@@ -103,7 +105,7 @@ export function remoteCombatStatsFromRows(
       : 1,
     attackRange: guildWeaponRange(progress.equippedRightHand || progress.equippedLeftHand, finitePositive(progress.attackRange, 200)),
     criticalChance: Math.max(0, Math.min(1, criticalChanceRank * .01)),
-    criticalDamageMultiplier: 1.05 + criticalDamageRank * .05,
+    criticalDamageMultiplier: criticalDamageMultiplier({ researchRank: criticalDamageRank, capRank: normalizedRank(research?.critCap ?? 0) }),
   };
 }
 

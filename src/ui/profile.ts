@@ -1,7 +1,8 @@
 import type { PlayerProfileData, PlayerResearch } from "../wildstat-coop";
 import { createEmptyResearchRanks, researchStatRewardMultiplier, utilityMovementSpeedBonus } from "../../shared/research";
 import { prestigeStatMultiplier } from "../../shared/prestige";
-import { PRESTIGE_PERKS, prestigeCriticalDamageBonus, prestigePerkValue, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { PRESTIGE_PERKS, prestigePerkValue, type PrestigePerkRanks } from "../../shared/prestige-perks";
+import { CRITICAL_DAMAGE_BASE, criticalDamage } from "../../shared/critical-damage";
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber, formatRate } from "./number-format";
@@ -253,7 +254,7 @@ export function profileStatDisplayRows(
   });
   // Keen Edge pays critical chance and critical damage on top of research, so
   // both rows read as combat rolls them rather than showing research alone.
-  const perkCritical = prestigePerkValue(perks, "keenEdge"), perkCriticalDamage = prestigeCriticalDamageBonus(perks);
+  const perkCritical = prestigePerkValue(perks, "keenEdge");
   const criticalChance = ranks.criticalChance * .01 + perkCritical;
   stats.push({
     kind: "critical", label: "Critical Chance:", base: "0%", equationOperator: "+", multiplier: percentPoints(criticalChance), total: percentPoints(criticalChance),
@@ -262,14 +263,19 @@ export function profileStatDisplayRows(
       ...(perkCritical ? [{ label: "Prestige" as const, value: `+${percentPoints(perkCritical)}` }] : []),
     ],
   });
-  const criticalDamageBonus = ranks.criticalDamage * .05 + perkCriticalDamage + soul.critDamage;
-  const criticalDamage = 1.05 + criticalDamageBonus;
+  // Combat stops at the cap (50×, 10× more a Crit Cap rank), so the row does
+  // too. Research and Keen Edge never reach it; what the soul adds past it is
+  // still stored and counts again as the cap rises, so its line says (Max).
+  const crit = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: soul.critDamage, capRank: ranks.critCap });
+  const soulCritical = crit.capped ? Math.max(0, crit.cap - CRITICAL_DAMAGE_BASE - crit.research - crit.perk) : crit.soul;
   stats.push({
-    kind: "critical-damage", label: "Critical Damage:", base: "1.05×", equationOperator: "+", multiplier: `${criticalDamageBonus.toFixed(2)}×`, total: `${criticalDamage.toFixed(2)}×`,
+    kind: "critical-damage", label: "Critical Damage:", base: `${CRITICAL_DAMAGE_BASE.toFixed(2)}×`, equationOperator: "+",
+    multiplier: `${(crit.multiplier - CRITICAL_DAMAGE_BASE).toFixed(2)}×`, total: `${crit.multiplier.toFixed(2)}×${crit.capped ? " (Max)" : ""}`,
+    equationTotal: `${crit.multiplier.toFixed(2)}×`, expandedDetail: `(${crit.cap}× Cap)`,
     sources: [
-      ...(ranks.criticalDamage ? [{ label: "Tech" as const, value: `+${(ranks.criticalDamage * .05).toFixed(2)}×` }] : []),
-      ...(perkCriticalDamage ? [{ label: "Prestige" as const, value: `+${perkCriticalDamage.toFixed(2)}×` }] : []),
-      ...soulSource(soul.critDamage, value => `${value.toFixed(2)}×`),
+      ...(crit.research ? [{ label: "Tech" as const, value: `+${crit.research.toFixed(2)}×` }] : []),
+      ...(crit.perk ? [{ label: "Prestige" as const, value: `+${crit.perk.toFixed(2)}×` }] : []),
+      ...soulSource(soulCritical, value => `${value.toFixed(2)}×${crit.capped ? " (Max)" : ""}`),
     ],
   });
   // The remaining perks have no research behind them, so a row only appears
