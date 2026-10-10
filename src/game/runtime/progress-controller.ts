@@ -33,6 +33,8 @@ type ProgressDependencies = {
   localIdentity: () => string;
   lifetimeEnemyKills: (identity: string) => number | undefined;
   isDeveloper: (identity: string) => boolean;
+  /** Looks a membership lends right now (the Diamond Galaxy set while Patreon Diamond is active). */
+  lentLooks?: () => readonly string[];
   getTotalKills: () => number;
   setTotalKills: (kills: number) => void;
   researchVitalityRank: () => number;
@@ -69,9 +71,10 @@ export function createProgressController(dependencies: ProgressDependencies) {
       ownedItems = [...STARTER_ITEM_IDS.filter(item => !listed.includes(item)), ...listed];
       ownershipJson = saved.inventoryJson;
     }
-    const cosmeticJson = saved.cosmeticItemsJson ?? "[]";
+    const lent = dependencies.lentLooks?.() ?? [];
+    const cosmeticJson = `${saved.cosmeticItemsJson ?? "[]"}|${lent.join(",")}`;
     if (cosmeticOwnershipJson !== cosmeticJson) {
-      ownedCosmetics = cosmeticUnlocks(cosmeticJson);
+      ownedCosmetics = [...new Set([...cosmeticUnlocks(saved.cosmeticItemsJson ?? "[]"), ...lent])];
       cosmeticOwnershipJson = cosmeticJson;
     }
     const inventory = dependencies.inventory;
@@ -209,6 +212,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
       source.cosmeticRightHand,
       source.cosmeticLeftHand,
       source.cosmeticItemsJson,
+      dependencies.lentLooks?.() ?? [],
     );
     inventory.itemIds = savedInventory.itemIds;
     inventory.cosmeticItemIds = savedInventory.cosmeticItemIds;

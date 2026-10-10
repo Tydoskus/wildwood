@@ -17,6 +17,7 @@ import {
   type EquipmentAppearance,
 } from "../../shared/equipment-appearance";
 import { cosmeticUnlocks } from "../../shared/cosmetic-conversion";
+export { patreonLooks } from "../../shared/patreon-cosmetics";
 
 export {
   BASIC_PAPER_HAT,
@@ -253,7 +254,7 @@ export function equipmentAppearance(inventory: Pick<InventoryState,
   return resolveEquipmentAppearance(inventory);
 }
 
-export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]"): InventoryState {
+export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]", lentLooks: readonly string[] = []): InventoryState {
   const requested = Array.isArray(itemIds) ? itemIds : [];
   // Trailblazer Boots are gone. `ownsBoots` is kept in the signature because
   // saved rows still carry the flag; it no longer grants anything.
@@ -280,7 +281,8 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const savedFeet = typeof equippedFeet === "string" && items.includes(equippedFeet) && itemDefinition(equippedFeet)?.slot === "FEET" ? equippedFeet : "";
   const resolvedRightHand = savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : "");
   const resolvedLeftHand = savedRightHand ? "" : savedLeftHand;
-  const cosmeticItemIds = cosmeticUnlocks(cosmeticItemsJson);
+  // Account looks: bought or converted ones, and any a membership lends right now (patreon-cosmetics.ts).
+  const cosmeticItemIds = [...new Set([...cosmeticUnlocks(cosmeticItemsJson), ...lentLooks])];
   const ownedItemIds = new Set([...items, ...cosmeticItemIds]);
   const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
     if (isHiddenCosmeticItem(requestedItem)) return HIDDEN_COSMETIC_ITEM_ID;
@@ -308,12 +310,12 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   });
 }
 
-export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]"): InventoryState {
+export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]", lentLooks: readonly string[] = []): InventoryState {
   let itemIds: unknown = [];
   if (typeof inventoryJson === "string") {
     try { itemIds = JSON.parse(inventoryJson); } catch {}
   }
-  return normaliseInventory(itemIds, equippedFeet, equippedHead, equippedChest, ownsBoots, ownsDeveloperCosmetics, equippedRightHand, equippedLeftHand, cosmeticHead, cosmeticChest, cosmeticFeet, cosmeticRightHand, cosmeticLeftHand, cosmeticItemsJson);
+  return normaliseInventory(itemIds, equippedFeet, equippedHead, equippedChest, ownsBoots, ownsDeveloperCosmetics, equippedRightHand, equippedLeftHand, cosmeticHead, cosmeticChest, cosmeticFeet, cosmeticRightHand, cosmeticLeftHand, cosmeticItemsJson, lentLooks);
 }
 
 export function serialiseInventory(inventory: InventoryState) {

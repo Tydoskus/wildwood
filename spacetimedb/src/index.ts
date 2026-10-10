@@ -62,6 +62,7 @@ import { attackRangeWithResearch, slotUpgradeDurationWithResearch } from "../../
 import { createResearchState } from "./research-state";
 import { createCosmeticConversion } from "./cosmetic-conversion";
 import { cosmeticUnlocks } from "../../shared/cosmetic-conversion";
+import { wearsUnlentLook } from "../../shared/patreon-cosmetics";
 import { publicChatCursor, updatePublicChatCursor, readPublicChatPage } from "./public-chat-history";
 import { createKillGems } from "./kill-gems";
 import { createPrestige, statRewardMultiplier } from "./prestige";
@@ -70,7 +71,7 @@ import { proceduralMapTables, proceduralBossKey, clearProceduralProgress, genera
 import { ingestStoreEvent } from "./gem-store-events";
 import { gemPurchaseTables } from "./gem-purchase-tables";
 import { patreonTables } from "./patreon-tables";
-import { beginPatreonLink as beginSupporterLink, refreshPatreon, sweepPatreonLinks, ensurePatreonSweep, PATREON_SWEEP_INTERVAL_MICROS, patreonStatus, unlinkPatreon, patreonCallback } from "./patreon";
+import { beginPatreonLink as beginSupporterLink, refreshPatreon, sweepPatreonLinks, ensurePatreonSweep, PATREON_SWEEP_INTERVAL_MICROS, patreonStatus, lentLooksFor, unlinkPatreon, patreonCallback } from "./patreon";
 import { requestPatreonSupport } from "./patreon-support";
 import { DEVELOPER_IDENTITY as DEVELOPER_IDENTITY_HEX } from "../../shared/developer-identity";
 import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
@@ -2513,7 +2514,7 @@ function refreshLeaderboard(ctx: any) {
       power: powerForProgress(effectiveStats),
       profileIcon: profile.profileIcon,
       gender: profile.gender,
-      ...leaderboardAppearanceForProgress(progress, profile),
+      ...leaderboardAppearanceForProgress(ctx, progress, profile),
       damage: effectiveStats.damage,
       maxHp: effectiveStats.maxHp,
       armor: effectiveStats.armor,
@@ -2883,7 +2884,7 @@ function writeProgressAndPresentation(ctx: any, progress: any) {
       ...active,
       ...powerFieldsForProgress(ctx, progress),
       speed: effectiveMovementSpeedForProgress(ctx, progress),
-      ...equipmentPresentationForProgress(progress),
+      ...equipmentPresentationForProgress(ctx, progress),
     };
     updateSnapshotRow(ctx, "player", nextPlayer);
     syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
@@ -2925,8 +2926,8 @@ function equippedLeftHandForProgress(progress: any, inventory = inventoryForProg
   return saved && inventory.includes(saved) && !equipmentMapRequirement(saved, progress) ? saved : "";
 }
 
-function cosmeticEquipmentForProgress(progress: any, inventory = inventoryForProgress(progress)) {
-  const ownedItemIds = new Set([...inventory, ...cosmeticUnlocks(progress.cosmeticItemsJson)]);
+function cosmeticEquipmentForProgress(progress: any, lentLooks: readonly string[], inventory = inventoryForProgress(progress)) {
+  const ownedItemIds = new Set([...inventory, ...cosmeticUnlocks(progress.cosmeticItemsJson), ...lentLooks]);
   const itemFor = (field: "cosmeticHead" | "cosmeticChest" | "cosmeticFeet" | "cosmeticRightHand" | "cosmeticLeftHand", slot: "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND") => {
     if (isHiddenCosmeticItem(progress[field])) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(progress[field]);
@@ -2942,10 +2943,10 @@ function cosmeticEquipmentForProgress(progress: any, inventory = inventoryForPro
   };
 }
 
-function equipmentPresentationForProgress(progress: any, inventory = inventoryForProgress(progress)) {
+function equipmentPresentationForProgress(ctx: any, progress: any, inventory = inventoryForProgress(progress)) {
   // Empty hands look empty; combat bounds still read them as the best weapon owned.
   const rightHandItem = progress.equippedRightHand || progress.equippedLeftHand ? equippedRightHandForProgress(progress, inventory) : "";
-  const cosmetics = cosmeticEquipmentForProgress(progress, inventory);
+  const cosmetics = cosmeticEquipmentForProgress(progress, lentLooksFor(ctx, progress.identity), inventory);
   return resolveEquipmentAppearance({
     equippedFeet: equippedFeetForProgress(progress, inventory),
     equippedHead: equippedHeadForProgress(progress, inventory),
@@ -2956,10 +2957,10 @@ function equipmentPresentationForProgress(progress: any, inventory = inventoryFo
   });
 }
 
-function leaderboardAppearanceForProgress(progress: any, profile: any) {
+function leaderboardAppearanceForProgress(ctx: any, progress: any, profile: any) {
   return {
     skinTone: profile?.skinTone ?? 3,
-    ...equipmentPresentationForProgress(progress),
+    ...equipmentPresentationForProgress(ctx, progress),
   };
 }
 
@@ -3427,7 +3428,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     const equippedRightHand = handsEmpty ? "" : equippedRightHandForProgress(existingProgress);
     const equippedLeftHand = handsEmpty || equippedRightHand ? "" : equippedLeftHandForProgress(existingProgress);
     const inventoryJson = JSON.stringify(inventoryForProgress(existingProgress));
-    const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson });
+    const cosmeticEquipment = cosmeticEquipmentForProgress({ ...existingProgress, inventoryJson }, lentLooksFor(ctx, ctx.sender));
     const speed = playerBaseMovementSpeed(false);
     const maxHp = Math.max(PLAYER_BASE_HP, existingProgress.maxHp);
     const attackRange = attackRangeWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.utilityAttackRange ?? 0) + prestigeRangeBonus(ctx, ctx.sender);
@@ -3487,7 +3488,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   if (!existing) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, sessionStartedAt: ctx.timestamp });
   }
-  const equipmentPresentation = equipmentPresentationForProgress(existingProgress);
+  const equipmentPresentation = equipmentPresentationForProgress(ctx, existingProgress);
   if (existing) {
     if (["countdown", "active", "finishing"].includes(activeDuelFor(ctx, ctx.sender)?.status)) {
       updateSnapshotRow(ctx, "player", {
@@ -4468,7 +4469,7 @@ function saveProfileIcon(ctx: any, profile: any, profileIcon: number) {
 export const snapshotProfileCharacter = spacetimedb.reducer({}, (ctx) => {
   requireControllingPlayer(ctx);
   const profile = ctx.db.playerProfile.identity.find(ctx.sender), progress = readPlayerProgress(ctx, ctx.sender);
-  takeProfileSnapshot(ctx, { profile, look: progress ? leaderboardAppearanceForProgress(progress, profile) : undefined,
+  takeProfileSnapshot(ctx, { profile, look: progress ? leaderboardAppearanceForProgress(ctx, progress, profile) : undefined,
     saveIcon: (profileIcon) => saveProfileIcon(ctx, profile, profileIcon) });
 });
 
@@ -4679,7 +4680,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       }
       throw new SenderError(`Reach ${requiredMap} to equip this item.`);
     }
-    if (current && LOADOUT_FIELDS.every(field => progress[field] === base[field])) {
+    if (current && LOADOUT_FIELDS.every(field => progress[field] === base[field]) && !wearsUnlentLook(base, lentLooksFor(ctx, ctx.sender))) {
       return;
     }
     const bootsCollected = base.bootsCollected;
@@ -4701,7 +4702,7 @@ export const savePlayerProgress = spacetimedb.reducer(
       cosmeticFeet: progress.cosmeticFeet,
       cosmeticRightHand: progress.cosmeticRightHand,
       cosmeticLeftHand: progress.cosmeticLeftHand,
-    }, inventory);
+    }, lentLooksFor(ctx, ctx.sender), inventory);
     const next = {
       identity: ctx.sender,
       maxHp: base.maxHp,
@@ -4739,7 +4740,7 @@ export const savePlayerProgress = spacetimedb.reducer(
     };
     if (!current) insertSnapshotRow(ctx, "playerProgress", next);
     else if (!samePlayerProgressValues(current, next)) updateSnapshotRow(ctx, "playerProgress", next);
-    const equipment = equipmentPresentationForProgress(next, inventory);
+    const equipment = equipmentPresentationForProgress(ctx, next, inventory);
     const leaderboard = ctx.db.leaderboardEntry.identity.find(ctx.sender);
     if (leaderboard) {
       const appearance = { skinTone: ctx.db.playerProfile.identity.find(ctx.sender)?.skinTone ?? 3, ...equipment };
@@ -5544,7 +5545,7 @@ function startFreshRun(ctx: any, player: any) { resetProgressToDefaults(ctx, pla
 /** After a reset or respec: full health at the new stats, at the forest spawn, and ranked on them at once. */
 function respawnWithProgress(ctx: any, activePlayer: any, next: any, destination = { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN }) {
     const nextPlayer = { ...activePlayer, hp: next.maxHp, maxHp: next.maxHp, ...powerFieldsForProgress(ctx, next),
-      speed: effectiveMovementSpeedForProgress(ctx, next), ...equipmentPresentationForProgress(next) };
+      speed: effectiveMovementSpeedForProgress(ctx, next), ...equipmentPresentationForProgress(ctx, next) };
     persistWorldLocation(ctx, transitionPlayerMap(ctx, nextPlayer, destination.mapId, destination, 0));
     // The board is built from saved stats on a timer, so without this the
     // player keeps their old rank until the next sweep, which reads to
@@ -6033,7 +6034,7 @@ const guildService = createGuildService({
     const progress = readPlayerProgress(ctx, identity);
     if (!progress) throw new SenderError("Player progress is unavailable.");
     return { name: profile.displayName, fighter: guildFighterFor(ctx, identity),
-      appearance: leaderboardAppearanceForProgress(progress, profile),
+      appearance: leaderboardAppearanceForProgress(ctx, progress, profile),
       moveSpeed: PLAYER_SPEED,
       weaponItem: progress.equippedRightHand || progress.equippedLeftHand,
       range: Math.min(GUILD_MAX_RANGE, guildWeaponRange(progress.equippedRightHand || progress.equippedLeftHand, progress.attackRange)) };

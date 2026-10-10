@@ -1,5 +1,5 @@
 import { CAMPAIGN_ITEM_PRESENTATIONS } from "./campaign-item-presentation";
-import { applyGalaxyArtTexture } from "./galaxy-finish";
+import { applyGalaxyArtTexture, skyFinishCssFallback, skyFinishCssVariable, type SkyFinish } from "./galaxy-finish";
 import type { WeaponCategory } from "./equipment-alignment";
 import type { LayerAdjustment } from "./player-layer-alignment";
 import {
@@ -18,6 +18,10 @@ import {
   FIRE_METAL_HELMET,
   FROST_ARMOR,
   FROST_BOW,
+  DIAMOND_GALAXY_ARMOR,
+  DIAMOND_GALAXY_BOOTS,
+  DIAMOND_GALAXY_BOW,
+  DIAMOND_GALAXY_HELMET,
   GALAXY_ARMOR,
   GALAXY_BOOTS,
   GALAXY_BOW,
@@ -69,16 +73,19 @@ export type ItemPresentation = {
   inventory: InventoryArt;
   world?: WorldSpritePresentation | WorldLegPresentation;
   projectile?: ProjectileKind;
-  /** Paints the art with a live finish instead of drawing it as is (galaxy-finish.ts). */
-  finish?: "GALAXY";
+  /** Paints the art with a live sky finish instead of drawing it as is (galaxy-finish.ts). */
+  finish?: SkyFinish;
 };
 
 const PLAYER_PARTS = "assets/wildstat/player-parts";
 
 /** The Galaxy set borrows the Ion Sovereign art, the endgame set, and the game's boot legs as its silhouettes. */
-const galaxyFinish = (base: ItemPresentation): ItemPresentation => ({ ...base, finish: "GALAXY" });
-/** The icon's sky before galaxy-finish.ts has painted the real one, or where it cannot. */
-const GALAXY_ART_FALLBACK = "radial-gradient(circle at 35% 35%, #6a3cc8, #1c2276 45%, #050619 80%)";
+const galaxyFinish = (base: ItemPresentation, finish: SkyFinish = "GALAXY"): ItemPresentation => ({ ...base, finish });
+/** The game's own boot legs, so finished boots sit and walk like every other pair. */
+const SKY_BOOTS: ItemPresentation = {
+  inventory: { source: `${PLAYER_PARTS}/boots-leg-front.webp`, equippedWidth: 26, equippedHeight: 25 },
+  world: { kind: "LEGS", frontSource: `${PLAYER_PARTS}/boots-leg-front.webp`, backSource: `${PLAYER_PARTS}/boots-leg-back.webp` },
+};
 
 /** Client-only art registry. New equipment gets one catalog entry and assets. */
 export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
@@ -86,11 +93,12 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   [GALAXY_HELMET]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_helmet),
   [GALAXY_ARMOR]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_armor),
   [GALAXY_BOW]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_bow),
-  // The boots are the game's own boot legs, so they sit and walk like every other pair.
-  [GALAXY_BOOTS]: galaxyFinish({
-    inventory: { source: `${PLAYER_PARTS}/boots-leg-front.webp`, equippedWidth: 26, equippedHeight: 25 },
-    world: { kind: "LEGS", frontSource: `${PLAYER_PARTS}/boots-leg-front.webp`, backSource: `${PLAYER_PARTS}/boots-leg-back.webp` },
-  }),
+  [GALAXY_BOOTS]: galaxyFinish(SKY_BOOTS),
+  // Diamond Galaxy: the same four silhouettes in the Patreon Diamond frame's sky.
+  [DIAMOND_GALAXY_HELMET]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_helmet, "DIAMOND_GALAXY"),
+  [DIAMOND_GALAXY_ARMOR]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_armor, "DIAMOND_GALAXY"),
+  [DIAMOND_GALAXY_BOW]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_bow, "DIAMOND_GALAXY"),
+  [DIAMOND_GALAXY_BOOTS]: galaxyFinish(SKY_BOOTS, "DIAMOND_GALAXY"),
   [WOODEN_SWORD]: {
     inventory: { source: `${PLAYER_PARTS}/wooden-sword.webp`, equippedWidth: 32, equippedHeight: 28 },
     world: { kind: "SPRITE", source: `${PLAYER_PARTS}/wooden-sword.webp`, layer: "HAND", top: 116, handAction: "SWING", weaponCategory: "SWORD" },
@@ -291,8 +299,14 @@ export function itemPresentation(itemId: string | undefined) {
   return ITEM_PRESENTATIONS[itemId as ItemId];
 }
 
+/** The item's sky finish, Galaxy or Diamond Galaxy, if it has one. */
+export function itemFinish(itemId: string | undefined): SkyFinish | undefined {
+  return itemPresentation(itemId)?.finish;
+}
+
+/** Whether the item is drawn with a moving sky finish (either palette). */
 export function itemHasGalaxyFinish(itemId: string | undefined) {
-  return itemPresentation(itemId)?.finish === "GALAXY";
+  return itemFinish(itemId) !== undefined;
 }
 
 /** Whether a look wears any galaxy piece, so a picture of it has to keep moving. */
@@ -311,7 +325,7 @@ export function itemArtMarkup(itemId: string, hidden = true) {
   const aria = hidden ? ' aria-hidden="true"' : "";
   if (presentation?.source && itemHasGalaxyFinish(itemId)) {
     const style = [
-      galaxyArtStyle(presentation.source),
+      galaxyArtStyle(presentation.source, itemFinish(itemId)),
       `--item-art-rotation: ${itemInventoryRotation(itemId)}deg`,
       presentation.equippedWidth ? `--equipped-art-width: ${presentation.equippedWidth}px` : "",
       presentation.equippedHeight ? `--equipped-art-height: ${presentation.equippedHeight}px` : "",
@@ -336,10 +350,10 @@ export function itemArtMarkup(itemId: string, hidden = true) {
  * url stays inline: one inside a custom property would resolve against the
  * stylesheet's folder instead of the page.
  */
-export function galaxyArtStyle(source: string) {
-  applyGalaxyArtTexture();
+export function galaxyArtStyle(source: string, finish: SkyFinish = "GALAXY") {
+  applyGalaxyArtTexture(finish);
   return [
-    `background-image: url(${source}), var(--galaxy-art-texture, ${GALAXY_ART_FALLBACK})`,
+    `background-image: url(${source}), var(${skyFinishCssVariable(finish)}, ${skyFinishCssFallback(finish)})`,
     `-webkit-mask-image: url(${source})`,
     `mask-image: url(${source})`,
   ].join("; ");
@@ -355,7 +369,7 @@ export function itemArtImage(itemId: string, className = "") {
   if (itemHasGalaxyFinish(itemId) && source) {
     const span = document.createElement("span");
     span.className = `${className} item-art-image has-galaxy-finish`.trim();
-    span.setAttribute("style", galaxyArtStyle(source));
+    span.setAttribute("style", galaxyArtStyle(source, itemFinish(itemId)));
     span.setAttribute("aria-hidden", "true");
     return span;
   }

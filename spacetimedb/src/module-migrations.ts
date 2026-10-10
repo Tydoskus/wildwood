@@ -83,7 +83,7 @@ export type ModuleMigrationDeps = {
   equippedRightHandForProgress: (progress: any, inventory?: string[]) => string;
   equippedLeftHandForProgress: (progress: any, inventory?: string[]) => string;
   equippedFeetForProgress: (progress: any, inventory?: string[]) => string;
-  equipmentPresentationForProgress: (progress: any, inventory?: string[]) => any;
+  equipmentPresentationForProgress: (ctx: any, progress: any, inventory?: string[]) => any;
   forestItemCountForProgress: (progress: any, itemId: string, field: "bowCount" | "woodenArmorCount") => number;
   cancelActiveItemUpgrade: (ctx: any, active: any, slot: number) => void;
   itemUpgradeLevelFor: (ctx: any, identity: any, itemId: unknown) => number;
@@ -492,7 +492,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
         markPlayerBalanceCurrent(ctx, progress.identity);
         const active = ctx.db.player.identity.find(progress.identity);
         if (active) {
-          const updated = { ...active, ...powerFieldsForProgress(ctx, next), ...equipmentPresentationForProgress(next), speed: effectiveMovementSpeedForProgress(ctx, next) };
+          const updated = { ...active, ...powerFieldsForProgress(ctx, next), ...equipmentPresentationForProgress(ctx, next), speed: effectiveMovementSpeedForProgress(ctx, next) };
           updateSnapshotRow(ctx, "player", updated);
           syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));
         }
@@ -669,7 +669,7 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
           ...player,
           ...powerFieldsForProgress(ctx, progress),
           speed: effectiveMovementSpeedForProgress(ctx, progress, nextResearch),
-          ...equipmentPresentationForProgress(progress),
+          ...equipmentPresentationForProgress(ctx, progress),
         };
         updateSnapshotRow(ctx, "player", updated);
         syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, updated));

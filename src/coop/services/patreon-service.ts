@@ -3,7 +3,8 @@ import type { ReducerPort } from "../ports";
 import { applyAvatarFrame, configureAvatarFrames, updateAvatarFrame } from "../../app/avatar-frames";
 import type { AvatarFrame, AvatarFrameState, PatreonStatus } from "../../../shared/avatar-frames";
 
-export function createPatreonService(reducers: ReducerPort, localIdentity: () => string) {
+/** `onTierChange` runs when the verified tier moves: the looks a membership lends move with it. */
+export function createPatreonService(reducers: ReducerPort, localIdentity: () => string, onTierChange?: () => void) {
   let refreshTimer: ReturnType<typeof setInterval> | undefined;
   let autoIdentity = "";
   let watchingReturns = false;
@@ -50,7 +51,9 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
     const result = JSON.parse(await (refresh ? active.procedures.refreshPatreonMembership({}) : active.procedures.getPatreonStatus({}))) as PatreonStatus;
     if (generation !== sessionGeneration || active !== reducers.connection() || identity !== localIdentity()) throw new Error("Account changed. Open your profile again.");
     linked = result.linked;
+    const tierChanged = supporterTier !== result.tier;
     supporterTier = result.tier;
+    if (tierChanged) onTierChange?.();
     if (linked) linkPendingUntil = 0;
     updateAvatarFrame({ identity, ...result });
     if (result.linked && !refreshTimer) refreshTimer = setInterval(() => { if (reducers.connection()?.isActive) void status(true).catch(() => {}); }, 30 * 60_000);

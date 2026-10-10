@@ -48,7 +48,7 @@ import {
 } from "./game/constants";
 import { distanceSquared } from "./game/math";
 import { formatArmorReduction } from "./game/combat";
-import { type InventoryState, equipmentAppearance, moveCosmeticInventoryItem, moveInventoryItem, setInventoryItemQuantity, toggleCosmeticEquipmentVisibility } from "./game/inventory";
+import { type InventoryState, equipmentAppearance, moveCosmeticInventoryItem, moveInventoryItem, patreonLooks, setInventoryItemQuantity, toggleCosmeticEquipmentVisibility } from "./game/inventory";
 import { itemDropColor } from "./ui/item-drop-color";
 import { createEquipmentOfferPrompt } from "./ui/equipment-offer-prompt";
 import { itemPresentation } from "./game/item-presentation";
@@ -627,7 +627,7 @@ import {
     saveRemoteProgress: (saved, immediate) => { coop?.saveProgress?.(soulDimension.withoutSoul(saved, coop?.savedProgress?.()?.attackRate ?? saved.attackRate), immediate); },
     localIdentity: () => coop?.localIdentity?.() ?? "",
     lifetimeEnemyKills: (identity) => coop?.playerProfile?.(identity)?.lifetime.enemyKills,
-    isDeveloper: isDeveloperIdentity,
+    isDeveloper: isDeveloperIdentity, lentLooks: () => patreonLooks(isDeveloperIdentity(coop?.localIdentity?.()) || coop?.supporterTier?.() === "diamond"),
     getTotalKills: () => totalKills,
     setTotalKills: (kills) => { totalKills = kills; },
     researchVitalityRank: () => researchRanks().vitality,

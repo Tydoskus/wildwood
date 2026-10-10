@@ -4,7 +4,7 @@ import { EXPANSION_HEAD_FRAME, DEFAULT_HEAD_ALIGNMENT } from "./player-head-temp
 import { drawPlayerHead, drawPlayerEyes } from "./player-face";
 import { drawAlignedPlayerLayer, type PlayerLayer, type PlayerLayerAlignment, type LayerBounds } from "./player-layer-alignment";
 import { STARTER_STONE } from "./inventory";
-import { ITEM_PRESENTATIONS, itemHasGalaxyFinish, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
+import { ITEM_PRESENTATIONS, itemFinish, itemHasGalaxyFinish, itemPresentation, type WorldSpritePresentation } from "./item-presentation";
 import { galaxyFinishFrame } from "./galaxy-finish";
 import { PLAYER_WORLD_SCALE } from "./player-render-scale";
 import { residentDrawable } from "./runtime/resident-image";
@@ -205,13 +205,14 @@ export function skinTonedLeg(leg: HTMLImageElement, tone: string): PlayerLayerAs
 
 /** The art to draw for a piece this frame: its galaxy finish where it has one, else the art itself. */
 export function finishedEquipmentSprite<T extends PlayerLayerAsset>(itemId: string | undefined, sprite: T): T | HTMLCanvasElement {
-  if (!itemHasGalaxyFinish(itemId)) return sprite;
+  const finish = itemFinish(itemId);
+  if (!finish) return sprite;
   // Sized from the drawn size, not the file's, so the sky has the same grain
   // on every piece however large its art was made.
   const world = itemPresentation(itemId)?.world;
   const sprited = world?.kind === "SPRITE" ? world : undefined;
   const size = { width: sprited?.width ?? assetWidth(sprite), height: sprited?.height ?? assetHeight(sprite) };
-  return galaxyFinishFrame(sprite, size) ?? sprite;
+  return galaxyFinishFrame(sprite, size, undefined, finish) ?? sprite;
 }
 
 export function skinToneColor(value: number | undefined) {

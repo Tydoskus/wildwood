@@ -92,14 +92,14 @@ export type AccountLifecycleDeps = {
   ensureGemWallet: (ctx: any, identity: any) => any;
   ensureItemUpgradeCompletionSchedule: (ctx: any, active: any, slot: number) => void;
   ensureResearchCompletionSchedule: (ctx: any, active: any) => void;
-  equipmentPresentationForProgress: (progress: any) => any;
+  equipmentPresentationForProgress: (ctx: any, progress: any) => any;
   finishDuel: (ctx: any, current: any) => void;
   generatedDisplayName: (identity: any) => string;
   hasFreshProgress: (progress: any) => boolean;
   insertActiveItemUpgrade: (ctx: any, slot: number, active: any) => void;
   isGeneratedDisplayName: (displayName: string) => boolean;
   slotUpgradeKey: (identity: any, slot: string) => string;
-  leaderboardAppearanceForProgress: (progress: any, profile: any) => any;
+  leaderboardAppearanceForProgress: (ctx: any, progress: any, profile: any) => any;
   persistWorldLocation: (ctx: any, activePlayer: any) => void;
   playerWithMotion: (ctx: any, activePlayer: any) => any;
   powerFieldsForProgress: (ctx: any, progress: any) => { power: number; powerLevel: number };
@@ -399,7 +399,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
         ...activePlayer,
         speed: effectiveMovementSpeedForProgress(ctx, nextProgress),
         ...powerFieldsForProgress(ctx, nextProgress),
-        ...equipmentPresentationForProgress(nextProgress),
+        ...equipmentPresentationForProgress(ctx, nextProgress),
       });
     }
 
@@ -425,7 +425,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
         ...powerFieldsForProgress(ctx, nextProgress),
         profileIcon: finalProfile?.profileIcon ?? 0,
         gender: finalProfile?.gender ?? PLAYER_GENDER_UNSET,
-        ...leaderboardAppearanceForProgress(nextProgress, finalProfile),
+        ...leaderboardAppearanceForProgress(ctx, nextProgress, finalProfile),
         damage: nextProgress.damage,
         maxHp: nextProgress.maxHp,
         armor: nextProgress.armor,

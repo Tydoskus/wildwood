@@ -94,7 +94,7 @@ export type DuelRuntimeDeps = {
   attackIntervalForProgress: (progress: any) => number;
   equippedRightHandForProgress: (progress: any) => string;
   equippedLeftHandForProgress: (progress: any) => string;
-  equipmentPresentationForProgress: (progress: any) => any;
+  equipmentPresentationForProgress: (ctx: any, progress: any) => any;
 };
 
 export function createDuelRuntime(deps: DuelRuntimeDeps) {
@@ -299,8 +299,8 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     const opponentRightHandItem = equippedRightHandForProgress(opponentProgress);
     const challengerLeftHandItem = challengerRightHandItem ? "" : equippedLeftHandForProgress(challengerProgress);
     const opponentLeftHandItem = opponentRightHandItem ? "" : equippedLeftHandForProgress(opponentProgress);
-    const challengerAppearance = equipmentPresentationForProgress(challengerProgress);
-    const opponentAppearance = equipmentPresentationForProgress(opponentProgress);
+    const challengerAppearance = equipmentPresentationForProgress(ctx, challengerProgress);
+    const opponentAppearance = equipmentPresentationForProgress(ctx, opponentProgress);
     const challengerMaxHp = maxHealthForProgress(ctx, ctx.sender, challengerProgress);
     const opponentMaxHp = maxHealthForProgress(ctx, opponent, opponentProgress);
     const inactiveAttackRate = Number(DUEL_DURATION_MICROS) / 1_000_000 + 1;

@@ -29,6 +29,11 @@ export const GALAXY_HELMET = "galaxy_helmet";
 export const GALAXY_ARMOR = "galaxy_armor";
 export const GALAXY_BOW = "galaxy_bow";
 export const GALAXY_BOOTS = "galaxy_boots";
+/** The Diamond Galaxy set: the Galaxy silhouettes in the Patreon Diamond frame's sky, worn while Diamond is active. */
+export const DIAMOND_GALAXY_HELMET = "diamond_galaxy_helmet";
+export const DIAMOND_GALAXY_ARMOR = "diamond_galaxy_armor";
+export const DIAMOND_GALAXY_BOOTS = "diamond_galaxy_boots";
+export const DIAMOND_GALAXY_BOW = "diamond_galaxy_bow";
 export const BLACK_BOOTS = "black_boots";
 export const BLACK_BOOTS_DROP_DENOMINATOR = 50;
 export const BLACK_BOOTS_SPEED_BONUS = 25;
@@ -94,7 +99,8 @@ export const ITEM_UPGRADE_DURATION_GROWTH = 1.2294;
 
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP" | "INFERNAL_DROP" | "SAMURAI_DROP" | "WATER_DROP" | "CLOUDSPIRE_DROP" | "MOONFEN_DROP" | "CAMPAIGN_DROP";
+/** PATREON_DIAMOND: never stored as owned; worn only while the account's Patreon Diamond membership is active (shared/patreon-cosmetics.ts). */
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "PATREON_DIAMOND" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP" | "INFERNAL_DROP" | "SAMURAI_DROP" | "WATER_DROP" | "CLOUDSPIRE_DROP" | "MOONFEN_DROP" | "CAMPAIGN_DROP";
 export type ProjectileKind = "ROCK" | "ARROW";
 
 export type ItemDefinition = {
@@ -224,6 +230,26 @@ export const ITEM_DEFINITIONS = {
     acquisition: "DEVELOPER",
     description: "Boots made of drifting galaxies. Cosmetic only.",
     stats: ["COSMETIC · NO STATS"],
+  },
+  [DIAMOND_GALAXY_HELMET]: {
+    id: DIAMOND_GALAXY_HELMET, cosmeticOnly: true, name: "DIAMOND GALAXY HELMET", slot: "HEAD", acquisition: "PATREON_DIAMOND",
+    description: "A winged helm of icy, sparkling sky, worn while your Patreon Diamond membership is active. Cosmetic only.",
+    stats: ["PATREON DIAMOND · NO STATS"],
+  },
+  [DIAMOND_GALAXY_ARMOR]: {
+    id: DIAMOND_GALAXY_ARMOR, cosmeticOnly: true, name: "DIAMOND GALAXY ARMOR", slot: "CHEST", acquisition: "PATREON_DIAMOND",
+    description: "Sovereign plate of icy, sparkling sky, worn while your Patreon Diamond membership is active. Cosmetic only.",
+    stats: ["PATREON DIAMOND · NO STATS"],
+  },
+  [DIAMOND_GALAXY_BOOTS]: {
+    id: DIAMOND_GALAXY_BOOTS, cosmeticOnly: true, name: "DIAMOND GALAXY BOOTS", slot: "FEET", acquisition: "PATREON_DIAMOND",
+    description: "Boots of icy, sparkling sky, worn while your Patreon Diamond membership is active. Cosmetic only.",
+    stats: ["PATREON DIAMOND · NO STATS"],
+  },
+  [DIAMOND_GALAXY_BOW]: {
+    id: DIAMOND_GALAXY_BOW, cosmeticOnly: true, name: "DIAMOND GALAXY BOW", slot: "HAND", acquisition: "PATREON_DIAMOND",
+    description: "A bow of icy, sparkling sky, worn while your Patreon Diamond membership is active. Changes how your weapon looks, not how it fights.",
+    stats: ["PATREON DIAMOND · NO STATS"],
   },
   [BLACK_BOOTS]: {
     id: BLACK_BOOTS,

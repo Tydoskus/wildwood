@@ -3,6 +3,7 @@ import { TimeDuration, type Identity } from "spacetimedb";
 import type database from "./index";
 import { allowedAvatarFrame, isAvatarFrame, PATREON_PAGE, type AvatarFrame, type PatreonStatus } from "../../shared/avatar-frames";
 import { isDeveloperIdentity } from "../../shared/developer-identity";
+import { patreonLooks } from "../../shared/patreon-cosmetics";
 import { encodePatreonForm, patreonCallbackParams } from "./patreon-url";
 import { verifyPatreonIdentity } from "./patreon-verification";
 import { announcePatreonSupport } from "./patreon-announcement";
@@ -28,6 +29,15 @@ export function patreonStatus(ctx: Tx, identity: Identity): PatreonStatus {
   const tier = row && row.validUntilMs > nowMs(ctx) ? frameTier(row.tier) : "none";
   return { configured: Boolean(ctx.db.patreonConfig.id.find(0)), linked: Boolean(row?.userId), tier,
     frame: row && allowedAvatarFrame(tier, row.frame) ? row.frame : "none", validUntilMs: row?.validUntilMs ?? 0 };
+}
+
+/**
+ * Looks a membership lends right now: the Diamond Galaxy set while the Diamond
+ * tier is active and unexpired, and always for developers (whose status above
+ * is a Gold preview, so they are checked on their own).
+ */
+export function lentLooksFor(ctx: Tx, identity: Identity) {
+  return patreonLooks(isDeveloperIdentity(identity.toHexString()) || patreonStatus(ctx, identity).tier === "diamond");
 }
 
 export function beginPatreonLink(ctx: Tx, state: string) {

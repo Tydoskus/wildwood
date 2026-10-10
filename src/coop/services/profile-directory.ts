@@ -71,7 +71,7 @@ export function isGeneratedDisplayName(displayName: string) {
 }
 
 export function createProfileDirectory(dependencies: ProfileDirectoryDependencies) {
-  const patreon = createPatreonService(dependencies.reducers, dependencies.localIdentity);
+  const patreon = createPatreonService(dependencies.reducers, dependencies.localIdentity, () => dependencies.notify());
   const names = new Map<string, string>();
   const icons = new Map<string, number>();
   const sprites = new Map<string, number>();
