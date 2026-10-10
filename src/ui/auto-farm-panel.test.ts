@@ -402,7 +402,7 @@ it('the ? opens a page saying what each control does in place of the settings; B
   expect(body.hidden).toBe(false);
 });
 
-it('Fight At sets how much of the boss power to wait for, 0.1x to 10x with 1x in the middle, and rests while Fight Bosses is off', () => {
+it('Fight At sets how much of the boss power to wait for, 0.1x to 10x with 1x in the middle, and can be set while Fight Bosses is off', () => {
   const s = setup();
   s.click('.farm-toggle');
   const row = s.document.querySelector<HTMLElement>('.farm-boss-power')!, slider = row.querySelector('input')!;
@@ -410,12 +410,16 @@ it('Fight At sets how much of the boss power to wait for, 0.1x to 10x with 1x in
   expect(slider.getAttribute('min')).toBe('0');
   expect(slider.getAttribute('max')).toBe('10');
   expect(slider.value).toBe('5');
-  // Off by default for a new player: the slider rests.
+  // Off by default for a new player: the slider is dimmed but still moves.
   expect(s.farm.fightBosses()).toBe(false);
-  expect(slider.disabled).toBe(true);
-  expect(row.classList.contains('is-off')).toBe(true);
-  s.click('[data-switch="bosses"]');
   expect(slider.disabled).toBe(false);
+  expect(row.classList.contains('is-off')).toBe(true);
+  slider.value = '3';
+  slider.dispatchEvent(new s.window.Event('input', { bubbles: true }));
+  expect(s.farm.bossPower()).not.toBe(1);
+  expect(s.farm.fightBosses()).toBe(false);
+  s.click('[data-switch="bosses"]');
+  expect(row.classList.contains('is-off')).toBe(false);
   slider.value = '0';
   slider.dispatchEvent(new s.window.Event('input', { bubbles: true }));
   expect(s.farm.bossPower()).toBe(.1);
@@ -427,14 +431,15 @@ it('Fight At sets how much of the boss power to wait for, 0.1x to 10x with 1x in
   expect(slider.getAttribute('aria-valuetext')).toBe('10x');
 });
 
-it('Move At sits under Move On, 0.1x to 10x of the next map power, and rests while Move On is off', () => {
+it('Move At sits under Move On, 0.1x to 10x of the next map power, and can be set while Move On is off', () => {
   const s = setup();
   s.click('.farm-toggle');
   const row = s.document.querySelector<HTMLElement>('.farm-move-power')!, slider = row.querySelector('input')!;
   expect(row.querySelector('output')!.textContent).toBe('1x');
-  expect(slider.disabled).toBe(true);
-  s.click('[data-switch="advance"]');
   expect(slider.disabled).toBe(false);
+  expect(row.classList.contains('is-off')).toBe(true);
+  s.click('[data-switch="advance"]');
+  expect(row.classList.contains('is-off')).toBe(false);
   slider.value = '7';
   slider.dispatchEvent(new s.window.Event('input', { bubbles: true }));
   expect(s.farm.movePower()).toBe(2);

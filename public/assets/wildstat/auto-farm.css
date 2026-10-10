@@ -184,7 +184,7 @@
 .farm-weight input[type="range"]:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Move At and Fight At, each under its switch: gold, resting with the switch off. */
 .farm-power { --farm-stat-color: #ffcf7a; padding: 0 2px; }
-.farm-power.is-off { opacity: .45; cursor: default; }
+.farm-power.is-off { opacity: .6; }
 /* Move On: the boss, then the next map; what it will do next under the name. */
 .farm-sheet .farm-switch {
   display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 50px; padding: 6px 12px;

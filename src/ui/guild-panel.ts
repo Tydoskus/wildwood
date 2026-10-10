@@ -11,7 +11,7 @@ import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 import { applyProfileIcon } from "../app/profile-icons";
 import { createGuildPreview } from './guild-preview';
 import type { GuildQuestStanding } from "./quest-board-controller";
-import { GUILD_QUEST_BONUS_PER_POINT, GUILD_QUEST_COLLECT_LIMIT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, questDay, questWeek } from "../../shared/daily-quests";
+import { GUILD_QUEST_BONUS_PER_POINT, GUILD_QUEST_COLLECT_LIMIT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, questDay } from "../../shared/daily-quests";
 
 type Section = "guild" | "battles" | "rankings" | "quests" | "friends";
 type Member = NonNullable<GuildSnapshot["guild"]>["members"][number];
@@ -461,10 +461,8 @@ export function createGuildPanel(options: Options) {
     const joinedToday = (member: { eligibleAt: string }) => questDay(BigInt(member.eligibleAt)) >= today;
     heading(body, "Members this week", "Each member's fifteen quests and the points they have earned the guild.");
     const self = own.members.find(member => member.identity === snapshot!.identity);
-    // New members: when their quests start counting here, and when the guild's bonus reaches them.
-    const joinedThisWeek = (member: { eligibleAt: string }) => questWeek(questDay(BigInt(member.eligibleAt))) >= questWeek(today);
-    if (self && joinedToday(self)) hint(body, "Your quests count for this guild from tomorrow; today's go to your own bonus. The guild's bonus reaches you next week.");
-    else if (self && joinedThisWeek(self)) hint(body, "You joined this week: the guild's bonus reaches you next week. Until then you keep your own.");
+    // New members have the guild's bonus from the moment they join, and their quests count for it from then on.
+    if (self && joinedToday(self)) hint(body, "Welcome! The guild's bonus is yours now, and your quests count for this guild.");
     // The guild's pool: 300 quests a week, gone only as they are finished. Anyone whose own are done draws extra from it.
     const collect = own.questCollect;
     if (collect && collect.poolSize !== undefined) {

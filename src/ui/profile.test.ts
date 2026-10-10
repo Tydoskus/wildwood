@@ -371,7 +371,7 @@ it("holds critical damage at the cap, says so, and lists only the soul's share t
   expect(row(0, 10)).toMatchObject({ total: "12.05×", multiplier: "11.00×" });
 });
 
-it("counts soul attack speed up to a Reflect winner's raised cap, and lists only what it adds", () => {
+it("counts soul attack speed up to a Reflect winner's raised cap, and lists the soul's own number, Max when capped", () => {
   const profile = {
     progress: { ...progress(), attackRate: MIN_ATTACK_INTERVAL },
     research: createEmptyResearchRanks(), itemUpgradeLevels: {},
@@ -382,10 +382,14 @@ it("counts soul attack speed up to a Reflect winner's raised cap, and lists only
   // At the base cap already: two wins leave room for the whole half attack a second.
   expect(attack(twoWins, .5)).toMatchObject({ total: `${(1 / MIN_ATTACK_INTERVAL + .5).toFixed(2)}/s` });
   expect(attack(twoWins, .5).sources).toEqual([{ label: "Soul", value: "+0.500/s" }]);
-  // More than fits: only what fits, marked Max.
-  expect(attack(twoWins, 5).sources).toEqual([{ label: "Soul", value: "+1.000/s (Max)" }]);
-  // No room at all under the base cap: said plainly, not as +0.000/s.
-  expect(attack(MIN_ATTACK_INTERVAL, .5).sources).toEqual([{ label: "Soul", value: "Already At Max" }]);
+  // More than fits: the soul's whole number, marked Max.
+  expect(attack(twoWins, 5).sources).toEqual([{ label: "Soul", value: "+5.000/s (Max)" }]);
+  // No room at all under the base cap: still the number, marked Max.
+  expect(attack(MIN_ATTACK_INTERVAL, .5).sources).toEqual([{ label: "Soul", value: "+0.500/s (Max)" }]);
+  // Just unlocked: a tiny amount shows as itself, not as 0.000 or Max.
+  const fresh = profileStatDisplayRows({ ...profile, progress: { ...progress(), attackRate: 1 } }, () => "0%", MIN_ATTACK_INTERVAL, undefined, 0, null, 1, { attackSpeed: .0004 })
+    .find(row => row.kind === "attack")!;
+  expect(fresh.sources).toEqual([{ label: "Soul", value: "+0.0004/s" }]);
 });
 
 describe("another player's soul stats", () => {

@@ -4,7 +4,7 @@ import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportKills } from "../../tests/helpers/enemy-defeat";
 import { STARTER_BOW } from "../../shared/items";
 import { WEEKLY_QUEST_COUNT, questDay, questWeek } from "../../shared/daily-quests";
-import { GUILD_POOL_FROM, collectGuildQuests, collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, moveSoloQuestsToGuild, pruneOldGuildQuestWeeks, questCollectStanding } from "./daily-quests";
+import { GUILD_POOL_FROM, collectGuildQuests, collectMemberQuests, ensureDailyQuests, guildQuestBonusFor, memberQuestStanding, moveSoloQuestsToGuild, pruneOldGuildQuestWeeks, questCollectStanding, refreshQuestBonus } from "./daily-quests";
 import { Identity } from "spacetimedb";
 import { statRewardMultiplier } from "./prestige";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -93,11 +93,12 @@ it("draws fifteen when the week turns, and tops a daily list up to fifteen keepi
   expect(quests.every((q: any) => q.progress === 0)).toBe(true);
 });
 
-it("counts a new member's quests for the guild from the moment they join, and its bonus from next week", () => {
+it("counts a new member's quests for the guild from the moment they join, and gives them its bonus at once", () => {
   const { f, day } = questing();
   f.patch("guildMember", { joinedAt: f.ctx.timestamp.microsSinceUnixEpoch });
-  f.seed("guildQuestWeek", { key: `${questWeek(day) - 1}:7`, week: questWeek(day) - 1, guildId: 7n, guildName: "Oaks", points: 420 });
-  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBe(1);
+  f.seed("guildQuestWeek", { key: `${questWeek(day) - 1}:7`, week: questWeek(day) - 1, guildId: 7n, guildName: "Oaks", points: 300 });
+  // Joined today: the guild's whole bonus from last week, not the member's own (Ryan).
+  expect(guildQuestBonusFor(f.ctx, f.ctx.sender)).toBeCloseTo(1.3);
   spitters(f, 10);
   expect(f.db.guildQuestWeek.key.find(`${questWeek(day)}:7`).points).toBe(1);
   expect(f.db.soloQuestWeek.identity.find(f.ctx.sender)).toBeNull();
@@ -212,6 +213,17 @@ it("moves a new member's guildless quests from this week to their guild, up to t
   f.db.guildQuestWeek.key.update({ ...f.db.guildQuestWeek.key.find(`${week}:7`), points: 295 });
   expect(moveSoloQuestsToGuild(f.ctx, f.ctx.sender)).toBe(5);
   expect(f.db.soloQuestWeek.identity.find(f.ctx.sender).points).toBe(4);
+});
+
+it("shows a new member their guild's bonus the moment they join, and drops it when they leave", () => {
+  const { f, day } = questing();
+  f.patch("guildMember", { joinedAt: f.ctx.timestamp.microsSinceUnixEpoch });
+  f.seed("guildQuestWeek", { key: `${questWeek(day) - 1}:7`, week: questWeek(day) - 1, guildId: 7n, guildName: "Oaks", points: 300 });
+  moveSoloQuestsToGuild(f.ctx, f.ctx.sender);
+  expect(f.db.playerDailyQuest.identity.find(f.ctx.sender).bonus).toBeCloseTo(1.3);
+  f.db.guildMember.identity.delete(f.ctx.sender);
+  refreshQuestBonus(f.ctx, f.ctx.sender);
+  expect(f.db.playerDailyQuest.identity.find(f.ctx.sender).bonus).toBe(1);
 });
 
 it("leaves last week's guildless quests with the solo bonus", () => {

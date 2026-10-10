@@ -130,6 +130,21 @@ function settleSoloWeek(ctx: Ctx, identity: any, week: number, points: number) {
  * Quests already counted for another guild stay there.
  */
 export function moveSoloQuestsToGuild(ctx: Ctx, identity: any) {
+  const moved = moveSoloQuests(ctx, identity);
+  // The guild's bonus is theirs at once: the board shows it now, not at the next kill report.
+  refreshQuestBonus(ctx, identity);
+  return moved;
+}
+
+/** The board's cached bonus, worked out again: a join or a leave changes it at once. */
+export function refreshQuestBonus(ctx: Ctx, identity: any) {
+  const row = ctx.db.playerDailyQuest.identity.find(identity);
+  if (!row) return;
+  const bonus = guildQuestBonusFor(ctx, identity);
+  if (row.bonus !== bonus) ctx.db.playerDailyQuest.identity.update({ ...row, bonus });
+}
+
+function moveSoloQuests(ctx: Ctx, identity: any) {
   const guild = guildOf(ctx, identity);
   if (!guild) return 0;
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
@@ -164,15 +179,15 @@ function weekPoints(ctx: Ctx, week: number, guildId: bigint) {
 
 /**
  * This week's multiplier on every stat reward the player earns: 0.1% for
- * each point their guild earned last week. Only for members who were in the
- * guild before this week began, so hopping into last week's top guild pays
- * nothing until the week after; until then, and for anyone without a guild,
- * it is their own week: 1% for each quest they finished, guild or not, up to 15%.
+ * each point their guild earned last week, from the moment they join it
+ * (Ryan: joining a guild gives its bonus for the week, period). It is only
+ * ever the current guild's, so leaving drops it and nothing stacks. Without a
+ * guild it is their own week: 1% for each quest they finished, guild or not, up to 15%.
  */
 export function guildQuestBonusFor(ctx: Ctx, identity: any) {
   const guild = guildOf(ctx, identity);
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
-  if (!guild || questWeek(guild.joinedDay) >= week) return soloQuestBonus(questsDoneIn(ctx, identity, week - 1));
+  if (!guild) return soloQuestBonus(questsDoneIn(ctx, identity, week - 1));
   return guildQuestBonus(weekPoints(ctx, week - 1, guild.id));
 }
 

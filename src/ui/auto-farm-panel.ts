@@ -178,8 +178,8 @@ export function createAutoFarmPanel(options: {
       slider.setAttribute('aria-valuetext', powerLabel(value));
       power.row.querySelector('output')!.textContent = powerLabel(value);
       power.row.style.setProperty('--farm-weight-at', `${Number(step) / (POWER_STEPS.length - 1) * 100}%`);
+      // Dimmed while its switch is off, but never locked: it can be set first and switched on after.
       power.row.classList.toggle('is-off', !power.on());
-      slider.disabled = !power.on();
     }
     // Off during an Aggro run: the run's own chasing groups are its pull.
     const pullOff = options.farm.pullAvailable?.() === false;

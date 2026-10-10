@@ -1,4 +1,9 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.43": [
+    "Joining a guild gives you its stat bonus right away, for the whole week",
+    "Autofarm's Move At and Fight At sliders can be set while their switch is off",
+    "The profile shows your Soul Attack Speed as a number, marked Max when attack speed is capped",
+  ],
   "0.901.42": [
     "Names and power above players are the same size as health bar numbers",
   ],
@@ -3140,6 +3145,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.43": "2026-10-10",
   "0.901.42": "2026-10-09",
   "0.901.41": "2026-10-09",
   "0.901.40": "2026-10-09",

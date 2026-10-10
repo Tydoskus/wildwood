@@ -1,5 +1,5 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, reflectRewardsInPlay, restorePrestigeChallenge } from "./prestige-challenge";
-import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild } from "./daily-quests";
+import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild, refreshQuestBonus } from "./daily-quests";
 import { challengeAttackInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
@@ -6011,7 +6011,7 @@ function playerPresence(ctx: any, identity: any) {
     lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000 };
 }
 const guildService = createGuildService({
-  onMemberRemoved: (ctx, identity, guildId, deleted) => guildHallMemberLeft(ctx, identity, guildId, deleted, { transitionPlayerMap, persistWorldLocation }),
+  onMemberRemoved: (ctx, identity, guildId, deleted) => { refreshQuestBonus(ctx, identity); guildHallMemberLeft(ctx, identity, guildId, deleted, { transitionPlayerMap, persistWorldLocation }); },
   prestigeFor: (ctx, identity) => ctx.db.playerPrestige.identity.find(identity)?.level ?? 0,
   powerFor: (ctx, identity) => {
     const progress = readPlayerProgress(ctx, identity);

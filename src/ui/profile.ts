@@ -210,9 +210,9 @@ export function profileStatDisplayRows(
       equationOperator: "×",
       multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
       ...(speedRating === null ? {} : { expandedDetail: `(${speedRating >= 1_000 ? formatCompactNumber(speedRating) : Number(speedRating.toPrecision(3))} Attack Speed)` }),
-      // At the cap already, soul attack speed has no room: say so rather than "+0.000/s".
-      sources: soul.attackSpeed > 0 && soulAttackSpeed < .0005 ? [{ label: "Soul", value: "Already At Max" }]
-        : soulSource(soulAttackSpeed, value => `${value.toFixed(3)}/s${soulAttackSpeed < soul.attackSpeed - 1e-6 ? " (Max)" : ""}`),
+      // The soul's own attack speed, as earned (a fresh unlock's few thousandths included), marked Max
+      // when the attack speed cap leaves no room for all of it (Ryan).
+      sources: soulSource(soul.attackSpeed, value => `${value >= .001 ? value.toFixed(3) : Number(value.toPrecision(2))}/s${soulAttackSpeed < soul.attackSpeed - 1e-6 ? " (Max)" : ""}`),
     },
     {
       kind: "range", label: "Attack Range:", base: statValue(baseRange),
