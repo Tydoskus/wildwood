@@ -10,7 +10,7 @@ function setup(collapsed = false) {
   vi.stubGlobal('window', { innerWidth: 800, innerHeight: 600, addEventListener: vi.fn(), setInterval: vi.fn() });
   const saved = new Map([['wildstat-native-stat-tracker-enabled', 'true'], ['wildstat-native-stat-tracker-collapsed', String(collapsed)]]);
   installStatTracker({ storage: { getItem: key => saved.get(key) ?? null, setItem: (key, value) => { saved.set(key, value); } },
-    read: () => ({ identity: 'player', values: { power: 10, hp: 10, damage: 10, armor: 10, regen: 10, kills: 10 } }) });
+    read: () => ({ identity: 'player', values: { power: 10, hp: 10, damage: 10, armor: 10, regen: 10, attackSpeed: 10, critDamage: 10, kills: 10 } }) });
   const panel = document.querySelector('.stat-tracker')!;
   const handle = panel.querySelector('button')!;
   Object.assign(handle, { setPointerCapture: vi.fn() });

@@ -3,7 +3,7 @@ import { installMovableHudCard } from './movable-hud-card';
 import { renderBooleanSetting } from './settings';
 import { createStatTrackerModel, TRACKED_STATS, type TrackerBuild, type TrackerValues } from './stat-tracker-model';
 
-const LABELS = { power: 'Power', hp: 'Max HP', damage: 'Damage', armor: 'Armor', regen: 'Regen', kills: 'Kills' };
+const LABELS = { power: 'Power', hp: 'Max HP', damage: 'Damage', armor: 'Armor', regen: 'Regen', attackSpeed: 'Atk Speed', critDamage: 'Crit Dmg', kills: 'Kills' };
 const ENABLED_KEY = 'wildstat-native-stat-tracker-enabled';
 const POSITION_KEY = 'wildstat-native-stat-tracker-position';
 const COLLAPSED_KEY = 'wildstat-native-stat-tracker-collapsed';
@@ -23,7 +23,7 @@ export function trackerOpacityStyle(percent: number) {
 }
 
 export function installStatTracker(options: {
-  read: () => { identity: string; prestigeLevel?: number; values: TrackerValues; build?: TrackerBuild } | null;
+  read: () => { identity: string; prestigeLevel?: number; values: TrackerValues; build?: TrackerBuild; details?: Partial<Record<keyof TrackerValues, string>> } | null;
   storage: Pick<Storage, 'getItem' | 'setItem'>;
 }) {
   const model = createStatTrackerModel(options.storage);
@@ -88,7 +88,8 @@ export function installStatTracker(options: {
       const format = (value: number) => Math.abs(value) < 1
         ? value.toLocaleString(undefined, { maximumFractionDigits: 2 })
         : formatCompactNumber(value);
-      rowCells[0].textContent = format(row.current);
+      const detail = snapshot?.details?.[row.stat];
+      rowCells[0].textContent = detail ? `${format(row.current)} (${detail})` : format(row.current);
       [row.gain, row.perHour].forEach((value, index) => {
         rowCells[index + 1].textContent = `${value > 0 ? '+' : value < 0 ? '−' : ''}${format(Math.abs(value))}`;
         rowCells[index + 1].className = value > 0 ? 'positive' : value < 0 ? 'negative' : '';

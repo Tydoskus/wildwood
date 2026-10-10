@@ -275,7 +275,7 @@ export function profileStatDisplayRows(
   const bonusShare = (part: number) => crit.research + crit.perk > 0 ? crit.fromBonuses * part / (crit.research + crit.perk) : 0;
   stats.push({
     kind: "critical-damage", label: "Critical Damage:", base: `${CRITICAL_DAMAGE_BASE.toFixed(2)}×`, equationOperator: "+",
-    multiplier: `${(crit.multiplier - CRITICAL_DAMAGE_BASE).toFixed(2)}×`, total: ratingText(crit.rating),
+    multiplier: `${(crit.multiplier - CRITICAL_DAMAGE_BASE).toFixed(2)}×`, total: ratingText(crit.rating + crit.soul),
     equationTotal: `${crit.multiplier.toFixed(2)}×`, expandedDetail: `${bracket(critDamageLabel(crit.multiplier, crit.cap))} · ${crit.cap}× Cap`,
     sources: [
       ...(crit.research ? [{ label: "Tech" as const, value: shown(bonusShare(crit.research)) }] : []),

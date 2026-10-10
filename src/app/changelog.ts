@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.49": [
     "Aggro: dying in Tutorial Forest no longer restarts the run, only dying on a later map does",
     "The profile shows Attack Speed and Crit Damage like Armor: their number, and what it gives in brackets",
+    "The stat tracker shows Attack Speed and Crit Damage too",
   ],
   "0.901.48": [
     "Soul Crit Damage is +0.002× a kill again, so farming toward 100× pays like before",

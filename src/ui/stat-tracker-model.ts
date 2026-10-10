@@ -1,4 +1,4 @@
-export const TRACKED_STATS = ['power', 'hp', 'damage', 'armor', 'regen', 'kills'] as const;
+export const TRACKED_STATS = ['power', 'hp', 'damage', 'armor', 'regen', 'attackSpeed', 'critDamage', 'kills'] as const;
 export type TrackedStat = typeof TRACKED_STATS[number];
 export type TrackerValues = Record<TrackedStat, number>;
 /**
@@ -63,6 +63,8 @@ export function createStatTrackerModel(storage: Store, now = Date.now) {
       changedRunSince = null;
       try {
         const saved = JSON.parse(storage.getItem(key()) || 'null');
+        // Sessions saved before a stat was tracked start that stat from now, rather than starting over.
+        if (saved && saved.baseline && typeof saved.baseline === 'object') saved.baseline = { ...values, ...saved.baseline };
         if (saved && Number.isFinite(saved.startedAt) && saved.startedAt >= 0 && saved.startedAt <= now()
           && validValues(saved.baseline) && Number.isFinite(saved.lastKills) && saved.lastKills >= 0) {
           session = { ...saved, prestigeLevel: Number.isSafeInteger(saved.prestigeLevel) && saved.prestigeLevel >= 0 ? saved.prestigeLevel : 0,

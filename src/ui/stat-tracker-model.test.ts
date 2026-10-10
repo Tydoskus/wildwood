@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createStatTrackerModel, RUN_SETTLE_MS, type TrackerValues } from './stat-tracker-model';
 
-const values: TrackerValues = { power: 1000, hp: 500, damage: 100, armor: 20, regen: 5, kills: 50 };
+const values: TrackerValues = { power: 1000, hp: 500, damage: 100, armor: 20, regen: 5, attackSpeed: 10, critDamage: 10, kills: 50 };
 function setup() {
   const data = new Map<string, string>();
   const storage = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); } };
@@ -157,4 +157,16 @@ describe('a run change starts the session over', () => {
     env.advance(RUN_SETTLE_MS);
     expect(restored.update('alice', values, 3, { run: 'reflect', basePower: 40 })!.elapsedMs).toBe(0);
   });
+});
+
+it('keeps a session saved before attack speed and crit damage were tracked, starting those from now', () => {
+  const data = new Map<string, string>();
+  const storage = { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); } };
+  const { attackSpeed: _a, critDamage: _c, ...old } = values;
+  data.set('wildstat-native-stat-tracker-v1:p', JSON.stringify({ startedAt: 0, baseline: { ...old, damage: 50 }, lastKills: 50, prestigeLevel: 0 }));
+  const model = createStatTrackerModel(storage, () => 3_600_000);
+  const result = model.update('p', values)!;
+  expect(result.elapsedMs).toBe(3_600_000);
+  expect(result.rows.find(row => row.stat === 'damage')!.gain).toBe(50);
+  expect(result.rows.find(row => row.stat === 'attackSpeed')!.gain).toBe(0);
 });
