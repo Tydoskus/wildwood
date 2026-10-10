@@ -1141,8 +1141,8 @@ import {
     startupCoordinator.updateProtocolGate(accountState);
   }
 
-  function showMessage(text: string, color = "#fff", seconds?: number) {
-    runtimeHud.showMessage(text, color, seconds);
+  function showMessage(text: string, color = "#fff") {
+    runtimeHud.showMessage(text, color);
   }
 
   function logPickup(text: string, color: string, value?: number) {

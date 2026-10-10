@@ -36,9 +36,8 @@ const DASH_SPEED = 1_100;
 const BLAME_DISTANCE = 450;
 /** The server learns of the respawn a moment after the client; until then it refuses the trip. */
 const TOWN_TRIP_ATTEMPTS = 5;
-/** After the Town fades in, the defeat line stays this long: shown before the trip, the fade hid it. */
+/** The defeat popup waits this long after the Town is set, for the fade in: shown before the trip, the fade hid it. */
 const ARRIVAL_SETTLE_MS = 700;
-const DEFEAT_MESSAGE_SECONDS = 4;
 
 type Phase = "chase" | "windup" | "dash";
 
@@ -49,7 +48,9 @@ export function createSoulDefenseForce(deps: {
   strength: () => SoulStrength;
   spawnFromSite: (site: SpawnSite) => void;
   damagePlayer?: (damage: number, source: EnemyState) => void;
-  message?: (text: string, color: string, seconds?: number) => void;
+  message?: (text: string, color: string) => void;
+  /** A popup with its own OK button, for the defeat: it has to be read, not glimpsed. */
+  notice?: (text: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   storage?: () => Pick<Storage, "getItem" | "setItem"> | undefined;
   /** The Town trip; false while the server still has the player down, so it is tried again. */
@@ -156,12 +157,12 @@ export function createSoulDefenseForce(deps: {
       sendHome = true;
       return true;
     },
-    /** After a death to it, once: takes the respawned player to the Town, then says why once they are there. */
+    /** After a death to it, once: takes the respawned player to the Town, then says why in a popup once they are there. */
     async afterRespawn() {
       if (!sendHome) return false;
       sendHome = false;
       const wait = deps.wait ?? (ms => new Promise<void>(resolve => setTimeout(resolve, ms)));
-      const say = () => deps.message?.(`The ${SOUL_DEFENSE_FORCE_NAME} defeated you`, "#ff6b6b", DEFEAT_MESSAGE_SECONDS);
+      const say = () => deps.notice?.(`The ${SOUL_DEFENSE_FORCE_NAME} defeated you.`);
       for (let attempt = 0; attempt < TOWN_TRIP_ATTEMPTS; attempt++) {
         if (await deps.sendToTown?.()) { await wait(ARRIVAL_SETTLE_MS); say(); return true; }
         await wait(1_000);

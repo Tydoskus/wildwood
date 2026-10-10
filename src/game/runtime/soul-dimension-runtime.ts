@@ -13,6 +13,7 @@ import { mapSpawnCamps, type MapId, type SpawnSite } from "../world";
 import type { MapPortal } from "./map-controller";
 import type { EnemyState, PlayerState } from "./types";
 import { createSoulDefenseForce } from "./soul-defense-force";
+import { gameConfirm } from "../../ui/confirm-dialog";
 
 export type SoulDimensionSource = {
   localIdentity?: () => string | undefined;
@@ -51,13 +52,14 @@ export function createSoulDimensionRuntime(deps: {
   attackCap?: () => number;
   /** For the Soul Defense Force (soul-defense-force.ts). */
   damagePlayer?: (damage: number, source: EnemyState) => void;
-  message?: (text: string, color: string, seconds?: number) => void;
+  message?: (text: string, color: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   sendToTown?: () => Promise<boolean>;
 }) {
   let filledTier = -1;
   const defenseForce = createSoulDefenseForce({ identity: () => deps.source()?.localIdentity?.(), player: deps.player, enemies: deps.enemies,
-    strength: deps.strength, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown });
+    strength: deps.strength, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown,
+    notice: text => { void gameConfirm({ message: text, confirmLabel: "OK", cancelLabel: "" }); } });
   let strengthClock = 0;
   /** Soul kills this client has made since the server's soul row last changed: shown and fought with at once. */
   let pending: SoulStats = cleanSoulStats(null);

@@ -15,12 +15,12 @@ function setup(refuse = false) {
       campName: site.campName, siteId: site.id, type: site.type, facingX: 1 } as unknown as EnemyState);
   };
   const damagePlayer = vi.fn((damage: number) => { player.hp -= damage; });
-  const message = vi.fn();
+  const message = vi.fn(), notice = vi.fn();
   const sendToTown = vi.fn(async () => true);
-  const force = createSoulDefenseForce({ identity: () => "me", player, enemies, spawnFromSite, damagePlayer, message, storage: () => storage, sendToTown, wait: async () => {},
+  const force = createSoulDefenseForce({ identity: () => "me", player, enemies, spawnFromSite, damagePlayer, message, notice, storage: () => storage, sendToTown, wait: async () => {},
     strength: () => ({ dps: 100, maxHp: 100, armor: 0, regen: 0 }) });
   const killAll = (count = SOUL_DEFENSE_FORCE_KILLS) => { for (let i = 0; i < count; i++) force.countKill(); };
-  return { force, player, enemies, damagePlayer, message, sendToTown, killAll };
+  return { force, player, enemies, damagePlayer, message, notice, sendToTown, killAll };
 }
 
 it("comes for the player after every thousand soul kills, and only in the Soul Dimension", () => {
@@ -72,9 +72,10 @@ it("sends the player it killed to the Town after the respawn, once, retrying whi
   s.sendToTown.mockResolvedValueOnce(false).mockResolvedValueOnce(false);
   expect(await s.force.afterRespawn()).toBe(true);
   expect(s.sendToTown).toHaveBeenCalledTimes(3);
-  // Said once in the Town, for long enough to read: before the trip, the fade hid it.
-  expect(s.message).toHaveBeenLastCalledWith(`The ${SOUL_DEFENSE_FORCE_NAME} defeated you`, expect.any(String), 4);
-  expect(s.message.mock.invocationCallOrder.at(-1)!).toBeGreaterThan(s.sendToTown.mock.invocationCallOrder.at(-1)!);
+  // A popup once in the Town: said before the trip, the fade hid it.
+  expect(s.notice).toHaveBeenCalledTimes(1);
+  expect(s.notice).toHaveBeenCalledWith(`The ${SOUL_DEFENSE_FORCE_NAME} defeated you.`);
+  expect(s.notice.mock.invocationCallOrder[0]).toBeGreaterThan(s.sendToTown.mock.invocationCallOrder.at(-1)!);
   expect(await s.force.afterRespawn()).toBe(false);
   expect(s.sendToTown).toHaveBeenCalledTimes(3);
   // A death far from it is not its doing.
