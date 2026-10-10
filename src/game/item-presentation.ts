@@ -41,6 +41,7 @@ import {
   type ProjectileKind,
 } from "../../shared/items";
 import { STARTER_BOW_ASSET_SOURCE } from "./starter-bow-asset";
+import { GALAXY_BOOTS_FRONT_SOURCE } from "./galaxy-boots-asset";
 import { WOODEN_ARMOR_ASSET_SOURCE } from "./wooden-armor-asset";
 
 type InventoryArt = {
@@ -81,9 +82,9 @@ const PLAYER_PARTS = "assets/wildstat/player-parts";
 
 /** The Galaxy set borrows the Ion Sovereign art, the endgame set, and the game's boot legs as its silhouettes. */
 const galaxyFinish = (base: ItemPresentation, finish: SkyFinish = "GALAXY"): ItemPresentation => ({ ...base, finish });
-/** The game's own boot legs, so finished boots sit and walk like every other pair. */
+/** The winged boot as the icon; on the character the game's own boot legs, so they sit and walk like every other pair. */
 const SKY_BOOTS: ItemPresentation = {
-  inventory: { source: `${PLAYER_PARTS}/boots-leg-front.webp`, equippedWidth: 26, equippedHeight: 25 },
+  inventory: { source: GALAXY_BOOTS_FRONT_SOURCE, equippedWidth: 32, equippedHeight: 27 },
   world: { kind: "LEGS", frontSource: `${PLAYER_PARTS}/boots-leg-front.webp`, backSource: `${PLAYER_PARTS}/boots-leg-back.webp` },
 };
 

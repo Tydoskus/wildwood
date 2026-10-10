@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.32": [
+    "Galaxy and Diamond Galaxy Boots show their winged boot again in the inventory, and stay regular boots on your character",
+  ],
   "0.901.31": [
     "Patreon Diamond members wear the Diamond Galaxy set: helmet, armor, boots and bow of icy, sparkling sky, for as long as Diamond is active",
     "Galaxy Boots sit and walk like the game's other boots",
@@ -3094,6 +3097,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.32": "2026-10-09",
   "0.901.31": "2026-10-09",
   "0.901.30": "2026-10-09",
   "0.901.29": "2026-10-09",

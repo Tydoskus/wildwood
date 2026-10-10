@@ -1,0 +1,42 @@
+// The winged Galaxy Boots, as their inventory icon: rasterised at four times
+// 26 × 22 from art-source/galaxy-boots/galaxy-boots-front.svg. On the character
+// they are the game's own boot legs (item-presentation.ts SKY_BOOTS); Ryan liked
+// this shape as the icon, not on the walking player. Embedded rather than shipped under
+// public/assets: the galaxy finish only reads their shape and shading, and a
+// data URL never taints the canvas a profile snapshot is exported from.
+const FRONT_BASE64 = [
+  "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",
+].join("");
+
+export const GALAXY_BOOTS_FRONT_SOURCE = `data:image/png;base64,${FRONT_BASE64}`;
