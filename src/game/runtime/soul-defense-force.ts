@@ -14,9 +14,23 @@ import type { EnemyState, PlayerState } from "./types";
  * kill never reaches the server (onEnemyDefeated stops it before the report).
  * Killing the player sends them back to the Town.
  *
- * The count is this device's, kept per character.
+ * The count is this device's, kept per character. How many it takes depends
+ * on the player's critical damage (soulDefenseForceKills): the harder they
+ * crit, the sooner it notices.
  */
+/** Without a critical damage reading (tests, a caller that has none). */
 export const SOUL_DEFENSE_FORCE_KILLS = 1000;
+const FEWEST_KILLS = 100;
+const MOST_KILLS = 10_000_000;
+/**
+ * Soul kills between its visits for a critical damage multiplier (Ryan): every
+ * 100 at 100x, every 100,000 at 10x, 10^8 / crit^3 between and beyond, never
+ * fewer than 100 and at most ten million.
+ */
+export function soulDefenseForceKills(criticalMultiplier: number) {
+  if (!Number.isFinite(criticalMultiplier) || criticalMultiplier <= 0) return MOST_KILLS;
+  return Math.max(FEWEST_KILLS, Math.min(MOST_KILLS, Math.round(1e8 / criticalMultiplier ** 3)));
+}
 export const SOUL_DEFENSE_FORCE_NAME = "Soul Defense Force";
 
 const KEY = "wildstat:soul-defense-force:v1";
@@ -53,6 +67,8 @@ export function createSoulDefenseForce(deps: {
   notice?: (text: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   storage?: () => Pick<Storage, "getItem" | "setItem"> | undefined;
+  /** The player's critical damage multiplier, research and soul together, as combat uses it. */
+  critMultiplier?: () => number;
   /** The Town trip; false while the server still has the player down, so it is tried again. */
   sendToTown?: () => Promise<boolean>;
   wait?: (ms: number) => Promise<void>;
@@ -65,6 +81,7 @@ export function createSoulDefenseForce(deps: {
   let phase: Phase = "chase", clock = 0, glow = 0, landed = false;
   let direction = { x: 0, y: 0 };
   let sendHome = false;
+  const killsNeeded = () => deps.critMultiplier ? soulDefenseForceKills(deps.critMultiplier()) : SOUL_DEFENSE_FORCE_KILLS;
 
   function spawn() {
     const { player } = deps;
@@ -106,12 +123,13 @@ export function createSoulDefenseForce(deps: {
     /** One soul enemy down: counted toward the next visit. */
     countKill() { write(read() + 1); },
     count: read,
+    killsNeeded,
     update(dt: number, onSoulMap: boolean) {
       // A refilled or left map drops it; the count stands, so it comes back.
       if (boss && (boss.dead || !deps.enemies.includes(boss))) boss = null;
       if (!onSoulMap) { if (boss) boss.dead = true; boss = null; return; }
       const { player } = deps;
-      if (!boss && read() >= SOUL_DEFENSE_FORCE_KILLS && player.hp > 0) spawn();
+      if (!boss && read() >= killsNeeded() && player.hp > 0) spawn();
       if (!boss) return;
       boss.engaged = true;
       clock -= dt;

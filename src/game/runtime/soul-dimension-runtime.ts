@@ -55,10 +55,13 @@ export function createSoulDimensionRuntime(deps: {
   message?: (text: string, color: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   sendToTown?: () => Promise<boolean>;
+  /** Critical damage from research; the soul's own is added here, as combat adds it. */
+  researchCritMultiplier?: () => number;
 }) {
   let filledTier = -1;
   const defenseForce = createSoulDefenseForce({ identity: () => deps.source()?.localIdentity?.(), player: deps.player, enemies: deps.enemies,
     strength: deps.strength, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown,
+    critMultiplier: deps.researchCritMultiplier && (() => deps.researchCritMultiplier!() + inPlay().critDamage),
     notice: text => { void gameConfirm({ message: text, confirmLabel: "OK", cancelLabel: "" }); } });
   let strengthClock = 0;
   /** Soul kills this client has made since the server's soul row last changed: shown and fought with at once. */

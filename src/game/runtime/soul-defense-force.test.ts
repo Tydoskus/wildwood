@@ -1,9 +1,9 @@
 import { expect, it, vi } from "vitest";
-import { createSoulDefenseForce, SOUL_DEFENSE_FORCE_KILLS, SOUL_DEFENSE_FORCE_NAME } from "./soul-defense-force";
+import { createSoulDefenseForce, soulDefenseForceKills, SOUL_DEFENSE_FORCE_KILLS, SOUL_DEFENSE_FORCE_NAME } from "./soul-defense-force";
 import type { SpawnSite } from "../world";
 import type { EnemyState, PlayerState } from "./types";
 
-function setup(refuse = false) {
+function setup(refuse = false, critMultiplier?: () => number) {
   const values = new Map<string, string>();
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
   const player = { x: 1000, y: 1000, r: 20, hp: 100, maxHp: 100 } as PlayerState;
@@ -17,7 +17,7 @@ function setup(refuse = false) {
   const damagePlayer = vi.fn((damage: number) => { player.hp -= damage; });
   const message = vi.fn(), notice = vi.fn();
   const sendToTown = vi.fn(async () => true);
-  const force = createSoulDefenseForce({ identity: () => "me", player, enemies, spawnFromSite, damagePlayer, message, notice, storage: () => storage, sendToTown, wait: async () => {},
+  const force = createSoulDefenseForce({ identity: () => "me", player, enemies, spawnFromSite, damagePlayer, message, notice, storage: () => storage, sendToTown, wait: async () => {}, critMultiplier,
     strength: () => ({ dps: 100, maxHp: 100, armor: 0, regen: 0 }) });
   const killAll = (count = SOUL_DEFENSE_FORCE_KILLS) => { for (let i = 0; i < count; i++) force.countKill(); };
   return { force, player, enemies, damagePlayer, message, notice, sendToTown, killAll };
@@ -105,4 +105,24 @@ it("does not take a soul enemy for itself when its spawn is refused, and tries a
   expect(s.force.active()).toBe(false);
   expect(s.force.defeated(soulEnemy)).toBe(false);
   expect(s.force.count()).toBe(SOUL_DEFENSE_FORCE_KILLS);
+});
+
+it("comes sooner the harder the player crits: every 100 kills at 100x, every 100,000 at 10x", () => {
+  expect(soulDefenseForceKills(100)).toBe(100);
+  expect(soulDefenseForceKills(10)).toBe(100_000);
+  expect(soulDefenseForceKills(20)).toBe(12_500);
+  expect(soulDefenseForceKills(1_000)).toBe(100);
+  expect(soulDefenseForceKills(1.5)).toBe(10_000_000);
+  expect(soulDefenseForceKills(Number.NaN)).toBe(10_000_000);
+  let crit = 100;
+  const s = setup(false, () => crit);
+  s.killAll(99); s.force.update(.1, true);
+  expect(s.enemies).toHaveLength(0);
+  s.force.countKill(); s.force.update(.1, true);
+  expect(s.enemies).toHaveLength(1);
+  // It reads the crit as it is now: the same count is far short at 10x.
+  const low = setup(false, () => crit);
+  crit = 10; low.killAll(100); low.force.update(.1, true);
+  expect(low.enemies).toHaveLength(0);
+  expect(low.force.killsNeeded()).toBe(100_000);
 });
