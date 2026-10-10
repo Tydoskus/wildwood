@@ -37,6 +37,9 @@ const STRENGTH_REFRESH_SECONDS = 1;
  * builds each one at the player's strength as it spawns, and owns the Town's
  * portal's presence and the soul stats combat adds.
  */
+/** The Soul Defense Force is off for now (Ryan, 0.901.38): the crit cap took away the runs it answered. Kills still count. */
+const SOUL_DEFENSE_FORCE_ON = false;
+
 export function createSoulDimensionRuntime(deps: {
   source: () => SoulDimensionSource | null | undefined;
   player: PlayerState;
@@ -143,7 +146,7 @@ export function createSoulDimensionRuntime(deps: {
       // A map load empties the site list; a new tier wakes new camps.
       const currentTier = tier();
       if (currentTier !== filledTier || (!deps.spawnSites.length && currentTier > 0)) fillCamps(currentTier);
-      defenseForce.update(dt, currentTier > 0);
+      defenseForce.update(dt, SOUL_DEFENSE_FORCE_ON && currentTier > 0);
       strengthClock -= dt;
       if (strengthClock <= 0) { strengthClock = STRENGTH_REFRESH_SECONDS; refreshWaitingDefinitions(); }
     },

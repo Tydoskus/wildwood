@@ -550,14 +550,14 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     s.player.hp = s.player.maxHp;
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
-    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    expect(s.farm.bossStatus()).toBe('Boss In 05:00');
     s.advance(5 * 60_000 - 2_000); s.tick();
     expect(s.farm.state().phase).toBe('farm');
     s.advance(2_000); s.tick();
     expect(s.farm.state().phase).toBe('boss');
     // A second loss waits twice as long: it can never loop.
     s.farm.defeated(); s.tick();
-    expect(s.farm.bossStatus()).toBe('Boss In 00:10');
+    expect(s.farm.bossStatus()).toBe('Boss In 10:00');
   });
 
   it('walks away from a boss fight it is losing before dying, and goes back once the fight as measured would be won', () => {
@@ -575,10 +575,10 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     boss.hp = 950; s.player.hp = s.player.maxHp * .4;
     expect(s.tick()).toEqual(idle);
     expect(s.farm.state().phase).toBe('farm');
-    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    expect(s.farm.bossStatus()).toBe('Boss In 05:00');
     // Dying on the way out is the same try: it waits no longer.
     s.farm.defeated();
-    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    expect(s.farm.bossStatus()).toBe('Boss In 05:00');
     // The wait over and healed, the fight as measured is still lost: it farms on.
     s.player.hp = s.player.maxHp;
     s.advance(5 * 60_000); s.tick();
@@ -602,7 +602,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
     // It never reached the boss: after the wait, the build's own projection sends it again.
-    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    expect(s.farm.bossStatus()).toBe('Boss In 05:00');
     s.player.hp = s.player.maxHp;
     s.advance(5 * 60_000); s.tick();
     expect(s.farm.state().phase).toBe('boss');
@@ -634,7 +634,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     boss.hp = 990;
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
-    expect(s.farm.bossStatus()).toBe('Boss In 00:05');
+    expect(s.farm.bossStatus()).toBe('Boss In 05:00');
   });
 
   it("parks in real attack range of every boss, from any side", () => {
@@ -1125,7 +1125,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     s.tick();
     expect(s.farm.state().phase).toBe('portal');
     travel('beginner_desert');
-    expect(s.farm.bossStatus()).toBe('Trying Next Map · 00:09');
+    expect(s.farm.bossStatus()).toBe('Trying Next Map · 09:59');
     for (let death = 1; death < AUTO_FARM_DEFEAT_LIMIT; death++) s.farm.defeated();
     s.tick();
     expect(s.farm.state().phase).toBe('farm');
@@ -1139,7 +1139,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     expect(s.farm.bossStatus()).toBe('Next Map At 1.20k');
     power.value = 1_200;
     s.advance(1_000);
-    expect(s.farm.bossStatus()).toBe('Next Map In 00:09');
+    expect(s.farm.bossStatus()).toBe('Next Map In 09:58');
     s.advance(10 * 60_000);
     expect(s.farm.bossStatus()).toBe('Next Map Open');
     expect(s.farm.bossStatusReady()).toBe(true);
@@ -1152,7 +1152,7 @@ describe('autofarm plans: sliders, the boss and the next map', () => {
     travel('forest');
     power.value = 2_000;
     s.advance(1_000);
-    expect(s.farm.bossStatus()).toBe('Next Map In 00:19');
+    expect(s.farm.bossStatus()).toBe('Next Map In 19:58');
   });
 
   it("goes back after ten minutes on a new map that grows the build slower than the last, and keeps one that doesn't", () => {

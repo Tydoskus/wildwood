@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.38": [
+    "Timers under an hour show minutes and seconds again",
+  ],
   "0.901.37": [
     "Critical damage is capped at 50×; the new Crit Cap research raises the cap 10× a level, up to 100×",
     "Whatever keeps count in the Soul Dimension has learned to hit back",
@@ -3123,6 +3126,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.38": "2026-10-09",
   "0.901.37": "2026-10-09",
   "0.901.36": "2026-10-09",
   "0.901.35": "2026-10-09",
