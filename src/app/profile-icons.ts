@@ -10,9 +10,13 @@ const POSITION_START = (ZOOM - 1) / 2 / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 const appliedSnapshots = new WeakMap<HTMLElement, string>();
 
 /** Draws a moving snapshot into its canvas at the canvas's own size on screen. */
+/** No portrait is drawn larger than this; it also stops a canvas the page has not sized from growing itself. */
+const MOVING_PORTRAIT_MAX_PIXELS = 256;
+
 function paintMovingPortrait(canvas: HTMLCanvasElement, portrait: ProfileSnapshotPortrait) {
   const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
-  const width = Math.max(1, Math.round(canvas.clientWidth * ratio)), height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+  const side = (value: number) => Math.max(1, Math.min(MOVING_PORTRAIT_MAX_PIXELS, Math.round(value * ratio)));
+  const width = side(canvas.clientWidth), height = side(canvas.clientHeight);
   if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -32,6 +36,9 @@ function showMovingPortrait(element: HTMLElement, portrait: ProfileSnapshotPortr
     canvas = element.ownerDocument.createElement("canvas");
     canvas.className = "profile-icon-live";
     canvas.setAttribute("aria-hidden", "true");
+    // Sized inline as well as in game.css: under a stylesheet cached from
+    // before this rule, a canvas sized by its own pixels would grow each redraw.
+    Object.assign(canvas.style, { position: "absolute", inset: "0", width: "100%", height: "100%" });
     element.prepend(canvas);
     const view = element.ownerDocument.defaultView;
     if (view?.getComputedStyle?.(element).position === "static") element.style.position = "relative";
