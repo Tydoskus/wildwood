@@ -32,7 +32,7 @@ import {
 } from "../../../shared/rules";
 import { BASE_ATTACK_RANGE, BASE_PROJECTILE_SPEED } from "../constants";
 import { createProjectileStore } from "./projectile-store";
-import { CAMPAIGN_GATEWAYS, endlessEntryPortal } from "../../../shared/map-gateways";
+import { CAMPAIGN_GATEWAYS, campaignLanding, endlessEntryPortal } from "../../../shared/map-gateways";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "../../../shared/map-editor-overrides";
 import { savedMapDesign, savedMapName } from "../map-design";
 import { requestFrame } from "../../app/trusted-clock";
@@ -44,7 +44,7 @@ function campaignMapEntry(mapId: MapId): BootstrapMapEntry {
   const gateways = CAMPAIGN_GATEWAYS[mapId];
   const name = numberedMapName(mapId, savedMapName(mapId) ?? MAP_EDITOR_GAMEPLAY_OVERRIDES[mapId]?.name ?? MAP_DISPLAY_NAMES[mapId]);
   const [portal, secondaryPortal] = gateways.portals.map(portal => ({ ...portal, destination: portal.destination as MapId }));
-  return { name, arrival: { ...gateways.arrival }, portal: portal ?? null, ...(secondaryPortal ? { secondaryPortal } : {}) };
+  return { name, arrival: campaignLanding(mapId) ?? { ...gateways.arrival }, portal: portal ?? null, ...(secondaryPortal ? { secondaryPortal } : {}) };
 }
 
 function editedBossPosition(mapId: MapId, fallback: { x: number; y: number }) {

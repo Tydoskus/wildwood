@@ -3,6 +3,7 @@ import { PRISMSHELL_RADIUS, GLOOMROOT_RADIUS, KOI_SHOGUN_RADIUS, MAGMALISK_RADIU
 import { GLOOMROOT_MAX_HP, KOI_SHOGUN_MAX_HP, MAGMALISK_MAX_HP, MIREMAW_MAX_HP, PLAYER_BASE_REGEN, PLAYER_SPAWN, PRISMSHELL_MAX_HP, TEMPEST_KIRIN_MAX_HP, TIDEWYRM_MAX_HP } from "../../shared/rules";
 import { ENEMY_TYPES } from "./enemies";
 import { createGameBootstrap } from "./runtime/game-bootstrap";
+import { CAMPAIGN_GATEWAYS, campaignLanding } from "../../shared/map-gateways";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
@@ -333,20 +334,22 @@ describe("Home", () => {
 
 
 describe("regional group aggro", () => {
-  it("starts new characters by the forest's Spitters and Brambles, and lands portal travellers just below the forest's portal", () => {
+  it("starts new characters, the dead and portal travellers alike by the forest's Spitters and Brambles", () => {
     const bootstrap = createGameBootstrap();
     const { arrival, portal } = bootstrap.mapConfig[TUTORIAL_FOREST_MAP_ID];
     if (!portal) throw new Error("The forest has a portal.");
-    // The portal moved to the middle (0.901.15); new characters stayed by the easiest enemies.
+    // The portal moved to the middle (0.901.15); everyone arriving still lands by the easiest enemies (Ryan).
     expect(bootstrap.startSpawn).toEqual(PLAYER_SPAWN);
     expect(bootstrap.player).toMatchObject(PLAYER_SPAWN);
+    expect(arrival).toEqual(PLAYER_SPAWN);
+    expect(campaignLanding(TUTORIAL_FOREST_MAP_ID)).toEqual(PLAYER_SPAWN);
     const nearest = [...mapSpawnCamps(TUTORIAL_FOREST_MAP_ID)].sort((a, b) =>
       Math.hypot(a.x - PLAYER_SPAWN.x, a.y - PLAYER_SPAWN.y) - a.radius - (Math.hypot(b.x - PLAYER_SPAWN.x, b.y - PLAYER_SPAWN.y) - b.radius));
     expect(new Set(nearest.slice(0, 2).flatMap(camp => camp.types))).toEqual(new Set(["Spitter", "Bramble"]));
-    // Just below the portal (0.901.15), outside the reach that would walk the player straight back through it.
-    expect(arrival.x).toBe(portal.x);
-    expect(arrival.y - portal.y).toBe(90);
+    // Far from the portal, so nobody lands and walks straight back through it.
     expect(Math.hypot(arrival.x - portal.x, arrival.y - (portal.y - portal.height * .32))).toBeGreaterThan(125);
+    // The other maps still land just below their portals.
+    expect(campaignLanding(BEGINNER_DESERT_MAP_ID)).toEqual(CAMPAIGN_GATEWAYS[BEGINNER_DESERT_MAP_ID].arrival);
   });
   it("starts new characters with passive recovery", () => {
     expect(createGameBootstrap().player.regen).toBe(PLAYER_BASE_REGEN);

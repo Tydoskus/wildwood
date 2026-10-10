@@ -1,6 +1,6 @@
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 import { MAP_EDITOR_GAMEPLAY_OVERRIDES } from "./map-editor-overrides";
-import { TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, WORLD_HEIGHT, WORLD_WIDTH } from "./rules";
+import { TUTORIAL_FOREST_MAP_ID, BEGINNER_DESERT_MAP_ID, PLAYER_SPAWN, WORLD_HEIGHT, WORLD_WIDTH } from "./rules";
 
 /**
  * Where each campaign map's portals stand and where a player arriving lands.
@@ -72,6 +72,14 @@ function campaignGateways(index: number): MapGateways {
 
 export const CAMPAIGN_GATEWAYS: Readonly<Record<string, MapGateways>> =
   Object.fromEntries(CAMPAIGN_MAPS.map((map, index) => [map.id, campaignGateways(index)]));
+
+/**
+ * Where a traveller lands on a campaign map. Tutorial Forest's land at its starting spot (PLAYER_SPAWN), as new
+ * characters and the dead do (Ryan): its portal's arrival is among enemies a fresh character cannot beat.
+ */
+export function campaignLanding(mapId: string) {
+  return mapId === TUTORIAL_FOREST_MAP_ID ? { ...PLAYER_SPAWN } : CAMPAIGN_GATEWAYS[mapId] && { ...CAMPAIGN_GATEWAYS[mapId].arrival };
+}
 
 /** The last campaign map's portal into Endless (`destination`, its first map): where a next portal would stand. */
 export function endlessEntryPortal(destination: string): MapGatewayPortal {

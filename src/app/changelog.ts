@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.41": [
     "Tutorial Forest has the Town's trees, grass, shadows and dirt roads",
+    "Arriving in Tutorial Forest by portal lands you at its starting spot",
   ],
   "0.901.40": [
     "The Town's river no longer shimmers through its bridges",

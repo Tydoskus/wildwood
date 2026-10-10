@@ -4,7 +4,7 @@ import { challengeAttackInterval } from "../../shared/prestige-challenge";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
-import { CAMPAIGN_GATEWAYS, endlessEntryPortal, LEGACY_CORNER_GATEWAYS, legacyPortalUsePoints, portalUsePoint } from "../../shared/map-gateways";
+import { CAMPAIGN_GATEWAYS, campaignLanding, endlessEntryPortal, LEGACY_CORNER_GATEWAYS, legacyPortalUsePoints, portalUsePoint } from "../../shared/map-gateways";
 import { campaignMapUnlocked } from "../../shared/equipment-access";
 import { compactNumberChanged } from "../../shared/compact-number";
 import { auditPrivilegedAccess, denyPrivilegedAccess } from "./privileged-access-audit";
@@ -257,7 +257,7 @@ const DATABASE_OWNER_IDENTITY_HEX = "c200383520521c925f3cf6deafb20cd6a7d6168d1c3
 const MAP_PORTALS: Record<string, { x: number; y: number; destination: string }[]> =
   Object.fromEntries(Object.entries(CAMPAIGN_GATEWAYS).map(([mapId, gateways]) => [mapId, gateways.portals.map(portalUsePoint)]));
 const MAP_ARRIVALS: Record<string, { x: number; y: number }> =
-  Object.fromEntries(Object.entries(CAMPAIGN_GATEWAYS).map(([mapId, gateways]) => [mapId, gateways.arrival]));
+  Object.fromEntries(Object.keys(CAMPAIGN_GATEWAYS).map(mapId => [mapId, campaignLanding(mapId)]));
 const MAP_PORTAL_USE_RANGE = 125;
 const CHAT_MESSAGE_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MICROS = 3_000_000n;
