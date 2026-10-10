@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.37": [
+    "Critical damage is capped at 50×; the new Crit Cap research raises the cap 10× a level, up to 100×",
+  ],
   "0.901.36": [
     "Offline progress covers up to 8 hours, and up to 12 with Offline Time research",
     "Galaxy and Diamond Galaxy keep their black outline in item slots, and no sky shows past the edge",
@@ -3119,6 +3122,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.37": "2026-10-09",
   "0.901.36": "2026-10-09",
   "0.901.35": "2026-10-09",
   "0.901.34": "2026-10-09",
