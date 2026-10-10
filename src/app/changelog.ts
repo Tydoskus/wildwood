@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.30": [
+    "A fallen player's head lies still instead of bobbing, in the world and in guild battle replays",
+  ],
   "0.901.29": [
     "Ox, in the bottom-right house in Town, sells the Galaxy set: helmet, armor, boots and bow made of drifting galaxies, 750 Gems each",
   ],
@@ -3087,6 +3090,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.30": "2026-10-09",
   "0.901.29": "2026-10-09",
   "0.901.28": "2026-10-09",
   "0.901.27": "2026-10-09",
