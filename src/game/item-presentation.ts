@@ -37,7 +37,6 @@ import {
   type ProjectileKind,
 } from "../../shared/items";
 import { STARTER_BOW_ASSET_SOURCE } from "./starter-bow-asset";
-import { GALAXY_BOOTS_BACK_SOURCE, GALAXY_BOOTS_FRONT_SOURCE, GALAXY_BOOTS_SIZE } from "./galaxy-boots-asset";
 import { WOODEN_ARMOR_ASSET_SOURCE } from "./wooden-armor-asset";
 
 type InventoryArt = {
@@ -64,9 +63,6 @@ export type WorldLegPresentation = {
   kind: "LEGS";
   frontSource: string;
   backSource: string;
-  /** Drawn size of each leg when the art is not at character scale. */
-  width?: number;
-  height?: number;
 };
 
 export type ItemPresentation = {
@@ -79,7 +75,7 @@ export type ItemPresentation = {
 
 const PLAYER_PARTS = "assets/wildstat/player-parts";
 
-/** The Galaxy set borrows the Ion Sovereign art, the endgame set, as its silhouettes; the boots are its own. */
+/** The Galaxy set borrows the Ion Sovereign art, the endgame set, and the game's boot legs as its silhouettes. */
 const galaxyFinish = (base: ItemPresentation): ItemPresentation => ({ ...base, finish: "GALAXY" });
 /** The icon's sky before galaxy-finish.ts has painted the real one, or where it cannot. */
 const GALAXY_ART_FALLBACK = "radial-gradient(circle at 35% 35%, #6a3cc8, #1c2276 45%, #050619 80%)";
@@ -90,9 +86,10 @@ export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   [GALAXY_HELMET]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_helmet),
   [GALAXY_ARMOR]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_armor),
   [GALAXY_BOW]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_bow),
+  // The boots are the game's own boot legs, so they sit and walk like every other pair.
   [GALAXY_BOOTS]: galaxyFinish({
-    inventory: { source: GALAXY_BOOTS_FRONT_SOURCE, equippedWidth: 32, equippedHeight: 27 },
-    world: { kind: "LEGS", frontSource: GALAXY_BOOTS_FRONT_SOURCE, backSource: GALAXY_BOOTS_BACK_SOURCE, ...GALAXY_BOOTS_SIZE },
+    inventory: { source: `${PLAYER_PARTS}/boots-leg-front.webp`, equippedWidth: 26, equippedHeight: 25 },
+    world: { kind: "LEGS", frontSource: `${PLAYER_PARTS}/boots-leg-front.webp`, backSource: `${PLAYER_PARTS}/boots-leg-back.webp` },
   }),
   [WOODEN_SWORD]: {
     inventory: { source: `${PLAYER_PARTS}/wooden-sword.webp`, equippedWidth: 32, equippedHeight: 28 },

@@ -209,7 +209,8 @@ export function finishedEquipmentSprite<T extends PlayerLayerAsset>(itemId: stri
   // Sized from the drawn size, not the file's, so the sky has the same grain
   // on every piece however large its art was made.
   const world = itemPresentation(itemId)?.world;
-  const size = { width: world?.width ?? assetWidth(sprite), height: world?.height ?? assetHeight(sprite) };
+  const sprited = world?.kind === "SPRITE" ? world : undefined;
+  const size = { width: sprited?.width ?? assetWidth(sprite), height: sprited?.height ?? assetHeight(sprite) };
   return galaxyFinishFrame(sprite, size) ?? sprite;
 }
 
@@ -385,10 +386,6 @@ export function drawStartingPlayer(
   const frontLeg = feetAssets?.frontLeg ?? skinTonedLeg(assets.basicFrontLeg, skin);
   const headItem = options.headItem ?? "";
   const liveFeet = Boolean(feetAssets?.frontLeg && feetAssets.backLeg) && itemHasGalaxyFinish(options.feetItem);
-  const feetPresentation = feetAssets ? itemPresentation(options.feetItem)?.world : undefined;
-  const legSize = feetPresentation?.kind === "LEGS" && feetPresentation.width && feetPresentation.height
-    ? { width: feetPresentation.width, height: feetPresentation.height }
-    : undefined;
   const drawLayer =(target: CanvasRenderingContext2D, asset: PlayerLayerAsset, x: number, y: number, width = assetWidth(asset), height = assetHeight(asset), layer?: PlayerLayer, report = false, smooth = false) => {
     if (!readyImage(asset)) return;
     if (!layer) { target.drawImage(residentDrawable(asset), x, y, width, height); return; }
@@ -439,8 +436,8 @@ export function drawStartingPlayer(
   };
   const drawLegs = (target: CanvasRenderingContext2D, report: boolean, pieces: BodyPieces) => {
     if ((pieces === "STATIC" && liveFeet) || (pieces === "LIVE" && !liveFeet)) return;
-    const backSize = { width: legSize?.width ?? assetWidth(backLeg), height: legSize?.height ?? assetHeight(backLeg) };
-    const frontSize = { width: legSize?.width ?? assetWidth(frontLeg), height: legSize?.height ?? assetHeight(frontLeg) };
+    const backSize = { width: assetWidth(backLeg), height: assetHeight(backLeg) };
+    const frontSize = { width: assetWidth(frontLeg), height: assetHeight(frontLeg) };
     const back = liveFeet && readyImage(backLeg) ? finishedEquipmentSprite(options.feetItem, backLeg) : backLeg;
     const front = liveFeet && readyImage(frontLeg) ? finishedEquipmentSprite(options.feetItem, frontLeg) : frontLeg;
     drawLayer(target, back, 90 - backSize.width / 2 - 8 + gait.back.x, 171 - backSize.height + gait.back.y, backSize.width, backSize.height, "backLeg", report, back !== backLeg);

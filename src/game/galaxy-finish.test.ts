@@ -47,16 +47,14 @@ describe("Galaxy set catalogue", () => {
     expect(isWeaponItem(GALAXY_BOW)).toBe(false);
   });
 
-  it("borrows the Ion Sovereign silhouettes and has boots of its own", () => {
+  it("borrows the Ion Sovereign silhouettes and the game's own boot legs", () => {
     expect(itemPresentation(GALAXY_HELMET)?.world).toEqual(itemPresentation("ion_helmet")?.world);
     expect(itemPresentation(GALAXY_ARMOR)?.world).toEqual(itemPresentation("ion_armor")?.world);
     expect(itemPresentation(GALAXY_BOW)?.world).toEqual(itemPresentation("ion_bow")?.world);
     expect(itemPresentation(GALAXY_BOW)?.projectile).toBe("ARROW");
-    const boots = itemPresentation(GALAXY_BOOTS)?.world;
-    expect(boots).toMatchObject({ kind: "LEGS", width: 26, height: 22 });
-    if (boots?.kind !== "LEGS") return;
-    expect(boots.frontSource).toMatch(/^data:image\/png;base64,/);
-    expect(boots.backSource).not.toBe(boots.frontSource);
+    // Drawn at the boot legs' own size, so they sit and walk exactly as any boots do.
+    expect(itemPresentation(GALAXY_BOOTS)?.world).toEqual({ kind: "LEGS",
+      frontSource: "assets/wildstat/player-parts/boots-leg-front.webp", backSource: "assets/wildstat/player-parts/boots-leg-back.webp" });
     expect(itemHasGalaxyFinish("ion_armor")).toBe(false);
   });
 
@@ -84,6 +82,7 @@ describe("galaxy finish rendering", () => {
     expect(galaxyFinishFrame(sprite, undefined, 1_010)).toBe(frame);
     // The size is the drawn one, so large source art does not shrink the sky's grain.
     expect(galaxyFinishFrame(image("boot", 104, 88), { width: 26, height: 22 }, 1_000)).toMatchObject({ width: 52, height: 44 });
+    expect(galaxyFinishFrame(image("boot-leg", 21, 20), undefined, 1_000)).toMatchObject({ width: 42, height: 40 });
   });
 
   it("draws live pieces in body order around the cached halves of the body", () => {
