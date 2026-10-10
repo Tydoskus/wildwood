@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.36": [
     "Offline progress covers up to 8 hours, and up to 12 with Offline Time research",
     "Galaxy and Diamond Galaxy keep their black outline in item slots, and no sky shows past the edge",
+    "Soul kills made with Reflect are paid in full",
   ],
   "0.901.35": [
     "Tapping a name in the leaderboard or private chat search on a phone picks it",

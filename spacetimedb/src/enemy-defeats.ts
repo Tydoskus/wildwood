@@ -482,8 +482,10 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
     // them by its last kill; anything less pays a fast-growing farmer at
     // the rate they started the report with.
     const bound = combat.preview({ ...definition.reward, count: acceptedCount });
-    // A soul enemy is built at its player's strength: its health follows their damage.
-    const hp = isSoulMap(batch.mapId) ? soulEnemyBoundHp(bound.dps + (bound.reflectDps ?? 0)) : definition.hp;
+    // A soul enemy is built at its player's strength: its health follows their weapon's damage,
+    // as the client builds it (soulEnemyStats). Reflect is not in it: counting it gave a Reflect
+    // build's weak soul enemies the health of a strong one, and refused most of their kills.
+    const hp = isSoulMap(batch.mapId) ? soulEnemyBoundHp(bound.dps) : definition.hp;
     // Reflect's own kills add to the weapon's: outside Reflect Only a reflected
     // hit can be as big as max health, so it is no share of the bow's kills.
     const plausibleRate = (plausibleKillsPerSecond(hp, bound.dps, bound.attackInterval, bound.projectiles ?? 1) * (bound.reach ?? 1)

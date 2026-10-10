@@ -7,6 +7,7 @@ import { SOUL_ARRIVAL, SOUL_MAP_ID, SOUL_TOWN_PORTAL } from "../../shared/soul-d
 import { TOWN_ARRIVAL, TOWN_SOUL_PORTAL } from "../../shared/town";
 import { HOME_TRAVEL_PORTAL } from "../../shared/home";
 import { ensurePrestigeExpansion } from "./prestige-expansion";
+import { combatTimeKey } from "./enemy-defeats";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function soulReady(options: { open?: boolean; prestige?: number; kills?: number } = {}) {
@@ -45,6 +46,25 @@ it("pays soul stats for the soul enemies a tier has woken, and nothing for the r
   expect(soul.damage).toBe(5);
   expect(soul.maxHp).toBe(0);
   expect(soul.kills).toBe(5n);
+});
+
+it("pays a Reflect build's soul kills, whose enemies are built from its weapon damage alone", () => {
+  // High health, armor and Riposte, next to no weapon damage: the client builds each soul enemy
+  // from the weapon (soulEnemyStats), so Reflect kills them almost at once. The bound used to size
+  // them by weapon plus reflect damage, and with the combat bank spent paid 9 of these 100.
+  const run = (riposte: number) => {
+    const f = soulReady({ kills: 25 });
+    f.patch("playerProgress", { damage: 1, maxHp: 1_000_000, armor: 100_000 });
+    if (riposte) f.seed("playerPrestigePerk", { identity: f.ctx.sender, riposte });
+    f.patch("player", { mapId: SOUL_MAP_ID, x: SOUL_ARRIVAL.x, y: SOUL_ARRIVAL.y });
+    fillDefeatBudget(f, SOUL_MAP_ID, "soul:damage");
+    f.seed("enemyDefeatBudget", { key: combatTimeKey(f.ctx.sender), identity: f.ctx.sender, tokens: 0, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
+    reportKills(f, { streamId: "soul-stream-000001", sequence: 1n, mapId: SOUL_MAP_ID, simulatedMillis: 10_000, enemies: [{ enemy: "soul:damage", count: 100 }] });
+    return f.db.playerSoulStats.identity.find(f.ctx.sender)?.damage ?? 0;
+  };
+  expect(run(5)).toBe(100);
+  // Without Reflect the same weak weapon is still held to what it could kill.
+  expect(run(0)).toBeLessThan(20);
 });
 
 it("adds up across reports: the reward is flat and never grows", () => {
