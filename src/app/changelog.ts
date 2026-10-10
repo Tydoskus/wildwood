@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.44": [
+    "Aggro and Reflect Only buttons no longer stay greyed out after a connection drop",
+  ],
   "0.901.43": [
     "Joining a guild gives you its stat bonus right away, for the whole week",
     "Autofarm's Move At and Fight At sliders can be set while their switch is off",
@@ -3145,6 +3148,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.44": "2026-10-10",
   "0.901.43": "2026-10-10",
   "0.901.42": "2026-10-09",
   "0.901.41": "2026-10-09",

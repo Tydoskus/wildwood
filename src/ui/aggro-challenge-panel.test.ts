@@ -1,4 +1,5 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import { CHALLENGE_ANSWER_MS, CHALLENGE_NO_ANSWER } from "./challenge-answer";
 import { parseHTML } from "linkedom";
 import { createAggroChallengePanel } from "./aggro-challenge-panel";
 import type { RewardType } from "../game/enemies";
@@ -35,4 +36,21 @@ it("a run always keeps its count: it fills missing picks and switches, never dro
   expect(s.picks()).toEqual(["armor"]);
   s.chip("Armor").click();
   expect(s.picks()).toEqual(["armor"]);
+});
+
+it("gives the button back when the server never answers a drop out", async () => {
+  vi.useFakeTimers();
+  try {
+    const { document } = parseHTML("<html><body><div id='c'></div></body></html>");
+    createAggroChallengePanel({ container: document.getElementById("c") as unknown as HTMLElement, state: () => ({ active: true, completed: 0 }),
+      locked: () => null, goal: () => "Defeat Aegis Prime (map 15)", start: async () => ({ ok: true }), abandon: () => new Promise(() => {}),
+      picks: () => ["damage"], setPicks: () => {}, confirm: async () => true });
+    const action = document.querySelector(".prestige-challenge-action") as unknown as HTMLButtonElement;
+    action.click();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(action.disabled).toBe(true);
+    await vi.advanceTimersByTimeAsync(CHALLENGE_ANSWER_MS);
+    expect(action.disabled).toBe(false);
+    expect(document.body.textContent).toContain(CHALLENGE_NO_ANSWER);
+  } finally { vi.useRealTimers(); }
 });

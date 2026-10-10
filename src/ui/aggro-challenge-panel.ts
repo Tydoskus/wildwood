@@ -2,6 +2,7 @@ import { gameConfirm, type ConfirmPrompt } from "./confirm-dialog";
 import { AGGRO_CHALLENGE_LIMIT, aggroForcedCamps, aggroPullCamps, type AggroChallenge } from "../../shared/aggro-challenge";
 import { AGGRO_GROUPS, AGGRO_GROUP_LABELS as GROUP_LABELS, togglePick } from "../game/runtime/aggro-picks";
 import { REWARD_DATA, type RewardType } from "../game/enemies";
+import { challengeAnswer } from "./challenge-answer";
 
 
 const camps = (count: number) => `${count} camp${count === 1 ? "" : "s"}`;
@@ -119,7 +120,7 @@ export function createAggroChallengePanel(d: {
       confirmLabel: active ? "Drop out" : parked ? "Drop back in" : "Start challenge" })) return;
     pending = true; render();
     try {
-      const result = await (active ? d.abandon() : d.start());
+      const result = await challengeAnswer(active ? d.abandon() : d.start());
       status.textContent = result?.ok ? "" : result?.error ?? "Couldn't change challenge mode.";
     } catch { status.textContent = "Couldn't change challenge mode. Try again."; }
     finally { pending = false; render(); }

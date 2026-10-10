@@ -1,6 +1,7 @@
 import { gameConfirm, type ConfirmPrompt } from "./confirm-dialog";
 import { PRESTIGE_CHALLENGE_ATTACKS_PER_SECOND, PRESTIGE_CHALLENGE_LIMIT, challengeGoal, type PrestigeChallenge } from "../../shared/prestige-challenge";
 import { REFLECT_RANKS_PER_CHALLENGE } from "../../shared/prestige-perks";
+import { challengeAnswer } from "./challenge-answer";
 
 /** The prestige window's two tabs: its perks, and the Reflect Only challenge. */
 export function installPrestigeTabs(root: Document) {
@@ -93,7 +94,7 @@ export function createPrestigeChallengePanel(d: {
       confirmLabel: active ? "Drop out" : parked ? "Drop back in" : "Start challenge" })) return;
     pending = true; render();
     try {
-      const result = await (active ? d.abandon() : d.start());
+      const result = await challengeAnswer(active ? d.abandon() : d.start());
       status.textContent = result?.ok ? "" : result?.error ?? "Couldn't change challenge mode.";
     } catch { status.textContent = "Couldn't change challenge mode. Try again."; }
     finally { pending = false; render(); }
