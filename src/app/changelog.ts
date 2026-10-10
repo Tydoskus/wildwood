@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.29": [
+    "Ox, in the bottom-right house in Town, sells the Galaxy set: helmet, armor, boots and bow made of drifting galaxies, 750 Gems each",
+  ],
   "0.901.28": [
     "In an Aggro run the Auto Farm button opens the Auto Farm window, with Stop; Chasing Groups in it picks who chases you, and F works",
     "A death in an Aggro run stops Auto Farm, so it no longer farms back to what killed it and starts the run over again",
@@ -3084,6 +3087,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.29": "2026-10-09",
   "0.901.28": "2026-10-09",
   "0.901.27": "2026-10-09",
   "0.901.26": "2026-10-09",
