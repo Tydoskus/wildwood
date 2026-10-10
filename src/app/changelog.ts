@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.39": [
+    "Other players autofarming with Pull All stand where they are, instead of wandering between camps",
+  ],
   "0.901.38": [
     "Timers under an hour show minutes and seconds again",
   ],
@@ -3126,6 +3129,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.39": "2026-10-09",
   "0.901.38": "2026-10-09",
   "0.901.37": "2026-10-09",
   "0.901.36": "2026-10-09",

@@ -179,3 +179,37 @@ it("shows a guildmate going through the hall's door at the other side of it, but
   clock += 500; frame(5600, 1171);
   expect(tick().x).toBeLessThan(5300 + 150 * .25 + 1.01);
 });
+
+it("says when Pull holds the farmer still, once it has lasted three seconds", () => {
+  const { presence, sent } = harness();
+  const farm = (hold: boolean) => ({ group: "stat:damage", camp: null, hold, sites });
+  const plans = () => sent.filter(s => s.label === "puppet").map(s => s.args);
+  presence.api.syncMovementState(100, 600, 0, 0, "steer", false, undefined, farm(false));
+  // A moment standing still does not re-plan the puppet.
+  clock += 1_000; presence.api.syncMovementState(100, 600, 0, 0, "steer", false, undefined, farm(true));
+  clock += 1_000; presence.api.syncMovementState(100, 600, 0, 0, "steer", false, undefined, farm(false));
+  expect(plans()).toEqual([{ group: "stat:damage", camp: "" }]);
+  for (let i = 0; i < 4; i += 1) { clock += 1_000; presence.api.syncMovementState(100, 600, 0, 0, "steer", false, undefined, farm(true)); }
+  expect(plans().at(-1)).toEqual({ group: "stat:damage", camp: "@hold" });
+});
+
+it("stands a farmer holding ground where the server has them, and walks to each new anchor", () => {
+  const { presence, handlers } = harness();
+  presence.api.setRemotePlayersVisible(true);
+  presence.tables.upsertMotionIdentity({ networkId: 9, identity: farmer, mapId: "tutorial_forest", isVisible: true, zoneX: 0, zoneY: 0,
+    displayName: "Farmer", profileIcon: 0, playerSprite: 0, skinTone: 0, isGuest: false, gender: 0, speed: 200, powerLevel: 1,
+    feetItem: "", headItem: "", chestItem: "", rightHandItem: "", leftHandItem: "" });
+  presence.api.syncMovementState(100, 600, 0, 0, "keyboard", false, undefined, { group: null, camp: null, sites });
+  const row = (x: number) => ({ identity: farmer, mapId: "tutorial_forest", group: "stat:damage", camp: "@hold", x, y: 600,
+    startedAt: new Timestamp(BigInt(Math.round(clock)) * 1_000n) });
+  const where = () => presence.api.remotePlayers().find(p => p.id === farmer.toHexString())!;
+  handlers.insert(null, row(200));
+  for (let i = 0; i < 300; i += 1) { clock += 1_000 / 30; where(); }
+  expect(where()).toMatchObject({ x: 200, y: 600, moving: false });
+  // Their 30-second re-anchor, a little way off: walked at their speed, then standing.
+  handlers.update(null, null, row(260));
+  clock += 1_000 / 30;
+  expect(where().x).toBeLessThan(260);
+  for (let i = 0; i < 60; i += 1) { clock += 1_000 / 30; where(); }
+  expect(where()).toMatchObject({ x: 260, y: 600, moving: false });
+});

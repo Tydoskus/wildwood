@@ -100,8 +100,17 @@ type AutoFarmPuppetRow = { identity: Identity; mapId: string; group: string; cam
 /** A puppet's camps: a Soul Dimension farmer's soul group ("soul:armor") is every camp of that soul stat here. */
 const farmPuppetSites = (sites: readonly PuppetSite[], group: string, camp: string) =>
   group.startsWith("soul:") ? sites.filter(site => site.campName.startsWith(`${group}:`)) : puppetSites(sites, group, camp);
-export type AutoFarmMovementContext = { group: string | null; camp: string | null; sites: readonly PuppetSite[] };
-type AutoFarmPuppet = { row: AutoFarmPuppetRow; plan: PuppetPlan; legs: PuppetLeg[] | null; sites: readonly PuppetSite[] | null };
+/** `hold`: Pull brings everything it farms, so the farmer stands still; their puppet stands too. */
+export type AutoFarmMovementContext = { group: string | null; camp: string | null; hold?: boolean; sites: readonly PuppetSite[] };
+/**
+ * A farmer holding ground sends this as their camp (autofarm never names one).
+ * Viewers stand the puppet at its anchor, which the farmer renews every 30 seconds;
+ * older clients find no such camp and walk it through the group as before.
+ */
+const PUPPET_HOLD_CAMP = "@hold";
+/** Holding or walking must last this long to re-plan the puppet, so a moment's step does not. */
+const PUPPET_HOLD_SETTLE_MS = 3_000;
+type AutoFarmPuppet = { row: AutoFarmPuppetRow; plan: PuppetPlan; legs: PuppetLeg[] | null; sites: readonly PuppetSite[] | null; facing?: number };
 /** What is drawn for one remote player, kept from frame to frame so a change of source is walked, never jumped. */
 type Figure = { figure: RemotePlayerTarget; drawnAt: number; presentation: PlayerPresentationRow };
 type FigureTarget = { pose: { x: number; y: number; facing: number; moving: boolean }; simulationX: number; simulationY: number };
@@ -292,6 +301,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let puppetSiteList: readonly PuppetSite[] = [];
   let puppetTableConnection: unknown = null;
   let farmIntent: { group: string; camp: string } | null = null;
+  let campChange: { camp: string; at: number } | null = null;
   let sentFarmIntentKey = "";
   let lastPuppetSentAt = Number.NEGATIVE_INFINITY;
   let puppetRetryAt = Number.NEGATIVE_INFINITY;
@@ -778,7 +788,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     // Any plan starts where their figure already stands (from a puppet, the
     // stream or the map frame), at the speed it already walks: snapping onto
     // each anchor made autofarmers teleport.
-    if (existing && existing.row.group === row.group && existing.row.camp === row.camp) { existing.row = row; return; }
+    // A held puppet's new anchor is where it stands now: its figure walks there.
+    if (existing && existing.row.group === row.group && existing.row.camp === row.camp) { existing.row = row; if (row.camp === PUPPET_HOLD_CAMP) existing.legs = null; return; }
     const startedAtMs = shown ? estimatedServerNowMs() : Number(row.startedAt.microsSinceUnixEpoch) / 1_000;
     puppets.set(identity, {
       row,
@@ -822,10 +833,23 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     connection.db.playerAutoFarmPuppet.onDelete((_ctx, row) => { if (current()) removeAutoFarmPuppet(row); });
   }
 
+  /** A farmer holding ground stands at their anchor, facing the nearest camp they farm. */
+  function holdTarget(puppet: AutoFarmPuppet): FigureTarget {
+    const { x, y } = puppet.row;
+    if (!puppet.legs || puppet.sites !== puppetSiteList) {
+      puppet.sites = puppetSiteList; puppet.legs = [];
+      let nearest: PuppetSite | null = null;
+      for (const site of farmPuppetSites(puppetSiteList, puppet.row.group, "")) if (!nearest || Math.hypot(site.x - x, site.y - y) < Math.hypot(nearest.x - x, nearest.y - y)) nearest = site;
+      puppet.facing = nearest && nearest.x < x ? Math.PI : 0;
+    }
+    return { pose: { x, y, facing: puppet.facing ?? 0, moving: false }, simulationX: x, simulationY: y };
+  }
+
   /** Where a puppet is now on its route, and a moment ago for the shared enemy simulation. */
   function puppetTarget(identity: string, puppet: AutoFarmPuppet, presentation: PlayerPresentationRow, serverNow: number): FigureTarget {
     // A puppet walks at the speed it was first seen at, for good: re-timing
     // its route when their speed changed (gear, leaving combat) jumped it along.
+    if (puppet.row.camp === PUPPET_HOLD_CAMP) return holdTarget(puppet);
     if (!puppet.legs || puppet.sites !== puppetSiteList) {
       puppet.sites = puppetSiteList;
       if (!(puppet.plan.speed > 0)) puppet.plan = { ...puppet.plan, speed: figures.get(identity)?.figure.speed ?? presentation.speed ?? PLAYER_SPEED };
@@ -1111,7 +1135,16 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       puppetSiteList = farm.sites;
       // Eye on or off: an eye-off farmer is still seen, as a puppet, by players with it on.
       // A moment off the farm (a boss fight, a tap, a respawn) keeps the puppet; only a pause this long ends it.
-      if (farm.group) { farmIntent = { group: farm.group, camp: farm.camp ?? "" }; farmIntentLostAt = null; }
+      if (farm.group) {
+        const camp = farm.hold ? PUPPET_HOLD_CAMP : farm.camp ?? "", at = monotonicNowMs();
+        if (farmIntent?.group !== farm.group) { farmIntent = { group: farm.group, camp }; campChange = null; }
+        else if (farmIntent.camp === camp) campChange = null;
+        else {
+          if (campChange?.camp !== camp) campChange = { camp, at };
+          if (at - campChange.at >= PUPPET_HOLD_SETTLE_MS) { farmIntent = { group: farm.group, camp }; campChange = null; }
+        }
+        farmIntentLostAt = null;
+      }
       else if (farmIntent) {
         farmIntentLostAt ??= monotonicNowMs();
         if (monotonicNowMs() - farmIntentLostAt >= PUPPET_END_GRACE_MS) { farmIntent = null; farmIntentLostAt = null; }

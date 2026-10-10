@@ -583,6 +583,8 @@ export function createAutoFarmController(options: {
     /** What combat aims at: the farmed camp, or, with every farmed group pulled, whatever is nearest. */
     attackType: () => active && !manualControl && phase === 'farm' && !pullCoversFarm() ? selectedType : null,
     targetCamp: () => null,
+    /** Pull brings everything it farms, so it stands where it is: other players see it standing, not walking camp to camp. */
+    holdsGround: () => pullCoversFarm(),
     advance: () => advance,
     setAdvance(next: boolean) { advance = next; writeFarmAdvance(next, options.priorityStorage); },
     fightBosses: () => fightBosses,

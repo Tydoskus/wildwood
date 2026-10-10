@@ -80,6 +80,10 @@ describe('Aggro challenge on the client', () => {
     // Pulled but not yet chasing: before, it took a step toward it for a frame.
     expect(s.farm.movement({ x: 0, y: 0, source: 'none' }, 1 / 60)).toMatchObject({ x: 0, y: 0 });
     expect(s.farm.state().status).toBe('Pulling');
+    // Other players see it standing too.
+    expect(s.farm.holdsGround()).toBe(true);
+    s.farm.setPullAll(false);
+    expect(s.farm.holdsGround()).toBe(false);
   });
 
   it("with Pull covering every farmed group, it stands and fights instead of walking to camps or switching", () => {
