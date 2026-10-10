@@ -4052,10 +4052,15 @@
     }
 
     .card,
-    .item-inspection-window,
-    .chat-text {
+    .item-inspection-window {
       border-color: rgba(255,255,255,.38);
       background-color: rgba(5,9,7,.98);
+    }
+
+    /* A message stays a bubble: lighter than the chat behind it, outlined, never the same black. */
+    #chatPanel.is-large .chat-text {
+      border: 1px solid rgba(255,255,255,.42);
+      background-color: #2c2f2c;
     }
 
     .card.inventory-panel,

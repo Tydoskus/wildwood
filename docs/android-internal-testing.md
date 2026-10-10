@@ -20,7 +20,7 @@ cache are ignored build tools, not app assets.
    so the bundle always matches its game. The build refuses when the game copied into the app is a
    different version: run steps 1 and 2 again. `-PwildstatVersionCode=N` still overrides the code.
 4. Upload `mobile/android/app/build/outputs/bundle/release/app-release.aab` to
-   **Testing → Internal testing** in Play Console.
+   **Testing → Closed testing** in Play Console (internal testing is no longer used).
 
 The local upload key is `mobile/android/.signing/wildstat-upload.jks`; its
 passwords are in ignored `mobile/android/keystore.properties`. Preserve both in
