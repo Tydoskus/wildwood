@@ -6,7 +6,7 @@ import { CRITICAL_DAMAGE_BASE, criticalDamage } from "../../shared/critical-dama
 import { effectivePlayerPower, effectivePlayerPowerStats } from "../../shared/player-power";
 import { equipmentDamageMultiplierBonus, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from "../../shared/items";
 import { formatCompactNumber, formatRate } from "./number-format";
-import { attackCapInterval, attackSpeedLabel, attackSpeedRatingForInterval, critDamageLabel, type AttackCapArg } from "../../shared/stat-rating";
+import { attackCapInterval, attackSpeedLabel, attackSpeedRatingForInterval, critDamageLabel, RATING_MAX, type AttackCapArg } from "../../shared/stat-rating";
 import { upgradeSlotForItem } from "../../shared/slot-upgrades";
 import { cleanSoulStats, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
 import { challengeMinimumInterval } from "../../shared/prestige-challenge";
@@ -165,7 +165,9 @@ export function profileStatDisplayRows(
   // expanded line names the rating behind the rate, as Armor names its Block, and "(Max)" shows once
   // the rate reads the same as the cap.
   const speedRating = attackSpeedRatingForInterval(baseAttackInterval, attackCap);
-  const ratingText = (rating: number) => rating >= 1_000 ? formatCompactNumber(rating) : Number(rating.toPrecision(3)).toString();
+  // Attack speed and crit damage read like armor (Ryan): their number, and what it gives in brackets. No "rating".
+  const ratingText = (rating: number) => rating >= RATING_MAX ? "Max" : rating >= 1_000 ? formatCompactNumber(rating) : Number(rating.toPrecision(3)).toString();
+  const bracket = (label: string) => `(${label.replace(" (Max)", " Max")})`;
   const baseAttackSpeed = attackSpeedLabel(1 / baseAttackInterval, 1 / minAttackInterval);
   const attackSpeed = `${(1 / effective.attackRate).toFixed(2)}/s`;
   const regen = `${formatRate(effective.regen)}/s`;
@@ -206,10 +208,10 @@ export function profileStatDisplayRows(
     {
       kind: "attack", label: "Attack Speed:", base: baseAttackSpeed,
       equationOperator: "×",
-      multiplier: multiplierValue(effective.multipliers.attackSpeed), total: attackSpeed,
-      expandedDetail: `(${ratingText(speedRating)} Rating)`,
-      // The soul's own rating, which adds to the run's and is kept through prestige.
-      sources: soulSource(soul.attackSpeed, value => `${ratingText(value)} Rating`),
+      multiplier: multiplierValue(effective.multipliers.attackSpeed), total: ratingText(speedRating), equationTotal: attackSpeed,
+      expandedDetail: bracket(attackSpeedLabel(1 / effective.attackRate, 1 / minAttackInterval)),
+      // The soul's own share, which adds to the run's and is kept through prestige.
+      sources: soulSource(soul.attackSpeed, ratingText),
     },
     {
       kind: "range", label: "Attack Range:", base: statValue(baseRange),
@@ -273,12 +275,12 @@ export function profileStatDisplayRows(
   const bonusShare = (part: number) => crit.research + crit.perk > 0 ? crit.fromBonuses * part / (crit.research + crit.perk) : 0;
   stats.push({
     kind: "critical-damage", label: "Critical Damage:", base: `${CRITICAL_DAMAGE_BASE.toFixed(2)}×`, equationOperator: "+",
-    multiplier: `${(crit.multiplier - CRITICAL_DAMAGE_BASE).toFixed(2)}×`, total: critDamageLabel(crit.multiplier, crit.cap),
-    equationTotal: `${crit.multiplier.toFixed(2)}×`, expandedDetail: `(${ratingText(crit.rating)} Rating · ${crit.cap}× Cap)`,
+    multiplier: `${(crit.multiplier - CRITICAL_DAMAGE_BASE).toFixed(2)}×`, total: ratingText(crit.rating),
+    equationTotal: `${crit.multiplier.toFixed(2)}×`, expandedDetail: `${bracket(critDamageLabel(crit.multiplier, crit.cap))} · ${crit.cap}× Cap`,
     sources: [
       ...(crit.research ? [{ label: "Tech" as const, value: shown(bonusShare(crit.research)) }] : []),
       ...(crit.perk ? [{ label: "Prestige" as const, value: shown(bonusShare(crit.perk)) }] : []),
-      ...soulSource(crit.soul, value => `${ratingText(value)} Rating`),
+      ...soulSource(crit.soul, ratingText),
     ],
   });
   // The remaining perks have no research behind them, so a row only appears

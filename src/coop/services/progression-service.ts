@@ -1,4 +1,5 @@
 import type { PrestigeChallenge } from "../../../shared/prestige-challenge";
+import { TUTORIAL_FOREST_MAP_ID } from "../../../shared/rules";
 import { prestigeBonusesOff, type AggroChallenge } from "../../../shared/aggro-challenge";
 import { parseDailyQuests, type DailyQuest } from "../../../shared/daily-quests";
 
@@ -1206,12 +1207,12 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
         }
         return result;
       },
-      async recordPlayerDeath() {
+      async recordPlayerDeath(mapId?: string) {
         if (dependencies.reducers.protocolBlocked() || !dependencies.reducers.connection()) return;
         try {
           const connection = dependencies.reducers.connection();
-          // A death in an Aggro run starts it over on the server: drop what this run had not yet reported.
-          const restart = aggroChallenge.active;
+          // A death in an Aggro run past Tutorial Forest (its safe zone) starts it over on the server: drop what this run had not yet reported.
+          const restart = aggroChallenge.active && mapId !== TUTORIAL_FOREST_MAP_ID;
           const identity = dependencies.localIdentity();
           if (connection) await dependencies.reducers.runWorldReducer(() => connection.reducers.recordPlayerDeath({}));
           if (restart && identity === dependencies.localIdentity()) { clearPending(identity); enemyLoot.reset(); dependencies.notify(); }

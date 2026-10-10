@@ -1,6 +1,7 @@
 import { table, t, SenderError } from "spacetimedb/server";
 import type spacetimedbType from "./index";
 import { AGGRO_CHALLENGE_LIMIT } from "../../shared/aggro-challenge";
+import { TUTORIAL_FOREST_MAP_ID } from "../../shared/rules";
 import { carryOwnership, savedMainRun, writeEndless } from "./prestige-challenge";
 import { prestigeExpanded } from "./prestige-expansion";
 import { updateSnapshotRow } from "./snapshot-row-writes";
@@ -126,9 +127,12 @@ export function endAggroChallenge(ctx: any, player: any, won: boolean, deps: Pic
   deps.respawnWithProgress(ctx, player, progress, { mapId: backup.mapId, x: backup.x, y: backup.y });
 }
 
-/** A death during a run starts it over: the forest, starting stats, Endless cleared. */
+/**
+ * A death during a run starts it over: the forest, starting stats, Endless cleared. Tutorial Forest is the
+ * run's safe zone (Ryan): a death there costs nothing, only one on a later map starts the run over.
+ */
 export function restartAggroRunOnDeath(ctx: any, player: any, startFreshRun: AggroDeps["startFreshRun"]) {
-  if (!aggroChallengeActive(ctx, ctx.sender) || !player) return false;
+  if (!aggroChallengeActive(ctx, ctx.sender) || !player || player.mapId === TUTORIAL_FOREST_MAP_ID) return false;
   startFreshRun(ctx, player);
   return true;
 }

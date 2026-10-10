@@ -1,13 +1,17 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.49": [
+    "Aggro: dying in Tutorial Forest no longer restarts the run, only dying on a later map does",
+    "The profile shows Attack Speed and Crit Damage like Armor: their number, and what it gives in brackets",
+  ],
   "0.901.48": [
     "Soul Crit Damage is +0.002× a kill again, so farming toward 100× pays like before",
   ],
   "0.901.47": [
     "Every map has 8 Damage, Health, Armor, Regen, Attack Speed and Crit Damage enemies",
-    "Attack Speed is a rating now: each map's worth gets you 5% closer to the cap",
+    "Attack Speed now grows on a curve: each map's worth gets you 5% closer to the cap",
     "New Crit Damage enemies on every map: each map's worth gets you 3% closer to 100×",
-    "Attack speed and crit damage from regular maps reset on prestige; Soul Dimension ratings stay",
-    "Crit research and Keen Edge still count, as a share closer to 100× on top of your rating",
+    "Attack speed and crit damage from regular maps reset on prestige; Soul Dimension gains stay",
+    "Crit research and Keen Edge still count, as a share closer to 100× on top",
     "Enemies in every camp are spread evenly",
     "Nobody loses attack speed or crit damage in the switch",
     "The base attack speed cap is 3 attacks a second, up from 2.625",
@@ -3168,6 +3172,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.49": "2026-10-10",
   "0.901.48": "2026-10-10",
   "0.901.47": "2026-10-10",
   "0.901.46": "2026-10-10",

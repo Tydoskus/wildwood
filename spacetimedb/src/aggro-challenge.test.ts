@@ -41,10 +41,11 @@ it("starts fresh with every prestige bonus off, and keeps the owned perks untouc
   expect(() => f.run(server.startPrestigeChallenge)).toThrow();
 });
 
-it("restarts the run on death", () => {
+it("restarts the run on a death past Tutorial Forest", () => {
   const f = fixture();
   f.run(server.startAggroRun);
   f.patch("playerProgress", { damage: 999, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.dragon });
+  f.patch("player", { mapId: "beginner_desert" });
   f.run(server.recordPlayerDeath);
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ bossRewardClaims: 0 });
   expect(f.db.playerProgress.identity.find(f.ctx.sender).damage).toBeLessThan(999);
@@ -53,6 +54,16 @@ it("restarts the run on death", () => {
   const g = fixture();
   g.run(server.recordPlayerDeath);
   expect(g.db.playerProgress.identity.find(g.ctx.sender).damage).toBe(12345);
+});
+
+it("keeps the run through a death in Tutorial Forest, the run's safe zone", () => {
+  const f = fixture();
+  f.run(server.startAggroRun);
+  f.patch("playerProgress", { damage: 999, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.dragon });
+  expect(f.db.player.identity.find(f.ctx.sender).mapId).toBe("tutorial_forest");
+  f.run(server.recordPlayerDeath);
+  expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ damage: 999, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.dragon });
+  expect(f.db.playerAggroChallenge.identity.find(f.ctx.sender).active).toBe(true);
 });
 
 it("is won at a first prestige's requirement (the campaign's last boss), handing back the main run and its bonuses", () => {
@@ -83,7 +94,8 @@ it("dropping out parks the run and hands back the main one; starting again drops
   expect(f.db.playerProgress.identity.find(f.ctx.sender)).toMatchObject({ damage: 4321, bossRewardClaims: BOSS_REWARD_CLAIM_BITS.dragon });
   expect(f.db.playerAggroChallengeParked.identity.find(f.ctx.sender)).toBeNull();
   expect(f.db.aggroChallengeRun.identity.find(f.ctx.sender)).toBeNull();
-  // Only a death starts it over.
+  // Only a death past the forest starts it over.
+  f.patch("player", { mapId: "beginner_desert" });
   f.run(server.recordPlayerDeath);
   expect(f.db.playerProgress.identity.find(f.ctx.sender).bossRewardClaims).toBe(0);
   f.run(server.abandonAggroRun);

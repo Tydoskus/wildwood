@@ -684,7 +684,7 @@ import {
     playBowAttackSound: mapMusic.playBowAttackSound,
     logPickup,
     saveProgress,
-    recordDeath: () => { soulDimension.playerDied(); if (coop?.aggroChallenge?.()?.active) autoFarm.stop("Autofarm stopped: a death restarts the Aggro run"); if (!inTutorial()) void coop?.recordPlayerDeath?.(); },
+    recordDeath: () => { soulDimension.playerDied(); if (coop?.aggroChallenge?.()?.active && currentMapId !== TUTORIAL_FOREST_MAP_ID) autoFarm.stop("Autofarm stopped: a death restarts the Aggro run"); if (!inTutorial()) void coop?.recordPlayerDeath?.(currentMapId); },
     endGame,
   });
 

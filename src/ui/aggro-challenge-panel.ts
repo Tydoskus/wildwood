@@ -80,7 +80,7 @@ export function createAggroChallengePanel(d: {
     state.textContent = done ? `All ${AGGRO_CHALLENGE_LIMIT} won` : current.active ? `${number} · in progress` : locked ?? (parked ? `${number} · dropped out` : number);
     pips.querySelectorAll("li").forEach((pip, index) => pip.classList.toggle("is-done", index < current.completed));
     const chasing = aggroForcedCamps({ active: true, completed: current.completed });
-    rule.textContent = done ? "" : `On every map, ${chasing === 1 ? "the group you pick chases" : `the ${chasing} groups you pick chase`} you from the moment you arrive. Dying starts the run over.`;
+    rule.textContent = done ? "" : `On every map, ${chasing === 1 ? "the group you pick chases" : `the ${chasing} groups you pick chase`} you from the moment you arrive. Dying after Tutorial Forest starts the run over.`;
     picksBox.hidden = done;
     const chosen = picks.slice(0, chasing);
     // Always the tier's count: pick that many, and switch any time (tap another to swap it in).
@@ -94,7 +94,7 @@ export function createAggroChallengePanel(d: {
     }
     const lines = done ? [] : current.active
       ? ["No prestige bonuses this run: stat gain, perks and challenge rewards are off. Autofarm's Pull is off too.",
-        "Drop out any time: this run is kept, and your main run comes back. Only dying starts it over.", "Reach the goal, then press Prestige to win."]
+        "Drop out any time: this run is kept, and your main run comes back. Only dying after Tutorial Forest starts it over.", "Reach the goal, then press Prestige to win."]
       : parked ? ["Your Aggro run is kept where you left it.", "Dropping back in saves your main run and picks the run up again."]
       : ["Starting saves your run and puts you back in the forest with starting stats.",
         "No prestige bonuses: stat gain, perks and challenge rewards are off, and so is Autofarm's Pull. Research and gear stay.",
@@ -116,7 +116,7 @@ export function createAggroChallengePanel(d: {
     if (!await (d.confirm ?? gameConfirm)({ message: active
       ? "Drop out of Aggro? This run is kept for later, and your main run comes back."
       : parked ? "Drop back in to Aggro? Your main run is saved, and the run picks up where you left it."
-      : "Start Aggro? Your stats and stage are saved and restored when you win or drop out. Dying starts the run over.",
+      : "Start Aggro? Your stats and stage are saved and restored when you win or drop out. Dying after Tutorial Forest starts the run over.",
       confirmLabel: active ? "Drop out" : parked ? "Drop back in" : "Start challenge" })) return;
     pending = true; render();
     try {

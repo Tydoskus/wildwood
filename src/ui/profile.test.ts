@@ -185,7 +185,7 @@ describe("profile stat display", () => {
       base: "3.00/s (Max)",
       equationOperator: "×",
       multiplier: "1.00",
-      total: "3.00/s",
+      total: "Max", equationTotal: "3.00/s", expandedDetail: "(3.00/s Max)",
       sources: [],
     });
   });
@@ -197,7 +197,7 @@ describe("profile stat display", () => {
       itemUpgradeLevels: {},
     } as Parameters<typeof profileStatDisplayRows>[0];
     expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL).find((row) => row.kind === "attack"))
-      .toMatchObject({ base: `${attacksPerSecondForRating(ratingForLevels(4)).toFixed(2)}/s`, expandedDetail: "(1.50k Rating)" });
+      .toMatchObject({ base: `${attacksPerSecondForRating(ratingForLevels(4)).toFixed(2)}/s`, total: "1.50k" });
   });
 
   it("combines all active multipliers and keeps their source breakdown", () => {
@@ -279,7 +279,7 @@ describe("prestige perks in the stat panel", () => {
       sources: [{ label: "Tech", value: "+4%" }, { label: "Prestige", value: "+25%" }],
     });
     expect(rows.find((row) => row.kind === "critical-damage")).toMatchObject({
-      total: "1.80×", equationOperator: "+", multiplier: "0.75×",
+      equationTotal: "1.80×", expandedDetail: "(1.80×) · 50× Cap", equationOperator: "+", multiplier: "0.75×",
       sources: [{ label: "Tech", value: "+0.15×" }, { label: "Prestige", value: "+0.60×" }],
     });
   });
@@ -349,8 +349,8 @@ it("adds the soul stats in play to each row's base, before the multipliers, and 
   expect(row(soul, "damage").sources).toEqual([{ label: "Soul", value: "+50" }, { label: "Tech", value: "+10%" }]);
   expect(row(soul, "health")).toMatchObject({ base: "700", total: "700" });
   // 100 soul rating is one level: 3% of the way from 1.05× to 100×.
-  expect(row(soul, "critical-damage")).toMatchObject({ total: "4.02×" });
-  expect(row(soul, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+100 Rating" });
+  expect(row(soul, "critical-damage")).toMatchObject({ equationTotal: "4.02×" });
+  expect(row(soul, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+100" });
   // None to add: the rows are as they were.
   expect(profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL, undefined, 0, null, 1, null)).toEqual(plain);
 });
@@ -360,8 +360,7 @@ it("holds critical damage at the cap and says so, research a share closer on top
   const row = (critCap: number, critDamage: number) => profileStatDisplayRows(profile, () => "0%", MIN_ATTACK_INTERVAL,
     { ...createEmptyResearchRanks(), criticalDamage: 20, critCap }, 0, null, 1, { critDamage }).find(entry => entry.kind === "critical-damage")!;
   // Forty levels: 100 - 98.95 x 0.97^40 is 70.4x before research; the 50x cap holds it.
-  expect(row(0, 0)).toMatchObject({ total: "50.00× (Max)", equationTotal: "50.00×", multiplier: "48.95×" });
-  expect(row(0, 0).expandedDetail).toMatch(/Rating · 50× Cap\)$/);
+  expect(row(0, 0)).toMatchObject({ equationTotal: "50.00×", multiplier: "48.95×", expandedDetail: "(50.00× Max) · 50× Cap" });
   // Five Crit Cap ranks: 100x, which the curve never reaches.
   const open = row(5, 0);
   expect(open.total).not.toContain("(Max)");
@@ -376,13 +375,13 @@ it("adds soul attack speed rating to the run's, under a Reflect winner's raised 
   } as Parameters<typeof profileStatDisplayRows>[0];
   const attack = (cap: number, attackSpeed: number) => profileStatDisplayRows(profile, () => "0%", cap, undefined, 0, null, 1, { attackSpeed })
     .find(row => row.kind === "attack")!;
-  expect(attack(MIN_ATTACK_INTERVAL, 100)).toMatchObject({ total: `${attacksPerSecondForRating(100).toFixed(2)}/s` });
-  expect(attack(MIN_ATTACK_INTERVAL, 100).sources).toEqual([{ label: "Soul", value: "+100 Rating" }]);
+  expect(attack(MIN_ATTACK_INTERVAL, 100)).toMatchObject({ equationTotal: `${attacksPerSecondForRating(100).toFixed(2)}/s` });
+  expect(attack(MIN_ATTACK_INTERVAL, 100).sources).toEqual([{ label: "Soul", value: "+100" }]);
   // Two Reflect wins: a whole attack a second more, on the same rating.
   const twoWins = challengeMinimumInterval({ active: false, completed: 2 });
   const reflectProfile = { ...profile, progress: { ...progress(), attackRate: attackIntervalForRating(0, twoWins) } };
   const reflected = profileStatDisplayRows(reflectProfile, () => "0%", twoWins, undefined, 0, null, 1, { attackSpeed: 100 }).find(row => row.kind === "attack")!;
-  expect(reflected.total).toBe(`${(attacksPerSecondForRating(100) + 1).toFixed(2)}/s`);
+  expect(reflected.equationTotal).toBe(`${(attacksPerSecondForRating(100) + 1).toFixed(2)}/s`);
   // A rating so high it reads as the cap: Max.
   expect(attack(MIN_ATTACK_INTERVAL, 1e300).base).toBe("3.00/s (Max)");
 });
@@ -405,7 +404,7 @@ describe("another player's soul stats", () => {
     expect(row(list, "damage")).toMatchObject({ base: "150", total: "165" });
     expect(row(list, "damage").sources).toContainEqual({ label: "Soul", value: "+50" });
     expect(row(list, "health")).toMatchObject({ base: "700" });
-    expect(row(list, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+0.1 Rating" });
+    expect(row(list, "critical-damage").sources).toContainEqual({ label: "Soul", value: "+0.1" });
     expect(profilePower(profile, profileSoulInPlay(profile))).toBeGreaterThan(profilePower(withoutSoul(profile), profileSoulInPlay(withoutSoul(profile))));
   });
 
