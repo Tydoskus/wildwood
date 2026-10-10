@@ -3,7 +3,6 @@ import { App } from '@capacitor/app';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
 import { createOtaController } from './ota-controller';
 import { OTA_RUNTIME, OTA_SAVE_FORMAT, type SignedOtaManifest } from '../../shared/ota-update';
-import { PROTOCOL_VERSION } from '../../shared/rules';
 import type { NativeUpdateBridge } from '../../src/app/native-updates';
 import publicKey from '../ota/public-key.json';
 export function installNativeUpdates(platform: 'ios' | 'android') {
@@ -29,7 +28,7 @@ export function installNativeUpdates(platform: 'ios' | 'android') {
   }
   void App.getInfo().then(info => {
     controller = createOtaController({ bridge: LiveUpdate, storage: localStorage, platform, build: Number(info.build),
-      runtime: OTA_RUNTIME, saveFormat: OTA_SAVE_FORMAT, protocol: PROTOCOL_VERSION,
+      runtime: OTA_RUNTIME, saveFormat: OTA_SAVE_FORMAT,
       verify: envelope => verifyOtaEnvelope(envelope, publicKey.pem),
       fetchManifest: async channel => {
         const response = await fetch(`https://wildstatmmo.com/ota/${channel}-${platform}.json`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });

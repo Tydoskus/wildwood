@@ -7,19 +7,18 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  # Checks and builds everything. No secrets and a read-only token here: this is
+  # the job that runs npm installs.
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      app-bundle: ${{ steps.stage.outcome == 'success' && 'yes' || 'no' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -47,6 +46,116 @@ jobs:
           npm run build:client
           node scripts/check-client-build.mjs
 
+      # The Android app's copy of the same dist. Off until Ryan turns on
+      # automatic app updates with: gh variable set OTA_AUTO_PUBLISH --body on
+      # A failure here only skips the app update, never the website.
+      - name: Stage Android app bundle
+        id: stage
+        if: vars.OTA_AUTO_PUBLISH == 'on'
+        continue-on-error: true
+        run: node mobile/scripts/build.mjs --skip-client-build
+
+      - name: Keep site build
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: dist
+          include-hidden-files: true
+          retention-days: 1
+
+      - name: Keep app bundle
+        if: steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-www
+          path: mobile/www
+          include-hidden-files: true
+          retention-days: 1
+
+  # Signs the app bundle, attaches it to a GitHub release and writes the signed
+  # production feed. Runs no npm installs: only the repo's own Node scripts see
+  # the signing key and the write token. Every "nothing to publish" case exits
+  # cleanly with a notice; a real failure turns this job red but the web deploy
+  # below still goes out (without a new feed).
+  android-ota:
+    needs: build
+    if: vars.OTA_AUTO_PUBLISH == 'on' && needs.build.outputs.app-bundle == 'yes'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Check signing secret
+        id: secret
+        env:
+          KEY: ${{ secrets.OTA_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then echo "present=yes" >> "$GITHUB_OUTPUT"
+          else echo "::notice title=Android OTA::Secret OTA_SIGNING_PRIVATE_KEY is not set. Skipping the app update; the website still deploys."; fi
+
+      - name: Restore app bundle
+        if: steps.secret.outputs.present == 'yes'
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-www
+          path: mobile/www
+
+      - name: Package, sign and announce
+        id: publish
+        if: steps.secret.outputs.present == 'yes'
+        env:
+          OTA_SIGNING_PRIVATE_KEY: ${{ secrets.OTA_SIGNING_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: node mobile/scripts/ota/cli.mjs publish --platform android --repo "$GITHUB_REPOSITORY" --out ota-feed/production-android.json
+
+      - name: Keep feed
+        if: steps.publish.outputs.published == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ota-feed
+          path: ota-feed
+          retention-days: 1
+
+  deploy:
+    needs: [build, android-ota]
+    # Deploy whenever the build passed, whether the app update ran, skipped or failed.
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Restore site build
+        uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: dist
+
+      # Same push, same dist: the feed is served at /ota/production-android.json
+      # by both hosts below. A committed public/ota file (a manual rollback or
+      # promote) is already in dist; the publish step skips when one exists.
+      - name: Add Android update feed
+        if: needs.android-ota.outputs.published == 'yes'
+        uses: actions/download-artifact@v4
+        with:
+          name: ota-feed
+          path: dist/ota
+
       - name: Configure Pages
         uses: actions/configure-pages@v6
 
@@ -62,6 +171,8 @@ jobs:
       # wildstatmmo.com. Off for now: the Cloudflare dashboard's own Git build
       # deploys it, and both running deployed every push twice. Turn this on
       # (and that build off) with: gh variable set CLOUDFLARE_DEPLOY --body on
+      # The phones read their update feed from wildstatmmo.com, and only this
+      # step ships the feed there: the dashboard build has no signing key.
       # A step's own env is not visible to its `if`, so check the secret here.
       - name: Check Cloudflare secrets
         id: cloudflare

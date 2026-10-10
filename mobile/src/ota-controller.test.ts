@@ -14,7 +14,7 @@ function fixture() {
   const verify = vi.fn(async () => manifest);
   const fetchManifest = vi.fn(async () => ({ payload: '{}', signature: 'signature' }));
   const options = { bridge, storage: { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); } },
-    platform: 'ios' as const, build: 743, runtime: 'test', saveFormat: 1, protocol: 106, verify, fetchManifest, changed: vi.fn() };
+    platform: 'ios' as const, build: 743, runtime: 'test', saveFormat: 1, verify, fetchManifest, changed: vi.fn() };
   return { controller: createOtaController(options), bridge, options, data, verify, fetchManifest, manifest };
 }
 describe('controlled OTA', () => {
@@ -25,10 +25,25 @@ describe('controlled OTA', () => {
     expect(f.bridge.setNextBundle).toHaveBeenLastCalledWith({ bundleId: 'test-one' });
     expect(f.controller.snapshot().pending).toBe('test-one');
   });
-  it.each(['platform', 'runtime', 'saveFormat', 'protocol', 'minBuild', 'maxBuild'] as const)('rejects incompatible %s', async key => {
+  it.each(['platform', 'runtime', 'saveFormat', 'minBuild', 'maxBuild'] as const)('rejects incompatible %s', async key => {
     const f = fixture(); Object.assign(f.manifest, { [key]: key === 'minBuild' ? 744 : key === 'maxBuild' ? 742 : 'wrong' });
     await f.controller.ready(); await f.controller.check(true);
     expect(f.bridge.downloadBundle).not.toHaveBeenCalled(); expect(f.bridge.setNextBundle).not.toHaveBeenCalled();
+  });
+  it('accepts a bundle with a newer protocol: the bundle brings its own game code', async () => {
+    const f = fixture(); f.manifest.protocol = 999; await f.controller.ready(); await f.controller.check(true);
+    expect(f.bridge.downloadBundle).toHaveBeenCalledTimes(1);
+    expect(f.bridge.setNextBundle).toHaveBeenLastCalledWith({ bundleId: 'test-one' });
+  });
+  it.each([740, 743, 750])('serves every build in the announced range (build %i)', async build => {
+    const f = fixture(); f.manifest.minBuild = 740; f.manifest.maxBuild = 750;
+    const c = createOtaController({ ...f.options, build }); await c.ready(); await c.check(true);
+    expect(f.bridge.downloadBundle).toHaveBeenCalledTimes(1);
+  });
+  it.each([739, 751])('ignores a build just outside the range (build %i)', async build => {
+    const f = fixture(); f.manifest.minBuild = 740; f.manifest.maxBuild = 750;
+    const c = createOtaController({ ...f.options, build }); await c.ready(); await c.check(true);
+    expect(f.bridge.downloadBundle).not.toHaveBeenCalled();
   });
   it('rejects a forged announcement without downloading', async () => {
     const f = fixture(); f.verify.mockRejectedValue(new Error('Bad signature')); await f.controller.ready(); await f.controller.check(true);

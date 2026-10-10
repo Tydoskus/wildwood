@@ -10,7 +10,7 @@ export type OtaBridge = {
 export type OtaState = { channel: OtaChannel; current: string; pending: string | null; message: string; busy: boolean; developer: boolean };
 export function createOtaController(options: {
   bridge: OtaBridge; storage: Pick<Storage, 'getItem' | 'setItem'>;
-  platform: 'ios' | 'android'; build: number; runtime: string; saveFormat: number; protocol: number;
+  platform: 'ios' | 'android'; build: number; runtime: string; saveFormat: number;
   fetchManifest: (channel: OtaChannel) => Promise<SignedOtaManifest | null>;
   verify: (envelope: SignedOtaManifest) => Promise<unknown>; changed: (state: OtaState) => void;
 }) {

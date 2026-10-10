@@ -28,8 +28,13 @@ if (testPurchasesEnabled) {
     if (error.code !== 'ENOENT') throw error;
   }
 }
-const result = spawnSync("npm", ["run", "build:client"], { cwd: root, stdio: "inherit" });
-if (result.status !== 0) process.exit(result.status ?? 1);
+// CI has just built and checked dist in the same job; rebuilding it is wasted time.
+if (!process.argv.includes("--skip-client-build")) {
+  const result = spawnSync("npm", ["run", "build:client"], { cwd: root, stdio: "inherit" });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+} else if (!existsSync(resolve(root, "dist/index.html"))) {
+  throw new Error("--skip-client-build needs an existing dist; run npm run build:client first.");
+}
 
 // Stage a separate native artifact. Never modify public/ or the web release.
 const webDir = resolve(mobile, "www");
@@ -37,7 +42,10 @@ await rm(webDir, { recursive: true, force: true });
 await mkdir(webDir, { recursive: true });
 // The app plays AAC, so a music track's MP3 twin is dead weight in every
 // download and update; source maps only help debug the web build.
+// Update announcements (dist/ota) are for the website; an app bundle never needs one.
+const feeds = resolve(root, "dist/ota");
 const appSkips = (source) => source.endsWith(".map")
+  || source === feeds || source.startsWith(feeds + "/") || source.startsWith(feeds + "\\")
   || (/[\\/]audio[\\/][^\\/]+\.mp3$/.test(source) && existsSync(source.replace(/\.mp3$/, ".m4a")));
 await cp(resolve(root, "dist"), webDir, { recursive: true, filter: (source) => !appSkips(source) });
 await writeFile(resolve(webDir, "native-build.json"), JSON.stringify({ testPurchasesEnabled }));

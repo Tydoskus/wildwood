@@ -66,7 +66,7 @@ npm --prefix mobile run ios  # build, sync both shells, open Xcode
 npm --prefix mobile run android
 ```
 
-Native releases bundle a complete fallback game. Compatible signed OTA hotfixes can be staged for the next cold launch after developer-channel testing. Native dependency, protocol, and save-format changes still need a regular app release. See [server configuration and OTA](../docs/server-config-and-ota.md) for baselines, signing, promotion, and rollback.
+Native releases bundle a complete fallback game. Signed OTA updates apply at the next cold launch: on Android, every push to main can publish one automatically once it is switched on, and developer-channel testing stays available by hand. Native code/dependency and save-format changes still need a regular app release; protocol bumps do not. See [server configuration and OTA](../docs/server-config-and-ota.md) for baselines, signing, automatic publishing, promotion, and rollback.
 
 ## Scope and verification
 
