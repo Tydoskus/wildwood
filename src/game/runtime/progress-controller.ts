@@ -34,7 +34,7 @@ type ProgressDependencies = {
   lifetimeEnemyKills: (identity: string) => number | undefined;
   isDeveloper: (identity: string) => boolean;
   /** Looks a membership lends right now (the Diamond Galaxy set while Patreon Diamond is active). */
-  lentLooks?: () => readonly string[];
+  lentLooks?: () => readonly string[] | null;
   getTotalKills: () => number;
   setTotalKills: (kills: number) => void;
   researchVitalityRank: () => number;
@@ -71,7 +71,7 @@ export function createProgressController(dependencies: ProgressDependencies) {
       ownedItems = [...STARTER_ITEM_IDS.filter(item => !listed.includes(item)), ...listed];
       ownershipJson = saved.inventoryJson;
     }
-    const lent = dependencies.lentLooks?.() ?? [];
+    const lent = dependencies.lentLooks?.() ?? [];  // null (tier not back yet) lends nothing to pick from
     const cosmeticJson = `${saved.cosmeticItemsJson ?? "[]"}|${lent.join(",")}`;
     if (cosmeticOwnershipJson !== cosmeticJson) {
       ownedCosmetics = [...new Set([...cosmeticUnlocks(saved.cosmeticItemsJson ?? "[]"), ...lent])];
@@ -212,7 +212,8 @@ export function createProgressController(dependencies: ProgressDependencies) {
       source.cosmeticRightHand,
       source.cosmeticLeftHand,
       source.cosmeticItemsJson,
-      dependencies.lentLooks?.() ?? [],
+      // null while the tier is on its way: a lent piece the server saved stays on until it is known.
+      dependencies.lentLooks ? dependencies.lentLooks() : [],
     );
     inventory.itemIds = savedInventory.itemIds;
     inventory.cosmeticItemIds = savedInventory.cosmeticItemIds;

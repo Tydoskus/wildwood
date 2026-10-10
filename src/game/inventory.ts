@@ -254,7 +254,7 @@ export function equipmentAppearance(inventory: Pick<InventoryState,
   return resolveEquipmentAppearance(inventory);
 }
 
-export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]", lentLooks: readonly string[] = []): InventoryState {
+export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]", lentLooks: readonly string[] | null = []): InventoryState {
   const requested = Array.isArray(itemIds) ? itemIds : [];
   // Trailblazer Boots are gone. `ownsBoots` is kept in the signature because
   // saved rows still carry the flag; it no longer grants anything.
@@ -282,12 +282,15 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   const resolvedRightHand = savedRightHand || (!handStateWasSaved && !savedLeftHand ? STARTER_STONE : "");
   const resolvedLeftHand = savedRightHand ? "" : savedLeftHand;
   // Account looks: bought or converted ones, and any a membership lends right now (patreon-cosmetics.ts).
-  const cosmeticItemIds = [...new Set([...cosmeticUnlocks(cosmeticItemsJson), ...lentLooks])];
+  const cosmeticItemIds = [...new Set([...cosmeticUnlocks(cosmeticItemsJson), ...(lentLooks ?? [])])];
   const ownedItemIds = new Set([...items, ...cosmeticItemIds]);
+  // `lentLooks` null: the membership is not known yet. A lent piece the server saved stays
+  // on rather than coming off and being saved off; the server checks every save anyway.
+  const awaitingLend = (itemId: string) => lentLooks === null && itemDefinition(itemId)?.acquisition === "PATREON_DIAMOND";
   const cosmeticItem = (requestedItem: unknown, slot: EquipmentSlot) => {
     if (isHiddenCosmeticItem(requestedItem)) return HIDDEN_COSMETIC_ITEM_ID;
     const itemId = canonicalItemId(requestedItem);
-    return itemId && ownedItemIds.has(itemId) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
+    return itemId && (ownedItemIds.has(itemId) || awaitingLend(itemId)) && itemFitsEquipmentSlot(itemId, slot) ? itemId : "";
   };
   const savedCosmeticHead = cosmeticItem(cosmeticHead, "HEAD");
   const savedCosmeticChest = cosmeticItem(cosmeticChest, "CHEST");
@@ -310,7 +313,7 @@ export function normaliseInventory(itemIds: unknown, equippedFeet: unknown, equi
   });
 }
 
-export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]", lentLooks: readonly string[] = []): InventoryState {
+export function inventoryFromSave(inventoryJson: unknown, equippedFeet: unknown, equippedHead: unknown, equippedChest: unknown, ownsBoots: boolean, ownsDeveloperCosmetics = false, equippedRightHand: unknown = "", equippedLeftHand: unknown = "", cosmeticHead: unknown = "", cosmeticChest: unknown = "", cosmeticFeet: unknown = "", cosmeticRightHand: unknown = "", cosmeticLeftHand: unknown = "", cosmeticItemsJson: unknown = "[]", lentLooks: readonly string[] | null = []): InventoryState {
   let itemIds: unknown = [];
   if (typeof inventoryJson === "string") {
     try { itemIds = JSON.parse(inventoryJson); } catch {}

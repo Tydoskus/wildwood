@@ -26,6 +26,21 @@ function paintMovingPortrait(canvas: HTMLCanvasElement, portrait: ProfileSnapsho
 }
 
 /**
+ * The live canvas fills its portrait, so the portrait has to be what it is
+ * positioned against. A row built before it joins the page has no computed
+ * style yet, and the check then passed it by: the guild list's canvas filled
+ * the whole row. So a detached portrait is checked again on the next frames.
+ */
+function anchorMovingPortrait(element: HTMLElement, tries = 30) {
+  const view = element.ownerDocument.defaultView;
+  if (!element.isConnected) {
+    if (tries > 0 && view?.requestAnimationFrame) view.requestAnimationFrame(() => anchorMovingPortrait(element, tries - 1));
+    return;
+  }
+  if (view?.getComputedStyle?.(element).position === "static") element.style.position = "relative";
+}
+
+/**
  * A snapshot wearing a galaxy piece is drawn live into a canvas laid over the
  * portrait, since a picture drawn once would freeze the finish. The element's
  * own backdrop colour still shows through it.
@@ -40,8 +55,7 @@ function showMovingPortrait(element: HTMLElement, portrait: ProfileSnapshotPortr
     // before this rule, a canvas sized by its own pixels would grow each redraw.
     Object.assign(canvas.style, { position: "absolute", inset: "0", width: "100%", height: "100%" });
     element.prepend(canvas);
-    const view = element.ownerDocument.defaultView;
-    if (view?.getComputedStyle?.(element).position === "static") element.style.position = "relative";
+    anchorMovingPortrait(element);
   }
   element.style.backgroundImage = "none";
   const live = canvas;

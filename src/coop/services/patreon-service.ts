@@ -16,6 +16,8 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
   // The tier the last status check reported, so a synchronous caller (the ad
   // gate) can ask without a round trip. Unknown until the first check lands.
   let supporterTier: AvatarFrame = "none";
+  // Whether this session's tier has come back yet: "none" before it does is not "no membership".
+  let tierKnown = false;
   function onReturn() {
     if ((!linked && Date.now() >= linkPendingUntil) || typeof document !== "undefined" && document.hidden || !autoIdentity || !reducers.connection()?.isActive || checkingReturn || Date.now() - lastReturnCheck < 5_000) return;
     lastReturnCheck = Date.now();
@@ -51,8 +53,9 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
     const result = JSON.parse(await (refresh ? active.procedures.refreshPatreonMembership({}) : active.procedures.getPatreonStatus({}))) as PatreonStatus;
     if (generation !== sessionGeneration || active !== reducers.connection() || identity !== localIdentity()) throw new Error("Account changed. Open your profile again.");
     linked = result.linked;
-    const tierChanged = supporterTier !== result.tier;
+    const tierChanged = !tierKnown || supporterTier !== result.tier;
     supporterTier = result.tier;
+    tierKnown = true;
     if (tierChanged) onTierChange?.();
     if (linked) linkPendingUntil = 0;
     updateAvatarFrame({ identity, ...result });
@@ -71,6 +74,7 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
     patreonStatus: () => status(false), refreshPatreon: () => status(true),
     /** Membership as last verified; "none" for anyone unlinked, lapsed or not yet checked. */
     supporterTier: () => supporterTier,
+    supporterTierKnown: () => tierKnown,
     beginPatreonLink: async () => {
       const active = connection(), generation = sessionGeneration;
       const state = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, "0")).join("");
@@ -93,7 +97,7 @@ export function createPatreonService(reducers: ReducerPort, localIdentity: () =>
     },
     clear() {
       sessionGeneration++; checkingReturn = false;
-      linked = false; linkPendingUntil = 0; supporterTier = "none";
+      linked = false; linkPendingUntil = 0; supporterTier = "none"; tierKnown = false;
       autoIdentity = ""; clearInterval(refreshTimer); refreshTimer = undefined;
       clearTimeout(returnRetry); returnRetry = undefined; lastReturnCheck = -Infinity;
       if (watchingReturns) {

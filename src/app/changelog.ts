@@ -2,6 +2,10 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.34": [
     "Ping updates about once a second while you play, from the last three seconds instead of five",
     "Whatever keeps count in the Soul Dimension has a new face",
+    "Galaxy and Diamond Galaxy icons show only the sky, not the base set's own colours",
+    "Diamond Galaxy shines again: a soft sheen inside each plate, away from the outline",
+    "A moving profile picture in the guild list stays inside its box",
+    "A worn Diamond Galaxy piece no longer comes off at sign-in while your membership is still loading",
   ],
   "0.901.33": [
     "Whatever keeps count in the Soul Dimension now actually arrives",

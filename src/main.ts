@@ -627,7 +627,7 @@ import {
     saveRemoteProgress: (saved, immediate) => { coop?.saveProgress?.(soulDimension.withoutSoul(saved, coop?.savedProgress?.()?.attackRate ?? saved.attackRate), immediate); },
     localIdentity: () => coop?.localIdentity?.() ?? "",
     lifetimeEnemyKills: (identity) => coop?.playerProfile?.(identity)?.lifetime.enemyKills,
-    isDeveloper: isDeveloperIdentity, lentLooks: () => patreonLooks(isDeveloperIdentity(coop?.localIdentity?.()) || coop?.supporterTier?.() === "diamond"),
+    isDeveloper: isDeveloperIdentity, lentLooks: () => isDeveloperIdentity(coop?.localIdentity?.()) ? patreonLooks(true) : coop?.supporterTierKnown?.() ? patreonLooks(coop?.supporterTier?.() === "diamond") : null,
     getTotalKills: () => totalKills,
     setTotalKills: (kills) => { totalKills = kills; },
     researchVitalityRank: () => researchRanks().vitality,

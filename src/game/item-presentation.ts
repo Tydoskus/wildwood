@@ -354,8 +354,9 @@ export function itemArtMarkup(itemId: string, hidden = true) {
 export function galaxyArtStyle(source: string, finish: SkyFinish = "GALAXY") {
   applyGalaxyArtTexture(finish);
   return [
-    // Multiplied (outline), overlaid (shading), then the sky: game.css .has-galaxy-finish.
-    `background-image: url(${source}), url(${source}), var(${skyFinishCssVariable(finish)}, ${skyFinishCssFallback(finish)})`,
+    // The sky here; game.css .has-galaxy-finish lays the art over it in grey from --galaxy-art.
+    `--galaxy-art: url(${source})`,
+    `background-image: var(${skyFinishCssVariable(finish)}, ${skyFinishCssFallback(finish)})`,
     `-webkit-mask-image: url(${source})`,
     `mask-image: url(${source})`,
   ].join("; ");

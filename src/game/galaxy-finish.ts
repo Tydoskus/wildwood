@@ -37,6 +37,9 @@ type SkyPalette = {
   sparkle: "CROSS" | "DIAMOND";
   starSize: number;
   twinkleRate: number;
+  /** The shine: a soft band of light a little inside the outline (never against it, where it read as a pale line). */
+  shine: readonly [number, number, number];
+  shineStrength: number;
   /** The CSS custom property icons read the tile from, and what they show before it is painted. */
   cssVariable: string;
   cssFallback: string;
@@ -52,6 +55,7 @@ const PALETTES: Record<SkyFinish, SkyPalette> = {
     dustStars: ["220,228,255", "255,220,250"],
     stars: ["255,255,255", "205,218,255", "255,224,250", "180,236,255"],
     glints: .35, sparkle: "CROSS", starSize: 1.5, twinkleRate: 1.9,
+    shine: [168, 178, 255], shineStrength: .16,
     cssVariable: "--galaxy-art-texture",
     cssFallback: "radial-gradient(circle at 35% 35%, #6a3cc8, #1c2276 45%, #050619 80%)",
   },
@@ -67,6 +71,7 @@ const PALETTES: Record<SkyFinish, SkyPalette> = {
     dustStars: ["225,245,255", "190,235,255"],
     stars: ["255,255,255", "216,242,255", "170,230,255", "235,250,255"],
     glints: .7, sparkle: "DIAMOND", starSize: 1.9, twinkleRate: 2.6,
+    shine: [216, 246, 255], shineStrength: .34,
     cssVariable: "--diamond-galaxy-art-texture",
     cssFallback: "radial-gradient(circle at 35% 35%, #d8f2ff, #7ecbff 40%, #1860a8 80%)",
   },
@@ -86,6 +91,10 @@ const LINE_LUMINANCE = .15;
  * dark leather boots are fill this dark, and must keep their sky.
  */
 const LINE_EDGE_LUMINANCE = .42;
+/** The shine band, in frame pixels in from the edge of the plate: dark until SHINE_GAP, brightest at SHINE_PEAK, gone by SHINE_END. */
+const SHINE_GAP = 2;
+const SHINE_PEAK = 7;
+const SHINE_END = 16;
 
 type Layer = { velocityX: number; velocityY: number; twinkle?: number };
 // Out-canvas pixels per second: the clouds crawl, the stars pass over them at
@@ -104,6 +113,7 @@ type Piece = {
   patterns: CanvasPattern[];
   shade: HTMLCanvasElement | null;
   outline: HTMLCanvasElement | null;
+  shine: HTMLCanvasElement | null;
   phase: number;
   painted: number;
 };
@@ -257,14 +267,14 @@ function prefersReducedMotion() {
  * outline is the art's own dark pixels, drawn over the finished sky: an
  * overlay only dims a bright star, so without it stars showed through the line.
  */
-function pieceDetail(source: CanvasImageSource, width: number, height: number) {
-  const scratch = canvas(width, height), shade = canvas(width, height), outline = canvas(width, height);
-  if (!scratch || !shade || !outline) return { shade: null, outline: null };
+function pieceDetail(source: CanvasImageSource, width: number, height: number, palette: SkyPalette) {
+  const scratch = canvas(width, height), shade = canvas(width, height), outline = canvas(width, height), shine = canvas(width, height);
+  if (!scratch || !shade || !outline || !shine) return { shade: null, outline: null, shine: null };
   scratch.context.imageSmoothingEnabled = true;
   scratch.context.imageSmoothingQuality = "high";
   scratch.context.drawImage(source, 0, 0, width, height);
   let pixels: ImageData;
-  try { pixels = scratch.context.getImageData(0, 0, width, height); } catch { return { shade: null, outline: null }; }
+  try { pixels = scratch.context.getImageData(0, 0, width, height); } catch { return { shade: null, outline: null, shine: null }; }
   const data = pixels.data, count = width * height;
   const shadePixels = shade.context.createImageData(width, height), outlinePixels = outline.context.createImageData(width, height);
   const luminances = new Float32Array(count);
@@ -296,9 +306,41 @@ function pieceDetail(source: CanvasImageSource, width: number, height: number) {
     outlinePixels.data[offset + 2] = data[offset + 2];
     outlinePixels.data[offset + 3] = Math.round(alpha * weight);
   }
+  // Distance in from the plate's edge (the line or the outside), out to SHINE_END.
+  const distance = new Uint8Array(count), queue: number[] = [];
+  const plate = (index: number) => data[index * 4 + 3] >= 128 && luminances[index] > LINE_EDGE_LUMINANCE;
+  for (let index = 0; index < count; index += 1) {
+    if (!plate(index)) continue;
+    const x = index % width, y = (index - x) / width;
+    const edge = x === 0 || y === 0 || x === width - 1 || y === height - 1
+      || !plate(index - 1) || !plate(index + 1) || !plate(index - width) || !plate(index + width);
+    distance[index] = edge ? 1 : 255;
+    if (edge) queue.push(index);
+  }
+  for (let head = 0; head < queue.length; head += 1) {
+    const index = queue[head], next = distance[index] + 1;
+    if (next > SHINE_END) continue;
+    const x = index % width;
+    for (const neighbour of [x > 0 ? index - 1 : -1, x < width - 1 ? index + 1 : -1, index - width, index + width]) {
+      if (neighbour < 0 || neighbour >= count || distance[neighbour] !== 255) continue;
+      distance[neighbour] = next;
+      queue.push(neighbour);
+    }
+  }
+  const shinePixels = shine.context.createImageData(width, height), [red, green, blue] = palette.shine;
+  for (let index = 0; index < count; index += 1) {
+    const steps = distance[index];
+    if (!steps || steps === 255 || steps <= SHINE_GAP) continue;
+    const reach = steps < SHINE_PEAK ? (steps - SHINE_GAP) / (SHINE_PEAK - SHINE_GAP) : (SHINE_END - steps) / (SHINE_END - SHINE_PEAK);
+    if (reach <= 0) continue;
+    const offset = index * 4;
+    shinePixels.data[offset] = red; shinePixels.data[offset + 1] = green; shinePixels.data[offset + 2] = blue;
+    shinePixels.data[offset + 3] = Math.round(255 * palette.shineStrength * reach * reach);
+  }
   shade.context.putImageData(shadePixels, 0, 0);
   outline.context.putImageData(outlinePixels, 0, 0);
-  return { shade: shade.element, outline: outline.element };
+  shine.context.putImageData(shinePixels, 0, 0);
+  return { shade: shade.element, outline: outline.element, shine: shine.element };
 }
 
 function sourceSize(sprite: CanvasImageSource) {
@@ -315,10 +357,10 @@ function createPiece(sprite: CanvasImageSource, width: number, height: number, f
   if (!tiles || !frame) return false;
   const patterns = tiles.map(tile => frame.context.createPattern(tile, "repeat"));
   if (patterns.some(pattern => !pattern)) return false;
-  const { shade, outline } = pieceDetail(residentDrawable(sprite), frame.element.width, frame.element.height);
+  const { shade, outline, shine } = pieceDetail(residentDrawable(sprite), frame.element.width, frame.element.height, PALETTES[finish]);
   // Each piece starts somewhere else in the sky, so a helmet and armour worn
   // together do not show the same clouds side by side.
-  return { frame: frame.element, context: frame.context, patterns: patterns as CanvasPattern[], shade, outline, phase: (pieceCount++ * 97) % TILE, painted: Number.NaN };
+  return { frame: frame.element, context: frame.context, patterns: patterns as CanvasPattern[], shade, outline, shine, phase: (pieceCount++ * 97) % TILE, painted: Number.NaN };
 }
 
 function paintPiece(piece: Piece, sprite: CanvasImageSource, seconds: number, palette: SkyPalette) {
@@ -344,6 +386,10 @@ function paintPiece(piece: Piece, sprite: CanvasImageSource, seconds: number, pa
   }
   context.globalCompositeOperation = "destination-in";
   context.drawImage(residentDrawable(sprite), 0, 0, width, height);
+  if (piece.shine) {
+    context.globalCompositeOperation = "lighter";
+    context.drawImage(piece.shine, 0, 0);
+  }
   context.globalCompositeOperation = "source-over";
   if (piece.outline) context.drawImage(piece.outline, 0, 0);
 }

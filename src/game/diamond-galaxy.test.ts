@@ -39,8 +39,17 @@ describe("the Diamond Galaxy set", () => {
     expect(cosmeticUnlocks(JSON.stringify(DIAMOND_SET))).toEqual([]);
   });
 
+  it("stays on as the server saved it while the membership is still loading, so a sign-in does not save it off", () => {
+    const loading = inventoryFromSave("[]", "", "", "", false, false, "", "", "", DIAMOND_GALAXY_ARMOR, "", "", "", "[]", null);
+    expect(loading.cosmeticChest).toBe(DIAMOND_GALAXY_ARMOR);
+    // Nothing to pick from yet, though: it is not offered until the tier says so.
+    expect(cosmeticInventoryStacks(loading).map(stack => stack.itemId)).not.toContain(DIAMOND_GALAXY_HELMET);
+    // Only the lent set waits; a plain cosmetic the account does not own still comes off.
+    expect(inventoryFromSave("[]", "", "", "", false, false, "", "", "", GALAXY_ARMOR, "", "", "", "[]", null).cosmeticChest).toBe("");
+  });
+
   it("shows in Cosmetics only while a membership lends it, and comes off once it stops", () => {
-    const save = (lent: readonly string[]) => inventoryFromSave("[]", "", "", "", false, false, "", "", "", DIAMOND_GALAXY_ARMOR, "", "", "", "[]", lent);
+    const save = (lent: readonly string[] | null) => inventoryFromSave("[]", "", "", "", false, false, "", "", "", DIAMOND_GALAXY_ARMOR, "", "", "", "[]", lent);
     const lent = save(patreonLooks(true));
     expect(cosmeticInventoryStacks(lent).map(stack => stack.itemId)).toEqual(expect.arrayContaining(DIAMOND_SET));
     expect(lent.cosmeticChest).toBe(DIAMOND_GALAXY_ARMOR);
