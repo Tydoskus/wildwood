@@ -9,10 +9,10 @@ import { campaignMapUnlocked, type CampaignAccess } from "./equipment-access";
 import type { PlayerPowerStats } from "./player-power";
 
 /** The most farming one absence is worth, however long the player was gone (Offline Time research adds to it). */
-export const OFFLINE_WINDOW_SECONDS = 4 * 60 * 60;
+export const OFFLINE_WINDOW_SECONDS = 8 * 60 * 60;
 /**
  * How long a build has to hold a map for offline farming to stay on it. The
- * pressure below was tuned against an hour; the window grew to four (0.882)
+ * pressure below was tuned against an hour; the window grew to four (0.882), then eight (0.901.35),
  * without moving anyone to an easier map.
  */
 export const OFFLINE_SURVIVAL_SECONDS = 60 * 60;
