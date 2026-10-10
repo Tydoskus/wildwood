@@ -3,7 +3,7 @@ import { SOUL_ATLAS, SOUL_INTERIOR_DECOR, SOUL_VILLAGE_DECOR, type SoulFrame } f
 import type { WorldDecor, WorldPath } from "./world";
 
 /** How each countryside prop is drawn: one of its atlas frames (by the prop's variant) and its size. */
-const PROP_FRAMES: Readonly<Record<TownPropKind, { frames: readonly SoulFrame[]; s: number }>> = {
+export const PROP_FRAMES: Readonly<Record<TownPropKind, { frames: readonly SoulFrame[]; s: number }>> = {
   tree: { frames: ["Tree_01_Green", "Tree_02_Green", "Tree_03_Green", "Tree_04_Green", "Tree_05_Green", "Tree_06_Green", "Tree_07_Green", "Tree_08_Green",
     "Tree_09_Green", "Tree_10_Green", "Tree_11_Green", "Tree_12_Green", "Tree_13_Green", "Tree_14_Green", "Tree_15_Green", "Tree_16_Green",
     "Tree_17_Green", "Tree_18_Green", "Tree_19_Green"], s: 1 },
@@ -27,7 +27,7 @@ const PROP_FRAMES: Readonly<Record<TownPropKind, { frames: readonly SoulFrame[];
  * like anything else that does.
  */
 const FLAT_HEIGHT = 30;
-const lowEnough = (frame: SoulFrame, s: number) => SOUL_ATLAS.frames[frame].ay * s <= FLAT_HEIGHT;
+export const lowEnough = (frame: SoulFrame, s: number) => SOUL_ATLAS.frames[frame].ay * s <= FLAT_HEIGHT;
 
 /**
  * Home's three stations, in the Town's buildings (shared/town.ts places them): each stands where a piece of

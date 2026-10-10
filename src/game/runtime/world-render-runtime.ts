@@ -8,12 +8,12 @@ import { createRenderController, type RenderController } from "./render-controll
 import { createWorldRenderer, type MinimapBounds } from "./world-renderer";
 import { DEFAULT_SKIN_TONE, drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
 import type { LoadedEnemySprite, RewardType } from "../enemies";
-import type { MapId, WorldDecor, WorldPath } from "../world";
+import { TUTORIAL_FOREST_MAP_ID, type MapId, type WorldDecor, type WorldPath } from "../world";
 import type { MapPlayerMarker, RemotePlayer } from "../../wildstat-coop";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "./types";
 import { bossForMap, bossStateForMap, type BossArtAssets, type BossHazards, type BossStates } from "./boss-registry";
-import { BASE_ATTACK_RANGE } from "../constants";
+import { BASE_ATTACK_RANGE, WORLD } from "../constants";
 import type { PlayerDeathAnimationState } from "./player-death-animation";
 import type { Particle } from "./combat-effects";
 import { parseHexColorOrNull, STATIC_WORLD_LAYER_RESET_EVENT, type StaticWorldColorQuadFrame, type StaticWorldLayer, type StaticWorldSpriteFrame } from "./webgl-static-world-layer";
@@ -22,7 +22,9 @@ import { snapWorldRenderCoordinate } from "./render-space";
 import { createSoulGroundRenderer, createSoulPropRenderer } from "./soul-prop-renderer";
 import { createSoulParticles } from "./soul-particles";
 import { createSoulWater } from "./soul-water";
-import { createTownGroundTilePainter, TOWN_GROUND_WORLD } from "./town-ground-tiles";
+import { createForestRoadPainter } from "./forest-road";
+import { mapVisualTheme } from "../map-design";
+import { createSoulGroundPropPainter, createTownGroundTilePainter, soulGroundPropsIn, TOWN_GROUND_WORLD } from "./town-ground-tiles";
 import { isTownMap } from "../../../shared/town";
 import { drawOxSprite } from "./ox-sprite";
 import { isGuildHallMap } from "../../../shared/guild-hall";
@@ -86,6 +88,7 @@ export type WorldRenderRuntimeOptions = {
     soulInteriors?: HTMLImageElement;
     soulWater?: HTMLImageElement;
     soulShore?: HTMLImageElement;
+    forestRoad?: HTMLImageElement;
     /** A guild hall's art (guild-hall.ts) and the badge sheets its crests are cut from. */
     guildHallProps?: HTMLImageElement;
     guildHallGround?: HTMLImageElement;
@@ -172,6 +175,22 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   const townGround = createTownGroundTilePainter({ ground: () => options.assets.soulVillageGround, interiors: () => options.assets.soulInteriors,
     villageProps: () => options.assets.soulVillageProps, atlas: () => options.assets.soulAtlas });
   const townStaticTiles = { world: TOWN_GROUND_WORLD, ...townGround };
+  // The tutorial forest's own tile, then the Town's road tiles over its paths, its pack grass and tree shadows (pack-forest.ts).
+  const forestProps = createSoulGroundPropPainter({ villageProps: () => undefined, atlas: () => options.assets.soulAtlas });
+  const forestRoads = createForestRoadPainter(() => options.assets.forestRoad);
+  const forestStaticTiles = {
+    world: WORLD,
+    ready: () => Boolean(options.assets.soulAtlas?.complete && options.assets.forestRoad?.complete),
+    paint(context: CanvasRenderingContext2D, tileX: number, tileY: number, tileSize: number, paintBase: () => void) {
+      paintBase();
+      const rect = { left: tileX * tileSize, top: tileY * tileSize, right: (tileX + 1) * tileSize, bottom: (tileY + 1) * tileSize };
+      if (!forestRoads(context, options.paths, rect.left, rect.top, tileSize, mapVisualTheme(TUTORIAL_FOREST_MAP_ID).ground)) return false;
+      const { flat, shadows } = soulGroundPropsIn(options.decor, rect);
+      context.imageSmoothingEnabled = false;
+      forestProps(context, flat, shadows, rect.left, rect.top, tileSize);
+      return true;
+    },
+  };
   const lowPerformance = () => options.lowPerformanceMode?.() ?? false;
   const world = createWorldRenderer({
     ctx: options.ctx,
@@ -213,7 +232,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawOxSprite(options.ctx, x, y);
     },
     ...options.assets,
-    customStaticTiles: mapId => isTownMap(mapId) ? townStaticTiles : null,
+    customStaticTiles: mapId => isTownMap(mapId) ? townStaticTiles : mapId === TUTORIAL_FOREST_MAP_ID ? forestStaticTiles : null,
   });
   const boss = createBossRenderer({
     ctx: options.ctx, camera: options.camera, devicePixelRatio: options.devicePixelRatio,

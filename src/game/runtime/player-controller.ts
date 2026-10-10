@@ -1,4 +1,5 @@
 import { withPackMushrooms } from "../pack-mushrooms";
+import { withPackForest } from "../pack-forest";
 import { WORLD } from "../constants";
 import { clamp } from "../math";
 import { createSpawnSites, createWorldLayout, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
@@ -92,7 +93,7 @@ export function createPlayerController(options: {
   function rebuildWorld() {
     const mapId = getCurrentMapId();
     const layout = createWorldLayout(player, mapId);
-    decor.splice(0, decor.length, ...withPackMushrooms(layout.decor, mapId));
+    decor.splice(0, decor.length, ...withPackForest(withPackMushrooms(layout.decor, mapId), mapId));
     paths.splice(0, paths.length, ...layout.paths);
     spawnSites.splice(0, spawnSites.length, ...createSpawnSites(boss, mapId));
     invalidateStaticWorld();

@@ -225,6 +225,14 @@ export function savedMapName(mapId: string) {
 /** Every guild hall's: the courtyard's grass round its baked ground. */
 const GUILD_HALL_THEME: MapVisualTheme = { ground: "#54783c", path: "#b89070", pathDetail: "rgba(120,80,50,.15)", decorColors: {} };
 
+/**
+ * Maps drawn with ForestVillage's trees and grass (pack-forest.ts) sit on its meadow green and road, as the
+ * Town's countryside does: the pack's olive grass clashed with the old bright ground. This wins over a saved theme.
+ */
+const PACK_NATURE_GROUND: Partial<Record<MapId, Pick<MapVisualTheme, "ground" | "path" | "pathDetail">>> = {
+  tutorial_forest: { ground: DEFAULT_MAP_THEMES.town.ground, path: DEFAULT_MAP_THEMES.town.path, pathDetail: DEFAULT_MAP_THEMES.town.pathDetail },
+};
+
 export function mapVisualTheme(mapId: MapId): MapVisualTheme {
   const cached = resolvedThemeCache.get(mapId);
   if (cached) return cached;
@@ -244,6 +252,7 @@ export function mapVisualTheme(mapId: MapId): MapVisualTheme {
     pathDetail: saved.pathDetail || defaults.pathDetail,
     decorColors: { ...clone(defaults.decorColors), ...clone(saved.decorColors ?? {}) },
   };
+  Object.assign(resolved, PACK_NATURE_GROUND[mapId]);
   resolvedThemeCache.set(mapId, resolved);
   return resolved;
 }

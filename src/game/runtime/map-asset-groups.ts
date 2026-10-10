@@ -37,6 +37,8 @@ export type MapArtAssetGroup =
   | "guildHall"
   /** The Soul Dimension's nature atlas alone: the pack mushrooms the glowing campaign maps draw. */
   | "packNature"
+  /** The Town's road tiles, for the tutorial forest's paths (forest-road.ts). */
+  | "forestRoad"
   | "crystalHollowsBoss" | "clockworkRuinsBoss" | "duskfallOrchardBoss" | "neonBastionBoss" | "verdantCatacombsBoss" | "ionCitadelBoss";
 
 export type MapAssetGroup = {
@@ -55,7 +57,8 @@ const AUTHORED_MAP_ASSET_GROUPS = {
   // The soul camps, and the Soul Defense Force that comes every thousand of them.
   soul_dimension: { art: ["nightDecor"], enemies: [...SOUL_ENEMY_KINDS, SOUL_DEFENSE_FORCE_KIND] },
   [TUTORIAL_FOREST_MAP_ID]: {
-    art: ["forestBoss", "forestDecor"],
+    // Its trees and grass are the pack's (pack-forest.ts).
+    art: ["forestBoss", "packNature", "forestRoad"],
     enemies: ["Bramble", "Needle", "Mossback", "Spitter", "Brood", "Cindermaw", "King Slime", "Dread Warden"],
   },
   [BEGINNER_DESERT_MAP_ID]: {

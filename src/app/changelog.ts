@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.41": [
+    "Tutorial Forest has the Town's trees, grass, shadows and dirt roads",
+  ],
   "0.901.40": [
     "The Town's river no longer shimmers through its bridges",
     "Profile Move Speed counts Fleet Foot, and Attack Range lists Long Shot",
@@ -3133,6 +3136,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.41": "2026-10-09",
   "0.901.40": "2026-10-09",
   "0.901.39": "2026-10-09",
   "0.901.38": "2026-10-09",

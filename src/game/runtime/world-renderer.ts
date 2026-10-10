@@ -162,7 +162,8 @@ export type WorldRendererOptions = {
     world: { w: number; h: number };
     /** Whether it can paint yet (its images have loaded). */
     ready: () => boolean;
-    paint: (context: CanvasRenderingContext2D, tileX: number, tileY: number, tileSize: number) => boolean;
+    /** `paintBase` paints the map's own tile (ground, paths, painted decor) first, for a map that adds to it. */
+    paint: (context: CanvasRenderingContext2D, tileX: number, tileY: number, tileSize: number, paintBase: () => void) => boolean;
   } | null;
 };
 
@@ -419,6 +420,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     return `${options.getMapId()}:${tileX}:${tileY}`;
   }
 
+  const actorShadow = () => options.actorShadowSprite.complete && options.actorShadowSprite.naturalWidth > 0 ? options.actorShadowSprite : undefined;
+
   function staticTile(tileX: number, tileY: number): CachedStaticTile {
     const key = tileKey(tileX, tileY);
     const cached = staticTiles.get(key);
@@ -435,7 +438,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       if (!tileContext) return sharedStaticTilePlaceholder(scene);
       tileContext.fillStyle = scene.colors.ground;
       tileContext.fillRect(0, 0, STATIC_TILE_SIZE, STATIC_TILE_SIZE);
-      if (!custom.paint(tileContext, tileX, tileY, STATIC_TILE_SIZE)) {
+      const paintBase = () => paintStaticTile(tileContext, scene, tileX, tileY, actorShadow(), staticImages(options.lavaPools));
+      if (!custom.paint(tileContext, tileX, tileY, STATIC_TILE_SIZE, paintBase)) {
         closeStaticTile(tile);
         return sharedStaticTilePlaceholder(scene);
       }
@@ -458,10 +462,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const tile = createTileCanvas();
     const tileContext = tile.getContext("2d");
     if (tileContext) {
-      const shadow = options.actorShadowSprite.complete && options.actorShadowSprite.naturalWidth > 0
-        ? options.actorShadowSprite
-        : undefined;
-      paintStaticTile(tileContext, scene, tileX, tileY, shadow, staticImages(options.lavaPools));
+      paintStaticTile(tileContext, scene, tileX, tileY, actorShadow(), staticImages(options.lavaPools));
     }
     cacheStaticTile(key, tile);
     return tile;

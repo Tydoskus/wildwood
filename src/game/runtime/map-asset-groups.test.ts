@@ -43,7 +43,7 @@ describe("lazy map asset groups", () => {
   });
 
   it("keeps image-based scenery with only the maps that use it", () => {
-    expect(MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].art).toContain("forestDecor");
+    expect(MAP_ASSET_GROUPS[TUTORIAL_FOREST_MAP_ID].art).toContain("packNature");
     expect(MAP_ASSET_GROUPS[INTERMEDIATE_SNOWLANDS_MAP_ID].art).toContain("snowDecor");
     expect(MAP_ASSET_GROUPS[ADVANCED_LAVA_WASTES_MAP_ID].art).toContain("lavaDecor");
     expect(MAP_ASSET_GROUPS[INFERNAL_DEPTHS_MAP_ID].art).toContain("nightDecor");

@@ -66,10 +66,12 @@ const usable = (image: HTMLImageElement | undefined): image is HTMLImageElement 
  * and the tiles are reused, instead of drawn, composited and shadowed again every frame.
  * Returns false, painting nothing, while an image it needs is still loading.
  */
-export function createTownGroundTilePainter(images: Images) {
+/**
+ * Lays a tile's flat soul props and its shadows: the props in the order given, then every shadow solid in one
+ * layer, laid over at the pack's shadow strength, so overlapping shadows read as one. The Town's and the forest's.
+ */
+export function createSoulGroundPropPainter(images: Pick<Images, "villageProps" | "atlas">) {
   let scratch: HTMLCanvasElement | null = null;
-  const dark = townInteriorArea(TOWN_INTERIOR_MARGIN);
-
   function drawProp(context: CanvasRenderingContext2D, item: SoulPropDecor, originX: number, originY: number) {
     const image = item.sheet === "village" ? images.villageProps() : images.atlas();
     const frame = soulFrame(item.frame, item.sheet);
@@ -86,6 +88,38 @@ export function createTownGroundTilePainter(images: Images) {
     }
     context.drawImage(image, frame.x, frame.y, frame.w, frame.h, x - frame.ax * item.s, y - frame.ay * item.s, w, h);
   }
+  return function paintGroundProps(context: CanvasRenderingContext2D, flat: readonly SoulPropDecor[], shadows: readonly SoulPropDecor[], ox: number, oy: number, tileSize: number) {
+    for (const item of flat) drawProp(context, item, ox, oy);
+    if (!shadows.length) return;
+    scratch ??= document.createElement("canvas");
+    if (scratch.width !== tileSize || scratch.height !== tileSize) { scratch.width = tileSize; scratch.height = tileSize; }
+    const layer = scratch.getContext("2d");
+    if (!layer) return;
+    layer.setTransform(1, 0, 0, 1, 0, 0);
+    layer.clearRect(0, 0, tileSize, tileSize);
+    layer.imageSmoothingEnabled = false;
+    for (const item of shadows) drawProp(layer, item, ox, oy);
+    context.save();
+    context.globalAlpha = SOUL_SHADOW_STRENGTH;
+    context.drawImage(scratch, 0, 0);
+    context.restore();
+  };
+}
+
+/** A decor list's flat soul props (in depth order) and shadows that reach into a rectangle. */
+export function soulGroundPropsIn(decor: readonly WorldDecor[], rect: Rect) {
+  const flat: SoulPropDecor[] = [], shadows: SoulPropDecor[] = [];
+  for (const item of decor) {
+    if (!isGroundProp(item) || !overlaps(item, rect)) continue;
+    if (item.shadow) shadows.push(item); else flat.push(item);
+  }
+  flat.sort((a, b) => a.y - b.y);
+  return { flat, shadows };
+}
+
+export function createTownGroundTilePainter(images: Images) {
+  const dark = townInteriorArea(TOWN_INTERIOR_MARGIN);
+  const paintGroundProps = createSoulGroundPropPainter(images);
 
   const ready = () => !pending(images.ground()) && !pending(images.interiors()) && !pending(images.villageProps()) && !pending(images.atlas());
   function paint(context: CanvasRenderingContext2D, tileX: number, tileY: number, tileSize: number) {
@@ -115,22 +149,7 @@ export function createTownGroundTilePainter(images: Images) {
       }
     }
     const { flat, shadows } = townGroundPropsIn(rect);
-    for (const item of flat) drawProp(context, item, ox, oy);
-    if (shadows.length) {
-      scratch ??= document.createElement("canvas");
-      if (scratch.width !== tileSize || scratch.height !== tileSize) { scratch.width = tileSize; scratch.height = tileSize; }
-      const layer = scratch.getContext("2d");
-      if (layer) {
-        layer.setTransform(1, 0, 0, 1, 0, 0);
-        layer.clearRect(0, 0, tileSize, tileSize);
-        layer.imageSmoothingEnabled = false;
-        for (const item of shadows) drawProp(layer, item, ox, oy);
-        context.save();
-        context.globalAlpha = SOUL_SHADOW_STRENGTH;
-        context.drawImage(scratch, 0, 0);
-        context.restore();
-      }
-    }
+    paintGroundProps(context, flat, shadows, ox, oy, tileSize);
     return true;
   }
   return { ready, paint };

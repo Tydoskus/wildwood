@@ -40,7 +40,9 @@ describe("map-scoped image preprocessing", () => {
 
     void assets.ensureMapAssets(TUTORIAL_FOREST_MAP_ID);
     expect(requests).toContain("assets/wildstat/dragon_boss_spritesheet.webp");
-    expect(requests).toContain("assets/wildstat/tree-spritesheet-v1.webp");
+    // Its trees and grass are the pack's, from the Soul Dimension atlas (pack-forest.ts), not the old tree sheet.
+    expect(requests).toContain("assets/wildstat/soul-dimension/soul-atlas.webp");
+    expect(requests).not.toContain("assets/wildstat/tree-spritesheet-v1.webp");
     expect(requests).not.toContain(SCORPION_SPRITE.source);
     expect(requests).not.toContain("assets/wildstat/frostclaw-boss-spritesheet.webp");
     expect(requests).not.toContain("assets/wildstat/lava/lava-pool-1.webp");

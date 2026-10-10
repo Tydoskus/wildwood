@@ -1,4 +1,5 @@
 import { SOUL_SHORE_SOURCE, SOUL_WATER_SOURCE } from "./soul-water";
+import { FOREST_ROAD_SOURCE } from "./forest-road";
 import { SOUL_ATLAS_SOURCE, SOUL_INTERIORS_SOURCE, SOUL_VILLAGE_GROUND_SOURCE, SOUL_VILLAGE_PROPS_SOURCE } from "./soul-prop-renderer";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { isGuildHallMap } from "../../../shared/guild-hall";
@@ -284,6 +285,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const soulVillageGroundAsset = createLazyImageAsset(SOUL_VILLAGE_GROUND_SOURCE);
   const soulWaterAsset = createLazyImageAsset(SOUL_WATER_SOURCE);
   const soulShoreAsset = createLazyImageAsset(SOUL_SHORE_SOURCE);
+  const forestRoadAsset = createLazyImageAsset(FOREST_ROAD_SOURCE);
   const soulInteriorsAsset = createLazyImageAsset(SOUL_INTERIORS_SOURCE);
   const guildHallAssets = [GUILD_HALL_PROPS_SOURCE, GUILD_HALL_GROUND_SOURCE, GUILD_HALL_ROOMS_SOURCE, ...GUILD_EMBLEM_SHEET_SOURCES].map(source => createLazyImageAsset(source));
   const assetGroups = {
@@ -295,6 +297,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     cherryDecor: [cherryTreeAsset],
     soulVillage: [soulAtlasAsset, soulVillagePropsAsset, soulVillageGroundAsset, soulWaterAsset, soulShoreAsset, soulInteriorsAsset],
     packNature: [soulAtlasAsset],
+    forestRoad: [forestRoadAsset],
     guildHall: guildHallAssets,
     ...Object.fromEntries(BOSS_KINDS.map((kind) => [BOSSES[kind].assetGroup, bossArt[kind].assets])),
   } as Record<MapArtAssetGroup, LazyImageAsset[]>;
@@ -302,7 +305,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   for (const mapId of Object.keys(MAP_ASSET_GROUPS) as MapId[]) {
     const groups = new Set<MapArtAssetGroup>(MAP_ASSET_GROUPS[mapId].art);
     const editedDecor = new Set(savedMapDesign(mapId)?.decor.map((item) => item.type) ?? []);
-    if (editedDecor.has("tree") && mapId !== "samurai_garden") groups.add(mapId === "infernal_depths" ? "nightDecor" : "forestDecor");
+    if (editedDecor.has("tree") && mapId !== "samurai_garden" && mapId !== "tutorial_forest") groups.add(mapId === "infernal_depths" ? "nightDecor" : "forestDecor");
     if (editedDecor.has("snowPine") || editedDecor.has("upgradeBench")) groups.add("snowDecor");
     if (editedDecor.has("lavaPool") || editedDecor.has("lavaRock") || editedDecor.has("charredTree")) groups.add("lavaDecor");
     if (editedDecor.has("glowMushroom") || mapId === "moonfen" || mapId === "verdant_catacombs") groups.add("packNature");
@@ -356,6 +359,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     guildEmblemSheets: guildHallAssets.slice(3).map(asset => asset.image),
     soulWater: soulWaterAsset.image,
     soulShore: soulShoreAsset.image,
+    forestRoad: forestRoadAsset.image,
     lavaPools: lavaAssets.slice(0, 3).map((asset) => asset.image),
     lavaRocks: lavaAssets.slice(3, 6).map((asset) => asset.image),
     nightTreeSpriteBounds: () => nightTreeBounds,
