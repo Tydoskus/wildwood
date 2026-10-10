@@ -3,6 +3,8 @@ import type { GuildBattleResult } from "../../shared/guild-combat";
 import { frameDeadlineReached, nextPresentationDeadline } from "../game/runtime/render-budget";
 import { createGuildBattlefieldRenderer, type GuildReplayAssets } from "./guild-battlefield-renderer";
 import { buildGuildReplayTimeline, type GuildReplayTimeline } from "./guild-replay-timeline";
+import { appearanceHasGalaxyFinish } from "../game/item-presentation";
+import { keepCanvasMoving } from "../app/moving-canvases";
 export type { GuildReplayAssets } from "./guild-battlefield-renderer";
 
 /** A single fitted canvas; deterministic frames are computed once, never from
@@ -71,6 +73,8 @@ export function createGuildBattleReplay(parent: HTMLElement, battle: GuildBattle
     ready = true;
     if (!ctx) { status.textContent = `${battle.attackers.length} vs ${battle.defenders.length} · ${battle.duration.toFixed(1)}s`; controls.hidden = true; return; }
     draw(); schedule();
+    // Paused or finished, the frame holds still; a galaxy piece on the field still moves.
+    if (timeline.fighters.some(fighter => appearanceHasGalaxyFinish(fighter.appearance))) keepCanvasMoving(canvas, () => { if (!playing) draw(); });
   }).catch(() => { if (!disposed) status.textContent = "Could not load the replay. Close it and try again."; });
   return { dispose() { disposed = true; if (request) win?.cancelAnimationFrame(request); doc.removeEventListener("visibilitychange", visibility); win?.removeEventListener("resize", resize); observer?.disconnect(); renderer?.dispose(); timeline = undefined; root.remove(); } };
 }

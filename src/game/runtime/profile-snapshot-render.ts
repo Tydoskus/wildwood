@@ -1,6 +1,6 @@
 import { profileSnapshotKey, type ProfileSnapshotLook } from "../../../shared/profile-snapshot";
 import type { ProfileSnapshotPortrait } from "../../app/profile-snapshot-portraits";
-import { itemPresentation } from "../item-presentation";
+import { appearanceHasGalaxyFinish, itemPresentation } from "../item-presentation";
 import { drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
 import { EXPANSION_HEAD_FRAME } from "../player-head-template";
 
@@ -54,6 +54,12 @@ export function createProfileSnapshotRenderer(assets: PlayerAppearanceAssets, si
     if (!ctx) return null;
     // Firefox throws drawing a part that failed to load: that portrait is the default silhouette, nothing else breaks.
     try { drawProfileSnapshot(ctx, assets, look, size); } catch { return null; }
-    return { key: profileSnapshotKey(look), canvas, url: canvas.toDataURL("image/png") };
+    const paint = appearanceHasGalaxyFinish(look) ? (context: CanvasRenderingContext2D, width: number, height: number) => {
+      context.save();
+      context.scale(width / size, height / size);
+      drawProfileSnapshot(context, assets, look, size);
+      context.restore();
+    } : undefined;
+    return { key: profileSnapshotKey(look), canvas, url: canvas.toDataURL("image/png"), paint };
   };
 }

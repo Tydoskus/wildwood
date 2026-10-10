@@ -1,6 +1,6 @@
 import { ITEM_DEFINITIONS, type ItemId } from "../../shared/items";
 import type { PendingItemGift } from "../../shared/item-gifts";
-import { itemPresentation } from "../game/item-presentation";
+import { itemArtImage, itemHasGalaxyFinish, itemPresentation } from "../game/item-presentation";
 
 type Hooks = {
   canShow: () => boolean;
@@ -27,6 +27,7 @@ export function createItemGiftController(hooks: Hooks) {
   document.body.append(overlay);
   const title = overlay.querySelector<HTMLElement>("h2")!;
   const art = overlay.querySelector<HTMLImageElement>("img")!;
+  const artBox = art.parentElement!;
   const button = overlay.querySelector<HTMLButtonElement>("button")!;
   let owner = hooks.identity(), generation = 0, visible = false;
   let pending = false, celebrating = false;
@@ -53,6 +54,14 @@ export function createItemGiftController(hooks: Hooks) {
       title.textContent = ITEM_DEFINITIONS[displayed.itemId as ItemId]?.name ?? "GIFT";
       const source = itemPresentation(displayed.itemId)?.inventory.source ?? "";
       if (art.getAttribute("src") !== source) art.src = source;
+      // A galaxy piece's sky moves: a masked span stands in for the picture.
+      const galaxy = itemHasGalaxyFinish(displayed.itemId);
+      art.hidden = galaxy;
+      const shown = artBox.querySelector<HTMLElement>(":scope > .item-art-image");
+      if (shown?.dataset.itemId !== (galaxy ? displayed.itemId : undefined)) {
+        shown?.remove();
+        if (galaxy) { const span = itemArtImage(displayed.itemId); span.dataset.itemId = displayed.itemId; artBox.append(span); }
+      }
     }
     hooks.setPaused(show);
     if (show && !visible) requestAnimationFrame(() => button.focus());

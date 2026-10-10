@@ -1,5 +1,5 @@
 import { itemDisplayName } from "../../shared/items";
-import { itemInventoryRotation, itemPresentation } from "../game/item-presentation";
+import { itemArtImage, itemInventoryRotation } from "../game/item-presentation";
 import type { MailboxMessage } from "../../shared/mailbox";
 import { createReleaseNotesIndicator } from "./release-notes-unread";
 import { renderUpdateNotice } from "./overlays";
@@ -93,8 +93,9 @@ export function createMailboxController(button: HTMLButtonElement, versionButton
             const item = make("figure", "", "mailbox-equipment-item");
             const name = itemDisplayName(id).toLowerCase().replace(/\b[a-z]/g, letter => letter.toUpperCase());
             const icon = make("div", "", "mailbox-equipment-icon");
-            const image = document.createElement("img"); image.src = itemPresentation(id)?.inventory.source ?? "";
-            image.alt = name; image.draggable = false; image.style.transform = `rotate(${itemInventoryRotation(id)}deg)`;
+            const image = itemArtImage(id);
+            if (image.tagName === "IMG") image.setAttribute("alt", name);
+            image.style.transform = `rotate(${itemInventoryRotation(id)}deg)`;
             icon.append(image, make("span", `+${entry.upgradeLevel ?? 9}`, "mailbox-equipment-level"));
             item.append(icon, make("figcaption", name)); gear.append(item);
           }

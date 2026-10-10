@@ -298,6 +298,11 @@ export function itemHasGalaxyFinish(itemId: string | undefined) {
   return itemPresentation(itemId)?.finish === "GALAXY";
 }
 
+/** Whether a look wears any galaxy piece, so a picture of it has to keep moving. */
+export function appearanceHasGalaxyFinish(look: { headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string } | null | undefined) {
+  return Boolean(look && [look.headItem, look.chestItem, look.feetItem, look.rightHandItem, look.leftHandItem].some(itemHasGalaxyFinish));
+}
+
 /** UI-only rotation shared by bag, loadout, and inspection; world grips stay unchanged. */
 export function itemInventoryRotation(itemId: string) {
   const world = itemPresentation(itemId)?.world;
@@ -308,14 +313,8 @@ export function itemArtMarkup(itemId: string, hidden = true) {
   const presentation = itemPresentation(itemId)?.inventory;
   const aria = hidden ? ' aria-hidden="true"' : "";
   if (presentation?.source && itemHasGalaxyFinish(itemId)) {
-    // The art masks the shared sky and is blended back over it (game.css). Its
-    // url stays inline: one inside a custom property would resolve against the
-    // stylesheet's folder instead of the page.
-    applyGalaxyArtTexture();
     const style = [
-      `background-image: url(${presentation.source}), var(--galaxy-art-texture, ${GALAXY_ART_FALLBACK})`,
-      `-webkit-mask-image: url(${presentation.source})`,
-      `mask-image: url(${presentation.source})`,
+      galaxyArtStyle(presentation.source),
       `--item-art-rotation: ${itemInventoryRotation(itemId)}deg`,
       presentation.equippedWidth ? `--equipped-art-width: ${presentation.equippedWidth}px` : "",
       presentation.equippedHeight ? `--equipped-art-height: ${presentation.equippedHeight}px` : "",
@@ -332,6 +331,43 @@ export function itemArtMarkup(itemId: string, hidden = true) {
     return `<span class="inventory-item-art" style="${style}"${aria}></span>`;
   }
   return `<span class="boot-pixel-icon"${itemId === BLACK_BOOTS ? ' style="filter: grayscale(1) brightness(.45)"' : ""} aria-hidden="true"><i></i><i></i></span>`;
+}
+
+/**
+ * The inline half of a galaxy icon: the art masks the shared sky and is
+ * blended back over it (`.has-galaxy-finish` in game.css draws the rest). The
+ * url stays inline: one inside a custom property would resolve against the
+ * stylesheet's folder instead of the page.
+ */
+export function galaxyArtStyle(source: string) {
+  applyGalaxyArtTexture();
+  return [
+    `background-image: url(${source}), var(--galaxy-art-texture, ${GALAXY_ART_FALLBACK})`,
+    `-webkit-mask-image: url(${source})`,
+    `mask-image: url(${source})`,
+  ].join("; ");
+}
+
+/**
+ * An item's art as an element for places that show a plain image: an <img>,
+ * or for a galaxy piece a masked span whose sky moves. `className` goes on it
+ * either way, so the place's own sizing applies to both.
+ */
+export function itemArtImage(itemId: string, className = "") {
+  const source = itemPresentation(itemId)?.inventory.source ?? "";
+  if (itemHasGalaxyFinish(itemId) && source) {
+    const span = document.createElement("span");
+    span.className = `${className} item-art-image has-galaxy-finish`.trim();
+    span.setAttribute("style", galaxyArtStyle(source));
+    span.setAttribute("aria-hidden", "true");
+    return span;
+  }
+  const image = document.createElement("img");
+  if (className) image.className = className;
+  image.src = source;
+  image.alt = "";
+  image.draggable = false;
+  return image;
 }
 
 export function projectileKindForWeapon(itemId: string | undefined) {

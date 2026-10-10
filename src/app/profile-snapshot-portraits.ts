@@ -1,7 +1,14 @@
 import { profileSnapshotKey, type ProfileSnapshotLook } from "../../shared/profile-snapshot";
 
-/** A drawn snapshot: the canvas for canvas portraits, a URL for DOM ones. */
-export type ProfileSnapshotPortrait = { key: string; canvas: CanvasImageSource; url: string };
+/**
+ * A drawn snapshot: the canvas for canvas portraits, a URL for DOM ones. A look
+ * wearing a galaxy piece also has `paint`, which draws it afresh, because that
+ * finish moves and a picture drawn once would freeze it.
+ */
+export type ProfileSnapshotPortrait = {
+  key: string; canvas: CanvasImageSource; url: string;
+  paint?: (context: CanvasRenderingContext2D, width: number, height: number) => void;
+};
 type Renderer = (look: ProfileSnapshotLook) => ProfileSnapshotPortrait | null;
 type Source = { look: (identity: string) => ProfileSnapshotLook | undefined; revision: () => number };
 

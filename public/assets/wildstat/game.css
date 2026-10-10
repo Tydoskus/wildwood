@@ -256,6 +256,8 @@
   .profile-icon-choice.is-selected { border-color: var(--green); box-shadow: 0 0 0 1px rgba(105,229,111,.5); }
   .profile-icon-cropped { position: relative; }
   .profile-icon-art { position: absolute; display: block; background-repeat: no-repeat; pointer-events: none; }
+  /* A snapshot wearing a galaxy piece, drawn live over the portrait's backdrop (profile-icons.ts). */
+  .profile-icon-live { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border-radius: inherit; background: transparent; image-rendering: auto; pointer-events: none; }
 
   #playerPower {
     flex: 0 0 auto;
@@ -602,8 +604,8 @@
   .equipment-slot .inventory-item-art { width: var(--equipped-art-width, 34px); height: var(--equipped-art-height, 34px); }
   /* Galaxy cosmetics: the art masks a drifting sky (painted by galaxy-finish.ts)
      and is blended back over it, so its outline and shading still read. */
-  .inventory-item-art.has-galaxy-finish {
-    /* Both images and the mask are set inline by itemArtMarkup. */
+  .has-galaxy-finish {
+    /* Both images and the mask are set inline (galaxyArtStyle in item-presentation.ts). */
     background-size: contain, 96px 96px;
     background-repeat: no-repeat, repeat;
     background-position: center, 0 0;
@@ -615,7 +617,11 @@
     animation: galaxy-art-drift 40s linear infinite;
   }
   @keyframes galaxy-art-drift { to { background-position: center, 192px 96px; } }
-  @media (prefers-reduced-motion: reduce) { .inventory-item-art.has-galaxy-finish { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .has-galaxy-finish { animation: none; } }
+  /* Where a plain image of the item stood, its galaxy span takes the image's place and size. */
+  .item-art-image.has-galaxy-finish { display: block; }
+  .map-guide-drop-art .item-art-image { width: 50px; height: 50px; }
+  .developer-item-gift .daily-gem-bonus-art .item-art-image { width: 96px; height: 96px; margin: 0 auto; }
   /* The map an item came from. In an equipped slot it takes the corner, where
      the slot's own name is not; on a loose item it sits centred over the art. */
   .item-tier-label { position: absolute; top: 5px; left: 5px; right: auto; z-index: 1; color: #fff; font: 800 9px/11px var(--font-rounded); text-align: left; -webkit-text-stroke: 2px #080b08; paint-order: stroke fill; text-shadow: none; pointer-events: none; }
@@ -1427,6 +1433,7 @@
     filter: drop-shadow(0 0 4px var(--item-drop-color)) drop-shadow(0 0 10px var(--item-drop-color));
     image-rendering: pixelated;
   }
+  .item-drop-sprite.has-galaxy-finish { background-size: contain, 96px 96px; background-repeat: no-repeat, repeat; background-position: center, 0 0; image-rendering: auto; }
 
   .item-drop-name {
     color: var(--item-drop-color);
@@ -3372,7 +3379,7 @@
     .map-guide-content { gap: 12px; padding-top: 10px; }
     .map-guide-drop-card { grid-template-columns: 48px minmax(0, 1fr); min-height: 76px; gap: 7px; padding: 7px; }
     .map-guide-drop-art { width: 48px; height: 48px; }
-    .map-guide-drop-art img { width: 42px; height: 42px; }
+    .map-guide-drop-art img, .map-guide-drop-art .item-art-image { width: 42px; height: 42px; }
     .map-guide-drop-chance { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; min-width: 0; padding: 5px 0 0; border-top: 0; border-left: 0; text-align: left; }
   }
   #leaderboard[data-stat="power"] .leaderboard-modal { background: var(--window-surface-gold); }

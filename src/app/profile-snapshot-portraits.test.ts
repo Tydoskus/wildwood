@@ -10,6 +10,7 @@ import {
   PROFILE_SNAPSHOT_PORTRAIT_LIMIT, checkProfileSnapshots, profileSnapshotPortrait, resetProfileSnapshotPortraits,
   setProfileSnapshotRenderer, setProfileSnapshotSource,
 } from "./profile-snapshot-portraits";
+import { keepCanvasMoving, movingCanvasCount } from "./moving-canvases";
 
 const look = (headItem = "basic_paper_hat", skinTone = 3): ProfileSnapshotLook =>
   ({ skinTone, headItem, chestItem: "", feetItem: "", rightHandItem: "starter_bow", leftHandItem: "" });
@@ -138,4 +139,34 @@ it("paints canvas portraits from the drawn look over the backdrop, and asks for 
   expect(redraw).toHaveBeenCalledOnce();
   paint(canvas, PROFILE_ICON_SNAPSHOT | PROFILE_ICON_BLACK_BACKGROUND, "aa");
   expect(context.drawImage).toHaveBeenCalledWith({ drawn: profileSnapshotKey(look()) }, 0, 0, 25, 25);
+});
+
+it("draws a galaxy look live, in DOM and canvas portraits alike, and stops once the look is still", () => {
+  const looks = new Map([["aa", look("galaxy_helmet")]]);
+  setProfileSnapshotSource({ look: identity => looks.get(identity), revision: () => 0 });
+  const painted: Array<[number, number]> = [];
+  setProfileSnapshotRenderer(value => ({ key: profileSnapshotKey(value), canvas: {} as never, url: "data:image/png;base64,QQ==",
+    paint: value.headItem === "galaxy_helmet" ? (_context: CanvasRenderingContext2D, width: number, height: number) => { painted.push([width, height]); } : undefined }));
+  const element = document.createElement("span"); document.body.append(element);
+  applyProfileIcon(element, PROFILE_ICON_SNAPSHOT, "aa");
+  // A canvas over the backdrop carries the moving portrait; the frozen picture is not set under it.
+  expect(element.querySelector("canvas.profile-icon-live")).not.toBeNull();
+  expect(element.style.backgroundImage).toBe("none");
+  expect(movingCanvasCount()).toBe(1);
+  applyProfileIcon(element, PROFILE_ICON_SNAPSHOT, "aa");
+  expect(element.querySelectorAll("canvas.profile-icon-live")).toHaveLength(1);
+  looks.set("aa", look());
+  applyProfileIcon(element, PROFILE_ICON_SNAPSHOT, "aa");
+  expect(element.querySelector("canvas.profile-icon-live")).toBeNull();
+  expect(element.style.backgroundImage).toContain("data:image/png;base64,QQ==");
+  expect(movingCanvasCount()).toBe(0);
+
+  looks.set("aa", look("galaxy_helmet"));
+  const context = { fillStyle: "", imageSmoothingEnabled: false, drawImage: vi.fn(), fillRect: vi.fn() };
+  const canvas = { width: 25, height: 25, getContext: () => context } as unknown as HTMLCanvasElement;
+  createProfileIconCanvasPainter(() => {})(canvas, PROFILE_ICON_SNAPSHOT, "aa");
+  expect(painted.at(-1)).toEqual([25, 25]);
+  expect(context.drawImage).not.toHaveBeenCalled();
+  expect(movingCanvasCount()).toBe(1);
+  keepCanvasMoving(canvas, null);
 });

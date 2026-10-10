@@ -25,7 +25,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "../../shared/rules";
 const WORLD = { w: WORLD_WIDTH, h: WORLD_HEIGHT };
 import { createSpawnSites, createWorldLayout, mapSpawnCamps } from "../game/world";
 import { ENEMY_TYPES, REWARD_DATA, type RewardType } from "../game/enemies";
-import { itemPresentation } from "../game/item-presentation";
+import { itemArtImage, itemPresentation } from "../game/item-presentation";
 import { drawPortalMapMarker } from "../game/portal-presentation";
 import { createLootFilterWindow, type LootFilterPort } from "./loot-filter-window";
 import {
@@ -302,14 +302,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
 
       const art = document.createElement("div");
       art.className = "map-guide-drop-art";
-      const artSource = itemPresentation(drop.itemId)?.inventory.source;
-      if (artSource) {
-        const image = document.createElement("img");
-        image.src = artSource;
-        image.alt = "";
-        image.draggable = false;
-        art.append(image);
-      }
+      if (itemPresentation(drop.itemId)?.inventory.source) art.append(itemArtImage(drop.itemId));
 
       const copy = document.createElement("div");
       copy.className = "map-guide-drop-copy";

@@ -141,7 +141,7 @@
 .mailbox-equipment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; margin: 8px 0; }
 .mailbox-equipment-item { min-width: 0; margin: 0; }
 .mailbox-equipment-icon { position: relative; width: 100%; max-width: 88px; aspect-ratio: 1; margin: 0 auto 6px; border: 2px solid #ffffff26; border-radius: 9px; box-sizing: border-box; }
-.mailbox-equipment-icon img { position: absolute; inset: 12%; width: 76%; height: 76%; object-fit: contain; }
+.mailbox-equipment-icon img, .mailbox-equipment-icon .item-art-image { position: absolute; inset: 12%; width: 76%; height: 76%; object-fit: contain; }
 .mailbox-equipment-level { position: absolute; top: 3px; right: 5px; font-size: 12px; color: #fff; }
 .mailbox-equipment-item figcaption { font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
 

@@ -1,6 +1,8 @@
 import { canvasRenderPixelRatio } from "./render-budget";
 import { drawStartingPlayer, type PlayerAppearanceAssets } from "../player-appearance";
 import { requiredCanvasContext } from "./dom";
+import { appearanceHasGalaxyFinish } from "../item-presentation";
+import { keepCanvasMoving } from "../../app/moving-canvases";
 
 export type LeaderboardPodiumAppearance = {
   skinTone: number;
@@ -57,6 +59,8 @@ export function createLeaderboardPodiumPreview(playerAppearanceAssets: PlayerApp
       leftHandItem: appearance.leftHandItem,
       scale,
     });
+    // The board draws its podium once; a galaxy piece on it keeps being redrawn so its finish moves.
+    keepCanvasMoving(canvas, appearanceHasGalaxyFinish(appearance) ? () => draw(canvas, appearance, rank) : null);
   }
 
   return { draw };

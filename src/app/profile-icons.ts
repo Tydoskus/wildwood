@@ -1,12 +1,56 @@
 import { PROFILE_ICON_BACKGROUND_COLORS, PROFILE_ICON_GRID, PROFILE_ICON_SHEETS, profileIconLocation } from "../../shared/profile-icons";
 import { OBJECT_ATLAS_SIZE, containedIconRect, objectIconCrop } from "./profile-icon-crops";
-import { onProfileSnapshotsChanged, profileSnapshotPortrait, watchProfileSnapshotElement } from "./profile-snapshot-portraits";
+import { onProfileSnapshotsChanged, profileSnapshotPortrait, watchProfileSnapshotElement, type ProfileSnapshotPortrait } from "./profile-snapshot-portraits";
+import { keepCanvasMoving } from "./moving-canvases";
 
 const ZOOM = 1.03;
 const POSITION_STEP = ZOOM / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 const POSITION_START = (ZOOM - 1) / 2 / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 
 const appliedSnapshots = new WeakMap<HTMLElement, string>();
+
+/** Draws a moving snapshot into its canvas at the canvas's own size on screen. */
+function paintMovingPortrait(canvas: HTMLCanvasElement, portrait: ProfileSnapshotPortrait) {
+  const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
+  const width = Math.max(1, Math.round(canvas.clientWidth * ratio)), height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+  if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.clearRect(0, 0, width, height);
+  context.imageSmoothingEnabled = true;
+  portrait.paint?.(context, width, height);
+}
+
+/**
+ * A snapshot wearing a galaxy piece is drawn live into a canvas laid over the
+ * portrait, since a picture drawn once would freeze the finish. The element's
+ * own backdrop colour still shows through it.
+ */
+function showMovingPortrait(element: HTMLElement, portrait: ProfileSnapshotPortrait) {
+  let canvas = element.querySelector<HTMLCanvasElement>(":scope > canvas.profile-icon-live");
+  if (!canvas) {
+    canvas = element.ownerDocument.createElement("canvas");
+    canvas.className = "profile-icon-live";
+    canvas.setAttribute("aria-hidden", "true");
+    element.prepend(canvas);
+    const view = element.ownerDocument.defaultView;
+    if (view?.getComputedStyle?.(element).position === "static") element.style.position = "relative";
+  }
+  element.style.backgroundImage = "none";
+  const live = canvas;
+  if (appliedSnapshots.get(element) !== portrait.key) {
+    appliedSnapshots.set(element, portrait.key);
+    paintMovingPortrait(live, portrait);
+  }
+  keepCanvasMoving(live, () => paintMovingPortrait(live, portrait));
+}
+
+function removeMovingPortrait(element: HTMLElement) {
+  const canvas = element.querySelector<HTMLCanvasElement>(":scope > canvas.profile-icon-live");
+  if (!canvas) return;
+  keepCanvasMoving(canvas, null);
+  canvas.remove();
+}
 
 /**
  * Paints a saved profile icon (picture and backdrop) into any portrait element.
@@ -28,6 +72,8 @@ export function applyProfileIcon(element: HTMLElement, iconIndex: number, identi
   if (portrait) {
     element.querySelector(":scope > .profile-icon-art")?.remove();
     element.classList.remove("profile-icon-cropped");
+    if (portrait.paint) { showMovingPortrait(element, portrait); return; }
+    if (element.querySelector(":scope > canvas.profile-icon-live")) { removeMovingPortrait(element); appliedSnapshots.delete(element); }
     // The HUD repaints its own portrait often; a data URL is only set again when it changed.
     if (appliedSnapshots.get(element) === portrait.key && element.style.backgroundImage !== "none") return;
     appliedSnapshots.set(element, portrait.key);
@@ -37,6 +83,7 @@ export function applyProfileIcon(element: HTMLElement, iconIndex: number, identi
     return;
   }
   appliedSnapshots.delete(element);
+  removeMovingPortrait(element);
   const crop = icon.category === "objects" ? objectIconCrop(icon.path, icon.cell) : undefined;
   let art = element.querySelector<HTMLElement>(":scope > .profile-icon-art");
   element.classList.toggle("profile-icon-cropped", Boolean(crop));
@@ -69,7 +116,7 @@ export function applyProfileIcon(element: HTMLElement, iconIndex: number, identi
 export function createProfileIconCanvasPainter(onSheetLoaded: () => void) {
   const sheets = new Map<number, HTMLImageElement>();
   onProfileSnapshotsChanged(onSheetLoaded);
-  return (canvas: HTMLCanvasElement, iconIndex: number, identity?: string) => {
+  const paint = (canvas: HTMLCanvasElement, iconIndex: number, identity?: string) => {
     const context = canvas.getContext("2d");
     if (!context) return;
     const icon = profileIconLocation(iconIndex);
@@ -77,9 +124,12 @@ export function createProfileIconCanvasPainter(onSheetLoaded: () => void) {
     context.fillStyle = PROFILE_ICON_BACKGROUND_COLORS[icon.background];
     context.fillRect(0, 0, canvas.width, canvas.height);
     const portrait = icon.snapshot ? profileSnapshotPortrait(identity) : undefined;
+    // A galaxy piece keeps its canvas moving; anything else is drawn once.
+    keepCanvasMoving(canvas, portrait?.paint ? () => paint(canvas, iconIndex, identity) : null);
     if (portrait) {
       context.imageSmoothingEnabled = true;
-      context.drawImage(portrait.canvas, 0, 0, canvas.width, canvas.height);
+      if (portrait.paint) portrait.paint(context, canvas.width, canvas.height);
+      else context.drawImage(portrait.canvas, 0, 0, canvas.width, canvas.height);
       return;
     }
     let sheet = sheets.get(icon.sheetIndex);
@@ -103,4 +153,5 @@ export function createProfileIconCanvasPainter(onSheetLoaded: () => void) {
     context.imageSmoothingEnabled = true;
     context.drawImage(sheet, icon.column * width + insetX, icon.row * height + insetY, width / ZOOM, height / ZOOM, 0, 0, canvas.width, canvas.height);
   };
+  return paint;
 }

@@ -1,7 +1,11 @@
 export const ITEM_DROP_REVEAL_DURATION_MS = 3_400;
 
+import { galaxyArtStyle, itemHasGalaxyFinish } from "../game/item-presentation";
+
 export type ItemDropRevealDetails = {
   artSource: string;
+  /** The item shown, when there is one: a galaxy piece's sky moves on the card too. */
+  itemId?: string;
   color: string;
   name: string;
   stats: readonly string[];
@@ -23,7 +27,10 @@ export function createItemDropReveal(details: ItemDropRevealDetails) {
   art.setAttribute("aria-hidden", "true");
   const sprite = document.createElement("span");
   sprite.className = "item-drop-sprite";
-  if (details.artSource) sprite.style.backgroundImage = `url(${details.artSource})`;
+  if (details.artSource && itemHasGalaxyFinish(details.itemId)) {
+    sprite.classList.add("has-galaxy-finish");
+    sprite.setAttribute("style", galaxyArtStyle(details.artSource));
+  } else if (details.artSource) sprite.style.backgroundImage = `url(${details.artSource})`;
   art.appendChild(sprite);
 
   const displayName = itemDropRevealName(details.name);

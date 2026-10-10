@@ -1909,7 +1909,7 @@ import {
     renderInventory();
     const level = coop?.itemUpgradeLevel?.(itemId) ?? 0;
     runtimeHud.showItemDrop({
-      artSource: itemPresentation(itemId)?.inventory.source ?? "",
+      artSource: itemPresentation(itemId)?.inventory.source ?? "", itemId,
       color: itemDropColor(itemId),
       name: itemDisplayName(itemId),
       stats: itemStatsWithBowSkills(itemId, level, coop?.bowSkills?.(itemId)),
