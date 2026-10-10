@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.901.35": [
     "Tapping a name in the leaderboard or private chat search on a phone picks it",
+    "Ping improvement",
   ],
   "0.901.34": [
     "Ping updates about once a second while you play, from the last three seconds instead of five",

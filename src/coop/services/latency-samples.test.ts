@@ -26,9 +26,11 @@ describe("connection latency", () => {
     const latency = createLatencySamples();
     for (let i = 0; i < LATENCY_WINDOW; i += 1) latency.record(40);
     expect(latency.value()).toBe(40);
-    // Most of the window has to agree before the reading moves, which at one
-    // sample a second is a few seconds rather than instantly.
+    // The reading is the quickest quarter, so it rises once nearly all the
+    // window is slow: a moment of queueing on the server does not move it.
     for (let i = 0; i < Math.ceil(LATENCY_WINDOW / 2); i += 1) latency.record(400);
+    expect(latency.value()).toBe(40);
+    for (let i = 0; i < 2; i += 1) latency.record(400);
     expect(latency.value()).toBe(400);
   });
 
@@ -36,7 +38,7 @@ describe("connection latency", () => {
     const latency = createLatencySamples(3);
     for (const sample of [10, 20, 30, 40, 50]) latency.record(sample);
     expect(latency.size).toBe(3);
-    expect(latency.value()).toBe(40);
+    expect(latency.value()).toBe(30);
     latency.reset();
     expect(latency.value()).toBeNull();
   });
@@ -53,8 +55,8 @@ describe("connection latency", () => {
     const latency = createLatencySamples(7, 5_000, () => clock);
     for (const sample of [40, 41, 42, 43]) { latency.record(sample); clock += 4_000; }
     latency.record(300); clock += 1_000; latency.record(310);
-    // 43, 300 and 310 are within five seconds; the older 40s no longer hold it down.
-    expect(latency.value()).toBe(300);
+    // 43, 300 and 310 are within five seconds, and the quickest of them stands; the older 40s are gone.
+    expect(latency.value()).toBe(43);
     clock += 60_000;
     expect(latency.value()).toBe(310);
   });

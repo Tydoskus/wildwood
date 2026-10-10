@@ -69,6 +69,8 @@ type WildStatRuntime = Window & {
 };
 // Timing a reducer the game sends anyway costs nothing: four a second keeps the reading live while playing.
 const LATENCY_SAMPLE_INTERVAL_MS = 250;
+/** Only the small, steady reducers are timed; a duel or puppet message does more and reads as lag. */
+const LATENCY_ACTIONS = new Set(["movement state", "speed sync", "motion interest"]);
 const latencySamples = createLatencySamples();
 // Allow normal connection/session deadlines to recover before restarting a stalled attempt.
 const WAKE_RECONNECT_WATCHDOG_MS = 45_000;
@@ -268,7 +270,7 @@ function sendReducer(action: string, reducer: () => unknown, onRejected?: () => 
   if (protocolBlocked || worldEntryBlocked) return;
   try {
     const startedAt = performance.now();
-    const measureLatency = startedAt - lastLatencyProbeStartedAt >= LATENCY_SAMPLE_INTERVAL_MS;
+    const measureLatency = LATENCY_ACTIONS.has(action) && startedAt - lastLatencyProbeStartedAt >= LATENCY_SAMPLE_INTERVAL_MS;
     if (measureLatency) lastLatencyProbeStartedAt = startedAt;
     void runWorldReducer(() => Promise.resolve(reducer()))
       .then(() => {

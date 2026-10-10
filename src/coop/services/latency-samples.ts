@@ -1,5 +1,12 @@
-/** How many round trips the reading is taken from. Odd, so there is a middle. */
+/** How many round trips the reading is taken from. */
 export const LATENCY_WINDOW = 7;
+/**
+ * The reading is the quickest quarter of them, not the middle: a round trip is
+ * the network plus however long this reducer waited behind everyone else's on
+ * the server, and the quick ones are the ones that waited least, so they track
+ * the connection rather than the server's queue (Ryan: the middle jumped about).
+ */
+export const LATENCY_PERCENTILE = .25;
 
 /** A reading covers only the last few seconds (0.873); at idle the 7 samples could span 15 s or more. Three, now samples come four a second. */
 export const LATENCY_MAX_AGE_MS = 3_000;
@@ -37,7 +44,7 @@ export function createLatencySamples(window = LATENCY_WINDOW, maxAgeMs = LATENCY
       const recent = samples.filter(sample => sample.at >= since);
       if (!recent.length) return samples[samples.length - 1].value;
       const sorted = recent.map(sample => sample.value).sort((left, right) => left - right);
-      return sorted[Math.floor(sorted.length / 2)];
+      return sorted[Math.floor((sorted.length - 1) * LATENCY_PERCENTILE)];
     },
     reset() { samples = []; },
     get size() { return samples.length; },
