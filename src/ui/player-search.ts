@@ -4,6 +4,11 @@ export const MAGNIFIER_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" focusa
 
 const CLOSE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6 18 18M18 6 6 18" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>`;
 
+/** A touch that moves further than this between press and release was scrolling the list, not choosing. */
+const TAP_SLOP = 10;
+/** How long the list stays after the field loses focus, so a phone's tap still lands on its choice. */
+const BLUR_CLOSE_MS = 200;
+
 export type PlayerSearchOptions = {
   /** The directory, loaded once and kept by the social service; undefined while offline. */
   load: () => Promise<PlayerDirectoryEntry[]> | undefined;
@@ -105,8 +110,24 @@ export function createPlayerSearch(options: PlayerSearchOptions) {
     } else name.textContent = player.name;
     item.append(name);
     // Pressing keeps focus in the field, so the list does not close before the pick lands.
-    item.addEventListener("pointerdown", event => event.preventDefault());
-    item.addEventListener("click", () => pick(player));
+    // A phone moves focus on the tap anyway and the list was gone before the click:
+    // a touch picks on release instead, unless the finger moved to scroll the list.
+    let touchStart: { x: number; y: number } | null = null, pickedByTouch = false;
+    item.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      touchStart = event.pointerType === "mouse" ? null : { x: event.clientX, y: event.clientY };
+    });
+    item.addEventListener("pointerup", event => {
+      const start = touchStart;
+      touchStart = null;
+      if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > TAP_SLOP) return;
+      event.preventDefault();
+      pickedByTouch = true;
+      pick(player);
+    });
+    item.addEventListener("pointercancel", () => { touchStart = null; });
+    // The click a touch release is followed by has already been picked.
+    item.addEventListener("click", () => { if (pickedByTouch) { pickedByTouch = false; return; } pick(player); });
     return item;
   }
 
@@ -159,7 +180,13 @@ export function createPlayerSearch(options: PlayerSearchOptions) {
 
   input.addEventListener("focus", () => { ensureLoaded(); render(); });
   input.addEventListener("input", () => { active = input.value.trim() ? 0 : -1; render(); });
-  input.addEventListener("blur", () => { results.hidden = true; input.setAttribute("aria-expanded", "false"); });
+  // A beat before the list goes: a tap's blur comes before its click on a phone.
+  input.addEventListener("blur", () => {
+    window.setTimeout(() => {
+      if (document.activeElement === input) return;
+      results.hidden = true; input.setAttribute("aria-expanded", "false");
+    }, BLUR_CLOSE_MS);
+  });
   input.addEventListener("keydown", event => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       if (!matches.length) return;
