@@ -18,6 +18,8 @@ import type { EnemyState, PlayerState } from "./types";
 export const SOUL_DEFENSE_FORCE_KILLS = 1000;
 export const SOUL_DEFENSE_FORCE_NAME = "Soul Defense Force";
 const KEY = "wildstat:soul-defense-force:v1";
+/** Its own site id: -1 is the generated bosses', and a respawn timer kept for that id refused the spawn. */
+const SITE_ID = -7_000;
 /** Seconds of the player's own damage it takes to bring down; a soul enemy takes SOUL_SECONDS_TO_KILL. */
 const SECONDS_TO_KILL = 45;
 const TOUCH_DAMAGE_MULTIPLIER = 3;
@@ -62,8 +64,9 @@ export function createSoulDefenseForce(deps: {
     const { player } = deps;
     const soul = soulEnemyStats(deps.strength());
     const angle = Math.random() * Math.PI * 2;
+    const before = deps.enemies.length;
     deps.spawnFromSite({
-      id: -1, type: "Dread Warden", campName: SOUL_DEFENSE_FORCE_NAME,
+      id: SITE_ID, type: "Dread Warden", campName: SOUL_DEFENSE_FORCE_NAME,
       x: player.x + Math.cos(angle) * 520, y: player.y + Math.sin(angle) * 520,
       leashRange: 1e9, alive: false, respawnAt: 0,
       definition: {
@@ -75,8 +78,10 @@ export function createSoulDefenseForce(deps: {
         reward: { type: "damage", amount: 0 },
       },
     });
-    boss = deps.enemies[deps.enemies.length - 1] ?? null;
-    if (!boss) return;
+    // A refused spawn adds nothing, and the last enemy is then a soul enemy: taking it
+    // for the boss announced the boss, and killing that enemy "defeated" it.
+    if (deps.enemies.length === before) return;
+    boss = deps.enemies[deps.enemies.length - 1];
     boss.displayName = SOUL_DEFENSE_FORCE_NAME;
     boss.spriteScale = 2;
     boss.engaged = true;

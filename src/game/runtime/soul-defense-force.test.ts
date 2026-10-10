@@ -3,12 +3,13 @@ import { createSoulDefenseForce, SOUL_DEFENSE_FORCE_KILLS, SOUL_DEFENSE_FORCE_NA
 import type { SpawnSite } from "../world";
 import type { EnemyState, PlayerState } from "./types";
 
-function setup() {
+function setup(refuse = false) {
   const values = new Map<string, string>();
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
   const player = { x: 1000, y: 1000, r: 20, hp: 100, maxHp: 100 } as PlayerState;
   const enemies: EnemyState[] = [];
   const spawnFromSite = (site: SpawnSite) => {
+    if (refuse) return;
     const definition = site.definition!;
     enemies.push({ x: site.x, y: site.y, r: definition.r, hp: definition.hp, maxHp: definition.hp, dead: false, engaged: false, speed: definition.speed,
       campName: site.campName, siteId: site.id, type: site.type, facingX: 1 } as unknown as EnemyState);
@@ -90,4 +91,15 @@ it("leaves with the player and comes back with the count kept", () => {
   s.enemies.length = 0;
   s.force.update(.1, true);
   expect(s.enemies).toHaveLength(1);
+});
+
+it("does not take a soul enemy for itself when its spawn is refused, and tries again", () => {
+  const s = setup(true);
+  const soulEnemy = { campName: "soul:damage:forest:0", dead: false, x: 0, y: 0, r: 20 } as unknown as EnemyState;
+  s.enemies.push(soulEnemy);
+  s.killAll(); s.force.update(.1, true);
+  expect(s.message).not.toHaveBeenCalled();
+  expect(s.force.active()).toBe(false);
+  expect(s.force.defeated(soulEnemy)).toBe(false);
+  expect(s.force.count()).toBe(SOUL_DEFENSE_FORCE_KILLS);
 });

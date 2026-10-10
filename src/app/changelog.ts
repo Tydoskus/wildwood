@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.901.33": [
+    "Whatever keeps count in the Soul Dimension now actually arrives",
+  ],
   "0.901.32": [
     "Galaxy and Diamond Galaxy Boots show their winged boot again in the inventory, and stay regular boots on your character",
     "Galaxy and Diamond Galaxy pieces keep a clean black outline: no sky over it and no pale line inside it",
@@ -3098,6 +3101,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.901.33": "2026-10-09",
   "0.901.32": "2026-10-09",
   "0.901.31": "2026-10-09",
   "0.901.30": "2026-10-09",
