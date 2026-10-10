@@ -136,7 +136,8 @@ export function createGuildBattlefieldRenderer(canvas: HTMLCanvasElement, ctx: C
         alpha = Math.max(0, 1 - Math.max(0, deathAge - .6) / .5);
       }
       drawStartingPlayer(ctx, assets.player, { ...fighter.appearance, x: actor.x, y: actor.y - 5 * actorScale,
-        facing: aim, combatFacing: aim, moving: actor.moving && deathAge < 0, gameTime: (entranceTime ?? time) + i * .137,
+        // Once fallen, the pose holds: no idle head bob on a body lying down.
+        facing: aim, combatFacing: aim, moving: actor.moving && deathAge < 0, gameTime: deathAge >= 0 ? 0 : (entranceTime ?? time) + i * .137,
         throwClock, alpha, scale: PLAYER_WORLD_SCALE * actorScale, smooth: true });
       ctx.restore();
     }

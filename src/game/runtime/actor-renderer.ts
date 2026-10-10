@@ -193,7 +193,8 @@ export function createActorRenderer(options: {
   nowMs: () => number;
   localDeath: () => PlayerDeathAnimationState | null;
   remoteDeath: (identity: string) => PlayerDeathAnimationState | null;
-  drawPlayerAppearance: (actor: { skinTone?: number; x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string }, alpha: number) => void;
+  /** `gameTime`, when given, holds the idle pose at that moment instead of the frame clock's. */
+  drawPlayerAppearance: (actor: { skinTone?: number; x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; gameTime?: number; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string }, alpha: number) => void;
   localHeadItem: () => string;
   localChestItem: () => string;
   localFeetItem: () => string;
@@ -375,7 +376,7 @@ export function createActorRenderer(options: {
   }
 
   function drawPlayerSprite(
-    actor: { skinTone?: number; x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string },
+    actor: { skinTone?: number; x: number; y: number; facing: number; combatFacing?: number | null; moving?: boolean; gameTime?: number; throwClock?: number; identity?: string; id?: string; headItem?: string; chestItem?: string; feetItem?: string; rightHandItem?: string; leftHandItem?: string },
     alpha = 1,
   ) {
     options.drawPlayerAppearance(actor, alpha);
@@ -426,6 +427,8 @@ export function createActorRenderer(options: {
       facing: death.facing,
       combatFacing: null,
       moving: false,
+      // A fallen body is still: the idle head bob would keep the head nodding on the ground.
+      gameTime: 0,
       throwClock: 0,
       headItem: "",
       rightHandItem: "",

@@ -233,7 +233,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     remoteDeath: options.remoteDeath,
     drawPlayerAppearance: (rendered, alpha) => drawStartingPlayer(options.ctx, options.playerAppearanceAssets, {
       ...rendered,
-      gameTime: options.gameTime(),
+      gameTime: rendered.gameTime ?? options.gameTime(),
       skinTone: rendered.skinTone ?? options.skinTone(rendered.identity ?? rendered.id) ?? DEFAULT_SKIN_TONE,
       alpha,
     }),
