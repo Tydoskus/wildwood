@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.917.11": [
+    "Added a movable Mysterious Ore timer, enabled in Settings -> Display & HUD",
+  ],
   "0.917.10": [
     "Game settings are grouped into expandable sections",
     "Search cards by name, description, or area, filtering as you type",
@@ -3955,6 +3958,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.917.11": "2026-10-24",
   "0.917.10": "2026-10-23",
   "0.917.9": "2026-10-23",
   "0.917.8": "2026-10-23",

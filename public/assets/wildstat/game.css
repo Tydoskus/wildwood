@@ -484,6 +484,12 @@
     .settings-disclosure-description { display: block; margin: 4px 0 0 14px; }
   }
   .settings-disclosure-content { padding: 0 0 6px 12px; border-left: 2px solid rgba(255,255,255,.12); }
+  .mysterious-ore-timer { position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px)); width: max-content; max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow: auto; z-index: 6; pointer-events: auto; border: var(--hud-border) solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); color: var(--text, #fff); font: 700 13px/1.25 "Wildstat Chat", sans-serif; font-variant-numeric: tabular-nums; }
+  .mysterious-ore-timer[hidden], .mysterious-ore-timer [hidden] { display: none; }
+  .mysterious-ore-timer.is-world-gesture, .mysterious-ore-timer.is-world-gesture * { pointer-events: none; }
+
+  .mysterious-ore-timer button { box-sizing: border-box; min-height: 28px; margin: 0; padding: 5px 8px; border: 0; background: transparent; color: inherit; font: inherit; box-shadow: none; white-space: nowrap; }
+  .mysterious-ore-timer .mysterious-ore-timer-handle { flex: 1; text-align: left; cursor: grab; touch-action: none; }
   .settings-tab-panel .setting-reset { margin-top: 28px; }
   /* The Graphics readout: plain read-only lines, the tip dimmer. */
   .graphics-info { display: grid; gap: 4px; padding: 6px 0 2px; }

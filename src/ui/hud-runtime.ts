@@ -12,6 +12,7 @@ import { createGameRuntimeHud } from "./game-ui-runtime";
 import { createHudTimerColumn } from "./hud-timer-column";
 import { createItemGiftController } from "./item-gift-controller";
 import { installServerBoostHud } from "./server-boost-hud";
+import { installMysteriousOreTimer } from "./mysterious-ore-timer";
 
 type GameElements = ReturnType<typeof createGameElements>;
 type IdentityRenderer = ReturnType<typeof createPlayerIdentityRenderer>;
@@ -70,6 +71,7 @@ export function createHudRuntime(deps: HudRuntimeDeps) {
     goToResearch: deps.goToResearch,
   });
   installServerBoostHud(() => client?.serverBoost?.()?.remainingMs ?? 0);
+  installMysteriousOreTimer({ source: () => client, connected: coop.connected });
 
   return { runtimeHud, rewardedRespawnAd };
 }
