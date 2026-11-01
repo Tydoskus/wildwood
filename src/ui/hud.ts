@@ -106,7 +106,8 @@ export function renderPlayerHud(
     powerValue.textContent = powerText;
     elements.playerPower.dataset.renderedPower = powerText;
   }
-  const status = `players online: ${playerCount}`;
+  // One database today; named as a numbered server so more can join the list later.
+  const status = `Server 1: ${playerCount} Online`;
   for (const statusElement of [elements.coopStatus, elements.minimapPlayers]) {
     if (statusElement && statusElement.textContent !== status) statusElement.textContent = status;
   }
