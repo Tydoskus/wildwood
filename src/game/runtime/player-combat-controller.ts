@@ -1,7 +1,7 @@
 import { SOUL_STAT_DETAILS, soulEnemyId, type SoulStatId } from "../../../shared/soul-dimension";
 import { addAttackSpeedRating, attackCapInterval, cleanRating, type AttackCapArg } from "../../../shared/stat-rating";
 import { compareAutoFarmTargets, farmGroupMatches, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm/auto-farm-priority';
-import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
+import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit, isDagger } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { bossSurfaceDistance, bossVerticalRadius } from "../../../shared/boss-hitbox";
 import { isEnemyAttackingPlayer } from "./enemies/enemy-threat";
@@ -46,6 +46,8 @@ import {
   type AbsoluteAttackTimestamps,
 } from "../attack-timeline";
 import type { DamageSource } from "./dps-meter";
+import { DaggerSkillEffects, createDaggerSkillRuntime } from "./dagger-skill-runtime";
+import { DAGGER_POISON_DURATION } from "../../../shared/dagger-skills";
 
 const PLAYER_PROJECTILE_VISUAL_TAIL = 36;
 // A Piercing Shot arrow reaches twice as far as a plain one, and once past
@@ -182,7 +184,7 @@ export function createPlayerCombatController(options: {
   spawnParticle: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   spawnDamageNumber: (x: number, y: number, amount: number, critical?: boolean, damageTaken?: boolean, reflected?: boolean) => void;
   /** Weapon skill visuals; combat still works without them (tests, tools). */
-  skillEffects?: SwordSkillEffects & StaffSkillEffects & {
+  skillEffects?: SwordSkillEffects & StaffSkillEffects & DaggerSkillEffects & {
     spawnArcingArrow: (fromX: number, fromY: number, toX: number, toY: number, index: number, color: string) => void;
     spawnSkillStreak: (x: number, y: number, toX: number, toY: number, color: string, width?: number, life?: number, jagged?: boolean) => void;
     spawnSkillRing: (x: number, y: number, color: string, radius?: number, life?: number) => void;
@@ -261,6 +263,11 @@ export function createPlayerCombatController(options: {
     strike: (target, damage, source, reflected) => applyPlayerHit(target, damage, false, 0, source, reflected === true, true),
     streak: (fromX, fromY, toX, toY, color) => options.skillEffects
       ? options.skillEffects.spawnSkillStreak(fromX, fromY, toX, toY, color, 3, .28, true) : streak(fromX, fromY, toX, toY, color),
+  });
+  const daggerSkills = createDaggerSkillRuntime({
+    player, enemies, currentMapId: options.currentMapId, equippedWeapon: options.equippedWeapon,
+    activeBoss: activeMapBoss, roll: weaponSkills, nowSeconds: options.nowSeconds, random,
+    isDueling, onCombat: options.onCombat, effects: options.skillEffects, hit: applyPlayerHit, poison: (target: EnemyState | BossTarget, damage: number) => cardCombat.damageOverTime(target, "poison", damage, DAGGER_POISON_DURATION),
   });
   // Reflect draws from a marble bag, so its rate corrects itself instead of
   // running dry for a hundred hits at 6%. Only hits it could answer draw.
@@ -391,6 +398,19 @@ export function createPlayerCombatController(options: {
     if (second) applyPlayerHit(second, weaponDamage(critical), critical, Math.atan2(second.y - player.y, second.x - player.x), 'sword-split-shot');
   }
 
+  function strikeDagger(target: AttackTarget) {
+    options.playSwordAttackSound?.(player.attackRate);
+    rebuildTargetGrid();
+    const angle = Math.atan2(targetAimY(target) - player.y, target.x - player.x);
+    const hit = raycastProjectile(player.x, player.y, player.x + Math.cos(angle) * attackRange(), player.y + Math.sin(angle) * attackRange(), 0);
+    if (!hit) { techniques.swingMissed(); return; }
+    const critical = (!hit.enemy.isBoss || Boolean(options.hitPersonalBoss)) && Math.random() < researchCriticalChance();
+    const damage = weaponDamage(critical);
+    daggerSkills.poison(hit.enemy, damage);
+    if (daggerSkills.backstab(hit.enemy, weaponDamage, researchCriticalChance(), angle + Math.PI)) return;
+    applyPlayerHit(hit.enemy, damage, critical, angle, 'dagger-hit');
+  }
+
   function launchPlayerStone(target: AttackTarget, releasedAtSeconds: number) {
     const dx = target.x - player.x;
     const dy = targetAimY(target) - player.y;
@@ -467,7 +487,13 @@ export function createPlayerCombatController(options: {
     player.throwClock = attackAnimationClockAt(attack.timestamps, nowSeconds);
     if (!attack.projectileReleased && attackReleaseReached(attack.timestamps, nowSeconds)) {
       attack.projectileReleased = true;
-      if (isMeleeWeapon(attack.weaponItem)) strikeMelee(attack.target);
+      if (isMeleeWeapon(attack.weaponItem)) {
+        if (isDagger(attack.weaponItem)) {
+          strikeDagger(attack.target);
+        } else {
+          strikeMelee(attack.target);
+        }
+      }
       else launchPlayerStone(attack.target, attack.timestamps.releaseAtSeconds);
     }
     if (!attackAnimationFinished(attack.timestamps, nowSeconds)) return;
@@ -542,7 +568,7 @@ export function createPlayerCombatController(options: {
     // Strongest goes by max health, which never changes: a tougher one (the boss coming into range) takes over.
     const outranked = priority === 'strongest' && target && retainedTarget && target.maxHp > retainedTarget.maxHp;
     if (target && retainedTarget && !outranked && retainedThreat === defending && Number.isFinite(retainedDistance) &&
-        (ranked || options.keepTarget?.() || Math.sqrt(retainedDistance) <= Math.sqrt(best) + TARGET_SWITCH_DISTANCE)) target = retainedTarget;
+      (ranked || options.keepTarget?.() || Math.sqrt(retainedDistance) <= Math.sqrt(best) + TARGET_SWITCH_DISTANCE)) target = retainedTarget;
     return target;
   }
 
@@ -553,9 +579,9 @@ export function createPlayerCombatController(options: {
     const bossAlive = Boolean(mapBoss && !mapBoss.dead);
     // The current target and aim update every frame; only acquisition is throttled.
     if (nowSeconds >= nextTargetSearchAt || enemies.length !== searchedEnemyCount ||
-        enemyType !== searchedEnemyType || campName !== searchedCampName || attackRange() !== searchedRange || priority !== searchedPriority ||
-        mapBoss !== searchedBoss || bossAlive !== searchedBossAlive ||
-        (retainedTarget && !targetIsEligible(retainedTarget, enemyType, campName, mapBoss))) {
+      enemyType !== searchedEnemyType || campName !== searchedCampName || attackRange() !== searchedRange || priority !== searchedPriority ||
+      mapBoss !== searchedBoss || bossAlive !== searchedBossAlive ||
+      (retainedTarget && !targetIsEligible(retainedTarget, enemyType, campName, mapBoss))) {
       if (priority !== searchedPriority) retainedTarget = null;
       retainedTarget = findAttackTarget(enemyType, campName, mapBoss, priority);
       searchedPriority = priority;
@@ -698,6 +724,7 @@ export function createPlayerCombatController(options: {
   function damagePlayer(amount: number, source?: EnemyState | BossTarget | null) {
     if (isDueling() || player.hurtClock > 0) return false;
     // Cards: a dodge spends the attack and lands nothing; guards lower the hit, and a shield takes what armor lets through.
+    if (daggerSkills.dodge()) return true;
     const guarded = cardCombat.incoming(amount, source);
     if (guarded === null) return true;
     // Swordplay's Guard and Mana Shield lower it as the cards do; Reflect still answers the hit as it arrived.
@@ -862,8 +889,10 @@ export function createPlayerCombatController(options: {
           const index = volley++;
           if (options.skillEffects) options.skillEffects.spawnArcingArrow(player.x, player.y, landX, landY, index, "#ffd957");
           else spawnParticle(landX, landY - 70, 0, 420, .16, .16, 3, "#ffd957");
-          if (struck) stormHits.push({ target: struck, damage: projectile.damage * ARROW_STORM_DAMAGE_SHARE, critical, x: landX, y: landY,
-            landAt: firedAt + index * ARROW_STORM_STAGGER_SECONDS + ARROW_STORM_FLIGHT_SECONDS });
+          if (struck) stormHits.push({
+            target: struck, damage: projectile.damage * ARROW_STORM_DAMAGE_SHARE, critical, x: landX, y: landY,
+            landAt: firedAt + index * ARROW_STORM_STAGGER_SECONDS + ARROW_STORM_FLIGHT_SECONDS
+          });
         });
       }
     }
@@ -888,6 +917,7 @@ export function createPlayerCombatController(options: {
     swordSkills.update();
     staffSkills.update();
     cardCombat.update(dt);
+    daggerSkills.update();
     if (projectiles.length > 0) rebuildTargetGrid();
     for (const projectile of projectiles) {
       const projectileStepSeconds = projectileSimulationSeconds(projectile.spawnedAtSeconds, nowSeconds, dt);
@@ -960,7 +990,7 @@ export function createPlayerCombatController(options: {
     return expectedDps() * (isMeleeWeapon(options.equippedWeapon())
       ? double + swordSkillBossDamageMultiplier(weaponSkills()) - 1
       : isStaff(options.equippedWeapon()) ? double * staffSkillBossDamageMultiplier(weaponSkills())
-      : double * (1 + bowSkillChance(weaponSkills(), "arrowStorm") * ARROW_STORM_SCORE_WEIGHT));
+        : double * (1 + bowSkillChance(weaponSkills(), "arrowStorm") * ARROW_STORM_SCORE_WEIGHT));
   }
 
   return {

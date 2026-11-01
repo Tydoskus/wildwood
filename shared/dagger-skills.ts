@@ -11,6 +11,9 @@ export const DAGGER_SKILL_LABELS: Record<DaggerSkillId, string> = {
   dodge: "Dodge",
 };
 
+export const DAGGER_ATTACK_SPEED_BONUS = 0.20;
+export const DAGGER_POISON_DURATION = 3;
+
 export const DAGGER_SKILL_APPEAR_CHANCE = 1 / 3;
 export const DAGGER_SKILL_MIN_TIER = 1;
 export const DAGGER_SKILL_MAX_TIER = 15;
