@@ -92,7 +92,8 @@ type AccountLinkTransaction = { code: string; guestIdentity: string };
 
 const AUTHORIZATION_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/auth`;
 const TOKEN_ENDPOINT = `${SPACETIME_AUTH_ISSUER}/token`;
-const AUTH_SCOPE = "openid profile email offline_access";
+// No `profile`: the game never uses the Google name or picture, so the token should not carry them.
+const AUTH_SCOPE = "openid email offline_access";
 // Asking for any max_age makes SpacetimeAuth put auth_time in every ID token,
 // refreshed ones included; the kill-report re-auth check reads it. A year
 // never forces a login on its own.

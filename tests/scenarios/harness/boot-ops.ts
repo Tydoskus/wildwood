@@ -38,7 +38,7 @@ export async function fakeSpacetimeAuth() {
   async function grant(sub: string, nonce?: string) {
     const refresh = `refresh-${sub}-${nextCode++}`;
     refreshTokens.set(refresh, sub);
-    return { id_token: await idToken(sub, { nonce }), refresh_token: refresh, token_type: "Bearer", scope: "openid profile email offline_access" };
+    return { id_token: await idToken(sub, { nonce }), refresh_token: refresh, token_type: "Bearer", scope: "openid email offline_access" };
   }
 
   /** The code exchange: a form POST the client sends with XMLHttpRequest. */

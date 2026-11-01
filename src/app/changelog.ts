@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.917.43": [
     "Other players' profiles now show their Guild stat gain",
     "Fixed the Equip button showing as \"Team\" in translated pages",
+    "Signing in no longer asks Google for your name and picture",
   ],
   "0.917.42": [
     "Picking a slot at the Slot Upgrade bench now starts its upgrade right away",
