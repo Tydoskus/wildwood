@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { fingerprintClient, hashedPath } from "./fingerprint-client.mjs";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
-const REVALIDATE = "public, max-age=3600, stale-while-revalidate=86400";
+const REVALIDATE = "public, no-cache";
 
 // Cloudflare's matching: `*` is greedy, a `:placeholder` stops at a slash.
 function parseHeaders(text: string) {

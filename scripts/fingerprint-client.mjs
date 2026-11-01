@@ -107,10 +107,10 @@ export async function fingerprintClient(directory) {
   // Only content-addressed files get immutable caching. Never apply it to
   // stable URLs, HTML, version.json, or runtime-generated media paths.
   const immutable = "  Cache-Control: public, max-age=31536000, immutable";
-  // Stable names the game loads at runtime (icons, music, sprite sheets): an
-  // hour fresh, then served while refreshing in the background, so art changed
-  // in place still reaches players within the hour.
-  const revalidate = "  Cache-Control: public, max-age=3600, stale-while-revalidate=86400";
+  // Stable names the game loads at runtime (icons, music, sprite sheets): kept,
+  // but checked on every load (a 304 when unchanged). A day of stale reuse let a
+  // sheet repacked in place meet the new code that reads it, drawing wrong frames.
+  const revalidate = "  Cache-Control: public, no-cache";
   const outside = [...assets.values()].filter((path) => !path.startsWith(hashedRoot)).sort();
   // Patterns never overlap: Cloudflare merges every matching rule's headers.
   // `:file` stops at a slash, so it only matches Vite's worker files directly
