@@ -2,6 +2,7 @@ export const RELEASE_NOTES: Record<string, string[]> = {
   "0.917.41": [
     "Quest tracker now lists later areas first",
     "Auto Refine added at the Smith, offers Attempts, Target Level and Continuous modes",
+    "Fixed updated art sometimes showing mixed up after an update until a refresh (seen in guild halls)",
   ],
   "0.917.40": [
     "A nocked arrow stack that runs out stays in your bag at 0, so the next arrow no longer seems to take its place",
