@@ -143,7 +143,9 @@ export function createAutoRefine(deps: {
     void step({ ...selected }, token, runMode, limit);
   });
   return {
-    element, stop,
+    element,
+    /** Stops a run; with none going, nothing changes (closing or leaving the tab must not say "Stopped"). */
+    stop: () => { if (running) stop(); },
     manualStart(item: Item, level: number) {
       if (!manualSession) { count = 0; successes = 0; }
       manualSession = true;
