@@ -1,7 +1,8 @@
 import { challengeActive, challengeWinReady, reflectRewardsInPlay, resumeParkedChallenge, setPrestigeChallenge } from "./prestige-challenge";
+import { startRunTiming } from "./run-timing";
 import { attackIntervalUnderNewCap } from "../../shared/stat-rating";
 import { updateSnapshotRow } from "./snapshot-row-writes";
-import { guildQuestBonusFor } from "./daily-quests";
+import { guildQuestBonusFor, questStandingFor, type QuestStanding } from "./daily-quests";
 import { challengeGoal, challengeGoalMet } from "../../shared/prestige-challenge";
 import { SenderError } from "spacetimedb/server";
 import { researchStatRewardMultiplier } from "../../shared/research";
@@ -13,7 +14,7 @@ import { activeCardTotalsFor } from "./active-cards";
 import { cardStatFactors, cardStatGainFactor, type CardTotals } from "../../shared/card-effects";
 import { aggroChallengeActive } from "./aggro-challenge";
 import { bonusOffFor, researchInPlay } from "./bonus-toggles";
-import { perksInPlayFor, prestigeStatGainOn, reflectRewardsOn } from "../../shared/bonus-toggles";
+import { perksInPlayFor, prestigeStatGainOn, reflectRewardsOn, researchInPlayFor, type BonusOff } from "../../shared/bonus-toggles";
 import { aggroGoal, aggroGoalMet } from "../../shared/aggro-challenge";
 
 // Prestige bodies. The player_prestige table and the reducer declaration stay
@@ -26,17 +27,31 @@ import { aggroGoal, aggroGoalMet } from "../../shared/aggro-challenge";
  * prestige level raises regular and boss rewards alike, and the server's own
  * projection of a claim's rewards stays in step with what the client earned.
  */
-export function statRewardMultiplier(ctx: any, identity: any) {
-  return researchStatRewardMultiplier(researchInPlay(ctx, identity))
+export function statRewardMultiplier(ctx: any, identity: any, read?: BonusRows) {
+  if (!read) return researchStatRewardMultiplier(researchInPlay(ctx, identity))
     // An Aggro run plays with no prestige bonuses at all, and Stat Gain can be switched off (bonus-toggles.ts).
     * prestigeStatMultiplier(prestigeStatGainInPlay(ctx, identity) ? ctx.db.playerPrestige.identity.find(identity)?.level ?? 0 : 0)
     // The guild's daily quest points last week (daily-quests.ts).
     * guildQuestBonusFor(ctx, identity);
+  // The same three factors, from rows the kill report already read.
+  return researchStatRewardMultiplier(researchInPlayFor(read.research, read.off) ?? undefined)
+    * prestigeStatMultiplier(!read.aggro && prestigeStatGainOn(read.off) ? ctx.db.playerPrestige.identity.find(identity)?.level ?? 0 : 0)
+    * read.quest.bonus;
+}
+
+/**
+ * The rows a kill report reads once for the reward multiplier, perks, soul stats and attack cap
+ * (combatBoundForReport), so each helper does not read them again. Nothing in a report writes them.
+ */
+export type BonusRows = { off: BonusOff; aggro: boolean; challenge: any; research: any; stored: PrestigePerkRanks; quest: QuestStanding };
+export function bonusRowsFor(ctx: any, identity: any, research: any): BonusRows {
+  return { off: bonusOffFor(ctx, identity), aggro: aggroChallengeActive(ctx, identity), challenge: ctx.db.playerPrestigeChallenge.identity.find(identity),
+    research, stored: storedPrestigePerkRanks(ctx, identity), quest: questStandingFor(ctx, identity) };
 }
 
 /** The stat gain for each type of reward: statRewardMultiplier, and the active Bounty cards on top. `cards` saves the read when the caller has them. */
-export function statRewardMultiplierFor(ctx: any, identity: any, cards: CardTotals = activeCardTotalsFor(ctx, identity)) {
-  const base = statRewardMultiplier(ctx, identity);
+export function statRewardMultiplierFor(ctx: any, identity: any, cards: CardTotals = activeCardTotalsFor(ctx, identity), read?: BonusRows) {
+  const base = statRewardMultiplier(ctx, identity, read);
   return (type: string) => base * cardStatGainFactor(cards, type);
 }
 
@@ -44,19 +59,19 @@ export function statRewardMultiplierFor(ctx: any, identity: any, cards: CardTota
 export const prestigeStatGainInPlay = (ctx: any, identity: any) => !aggroChallengeActive(ctx, identity) && prestigeStatGainOn(bonusOffFor(ctx, identity));
 
 /** The perk ranks in play: zero for anyone who has never prestiged and during an Aggro run, and each switched-off perk zero. */
-export function prestigePerkRanks(ctx: any, identity: any): PrestigePerkRanks {
-  if (aggroChallengeActive(ctx, identity)) return Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks;
-  return perksInPlayFor(storedPrestigePerkRanks(ctx, identity), bonusOffFor(ctx, identity));
+export function prestigePerkRanks(ctx: any, identity: any, read?: BonusRows): PrestigePerkRanks {
+  if (read ? read.aggro : aggroChallengeActive(ctx, identity)) return Object.fromEntries(PRESTIGE_PERK_IDS.map(perk => [perk, 0])) as PrestigePerkRanks;
+  return perksInPlayFor(read?.stored ?? storedPrestigePerkRanks(ctx, identity), read?.off ?? bonusOffFor(ctx, identity));
 }
 
 /**
  * The attack speed cap in play (playerAttackCap): Reflect Only's wins and Quick Draw, each unless switched off
  * (bonus-toggles.ts). An Aggro run keeps both, though it plays without every other prestige bonus.
  */
-export function attackCapInPlay(ctx: any, identity: any, worn?: CardTotals) {
-  const off = bonusOffFor(ctx, identity);
-  const cap = playerAttackCap(reflectRewardsOn(off) ? ctx.db.playerPrestigeChallenge.identity.find(identity) : null,
-    perksInPlayFor(storedPrestigePerkRanks(ctx, identity), off));
+export function attackCapInPlay(ctx: any, identity: any, worn?: CardTotals, read?: BonusRows) {
+  const off = read?.off ?? bonusOffFor(ctx, identity);
+  const cap = playerAttackCap(reflectRewardsOn(off) ? (read ? read.challenge : ctx.db.playerPrestigeChallenge.identity.find(identity)) : null,
+    perksInPlayFor(read?.stored ?? storedPrestigePerkRanks(ctx, identity), off));
   // Quick Draw cards raise the cap as the perk does.
   const cards = cardStatFactors(worn ?? activeCardTotalsFor(ctx, identity)).attackCapRaise;
   return cards > 0 ? { ...cap, raise: cap.raise + cards } : cap;
@@ -158,6 +173,7 @@ export function createPrestige(deps: PrestigeDeps) {
       prestigedAt: ctx.timestamp,
     };
     if (current) ctx.db.playerPrestige.identity.update(next); else ctx.db.playerPrestige.insert(next);
+    startRunTiming(ctx, ctx.sender, next.level);
     recordPrestige(ctx);
     resetProgressToDefaults(ctx, activePlayer, { research: true, lifetimeKills: true, slotTiers: true, items: true });
     return next;

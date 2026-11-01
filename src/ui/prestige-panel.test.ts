@@ -99,7 +99,7 @@ describe("prestige panel", () => {
     click(s.pick("open"));
     expect(s.pick("overlay").hidden).toBe(false);
     expect(s.pick("level").textContent).toBe("PRESTIGE 3");
-    expect(s.pick("bonus").textContent).toBe("+30%");
+    expect(s.pick("bonus").textContent).toBe("×1.3");
     expect(s.pick("points").textContent).toBe("1");
     expect(s.pick("peak").textContent).not.toBe("—");
     expect(s.pick("cost").textContent).toContain("resets your stats and map unlocks");
@@ -214,12 +214,12 @@ describe("profile stat gain breakdown", () => {
     const gain = (ranks: any, level: number) =>
       profileStatDisplayRows(profile, () => "0%", .38, ranks, level).find((row: any) => row.kind === "stat-gain");
     const ranks = { ...createEmptyResearchRanks(), foraging: 10 };
-    expect(gain(ranks, 0)!.total).toBe("+10%");
-    expect(gain(createEmptyResearchRanks(), 2)!.total).toBe("+20%");
+    expect(gain(ranks, 0)!.total).toBe("×1.1");
+    expect(gain(createEmptyResearchRanks(), 2)!.total).toBe("×1.2");
     // 1.10 tech times 1.20 prestige is 32 percent, not 30.
     const both = gain(ranks, 2)!;
-    expect(both.total).toBe("+32%");
-    expect(both.sources).toEqual([{ label: "Tech", value: "1.10×" }, { label: "Prestige", value: "1.20×" }]);
+    expect(both.total).toBe("×1.32");
+    expect(both.sources).toEqual([{ label: "Tech", value: "×1.1" }, { label: "Prestige", value: "×1.2" }]);
     expect(gain(createEmptyResearchRanks(), 0)!.sources).toEqual([]);
   });
 });
@@ -299,9 +299,9 @@ describe("each prestige asks for one Endless stage more", () => {
 });
 
 describe("prestige reward label", () => {
-  it("states what the next prestige adds, not the running total", () => {
-    expect(prestigeRewardLabel(0)).toBe("+10% stat gain and 1 perk point");
-    expect(prestigeRewardLabel(2)).toBe("+10% stat gain (+30% total) and 1 perk point");
+  it("states the stat gain the next prestige brings the run to, and the one it has now", () => {
+    expect(prestigeRewardLabel(0)).toBe("×1.1 stat gain and 1 perk point");
+    expect(prestigeRewardLabel(2)).toBe("×1.3 stat gain (now ×1.2) and 1 perk point");
   });
 });
 

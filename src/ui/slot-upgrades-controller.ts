@@ -494,7 +494,8 @@ export function createSlotUpgradesController(elements: SlotUpgradesElements, dep
         selectedSlots.set(queue, upgradeSlot);
         closePicker();
         lastRenderKey = "";
-        render();
+        // Picking the slot starts it: an upgrade can be cancelled, so a second tap only slowed it down.
+        void useAction();
       });
       return button;
     });

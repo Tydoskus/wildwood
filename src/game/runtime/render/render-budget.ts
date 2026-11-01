@@ -7,11 +7,13 @@ export function frameDeadlineReached(now: number, nextFrameAt: number) {
   return now + FRAME_DEADLINE_TOLERANCE_MS >= nextFrameAt;
 }
 
-/** Keep the phase on 90/120/144 Hz screens without catch-up render bursts. */
-export function nextPresentationDeadline(now: number, previousDeadline: number, fps = MAX_RENDER_FPS) {
-  const interval = 1_000 / Math.min(MAX_RENDER_FPS, Math.max(1, fps));
-  const next = previousDeadline + interval;
-  return next < now ? now + interval : next;
+const PRESENTATION_SLACK = .65;
+/**
+ * The next frame is due two thirds of a frame after this one: a 60 Hz screen draws every refresh even when one
+ * comes a little early, and a faster screen skips whole refreshes evenly (every other one at 120 Hz).
+ */
+export function nextPresentationDeadline(now: number, _previousDeadline: number, fps = MAX_RENDER_FPS) {
+  return now + (1_000 / Math.min(MAX_RENDER_FPS, Math.max(1, fps))) * PRESENTATION_SLACK;
 }
 
 /** 2× keeps canvas detail while bounding fill cost on 3×/4× phone displays.

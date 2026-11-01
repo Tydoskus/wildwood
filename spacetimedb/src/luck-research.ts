@@ -26,8 +26,8 @@ export function luckRanksFor(ctx: any, identity: any): LuckRanks {
 }
 
 /** Luck as drops, mining and refines read it: a switched-off luck research at zero (bonus-toggles.ts). */
-export function luckInPlay(ctx: any, identity: any): LuckRanks {
-  return researchInPlayFor(luckRanksFor(ctx, identity), bonusOffFor(ctx, identity)) as LuckRanks;
+export function luckInPlay(ctx: any, identity: any, off = bonusOffFor(ctx, identity)): LuckRanks {
+  return researchInPlayFor(luckRanksFor(ctx, identity), off) as LuckRanks;
 }
 
 /** Stores a player's luck ranks; all zero removes the row. */

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { STEEL_ARROW_DAMAGE } from "../../../shared/arrows";
+import { BOW_ATTACK_SPEED_BONUS } from "../../../shared/bow-skills";
 import {
   attackReadyAtWithoutTarget,
   createPlayerCombatController,
@@ -660,8 +662,9 @@ it.each(personalBossCases)('applies ranged and sword criticals to %s', (mapId, k
   for (const weapon of ['starter_stone', 'wooden_sword']) {
     let now = 1;
     const hit = vi.fn();
+    const damageRecorded = vi.fn();
     const state = createCombatHarness({ currentMapId: () => mapId,
-      nowSeconds: () => now, equippedWeapon: () => weapon, hitPersonalBoss: hit,
+      nowSeconds: () => now, equippedWeapon: () => weapon, hitPersonalBoss: hit, onDamageDealt: damageRecorded,
       researchCriticalChance: () => 1, researchCriticalDamageMultiplier: () => 2 });
     state.enemies.length = 0;
     const boss = state.bosses[kind];
@@ -672,6 +675,8 @@ it.each(personalBossCases)('applies ranged and sword criticals to %s', (mapId, k
       state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60);
     }
     expect(hit, weapon).toHaveBeenCalled();
+    expect(damageRecorded).toHaveBeenCalled();
+    expect(damageRecorded.mock.calls.every(call => call[2] === boss)).toBe(true);
     // Twice the hit: 10 damage with the weapon's own bonus (the stone has none).
     const critical = 2 * equipmentDamage(10, weapon, "", "");
     expect(hit.mock.calls.every(call => Math.abs(call[0] - critical) < 1e-9 && call[3] === true), weapon).toBe(true);
@@ -680,8 +685,9 @@ it.each(personalBossCases)('applies ranged and sword criticals to %s', (mapId, k
 
 it('passes Endless critical damage and the critical flag to its hit display', () => {
   let now = 1; const hit = vi.fn(() => true);
+  const damageRecorded = vi.fn();
   const state = createCombatHarness({ currentMapId: () => "", nowSeconds: () => now,
-    researchCriticalChance: () => 1, researchCriticalDamageMultiplier: () => 2, hitGeneratedBoss: hit });
+    researchCriticalChance: () => 1, researchCriticalDamageMultiplier: () => 2, hitGeneratedBoss: hit, onDamageDealt: damageRecorded });
   state.enemies.length = 0;
   Object.assign(state.player, { x: 500, y: 500, damage: 10, attackRange: 200, hp: 100 });
   createEnemyLifecycle(state.enemies, state.spawnSites, () => {}).spawnFromSite({ id: 0, type: 'Spitter',
@@ -689,6 +695,8 @@ it('passes Endless critical damage and the critical flag to its hit display', ()
   state.enemies[0].generatedBoss = true;
   for (let i = 0; i < 90; i++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
   expect(hit).toHaveBeenCalledWith(state.enemies[0], 20, true, false);   // a swing, not a reflect
+  expect(damageRecorded).toHaveBeenCalled();
+  expect(damageRecorded.mock.calls.every(call => call[2] === state.enemies[0])).toBe(true);
 });
 
 it("tells Auto Farm whether the build feeds on adds: Reflect or Second Wind", () => {
@@ -1079,8 +1087,8 @@ describe("staff combat", () => {
   it("casts slower, heavier bolts that burst on the whole pack", () => {
     const twang = vi.fn(), swish = vi.fn();
     const bow = cast("ion_bow", 6.7, { playBowAttackSound: twang }), staff = cast("ion_staff", 6.7, { playSwordAttackSound: swish });
-    // Casts every 1.35 s against the bow's every second.
-    expect(twang).toHaveBeenCalledTimes(7);
+    // Casts every 1.35 s against the bow's quicker shots (bow-skills.ts), 1.15 a second.
+    expect(twang).toHaveBeenCalledTimes(Math.floor(6.7 * (1 + BOW_ATTACK_SPEED_BONUS)) + 1);
     expect(swish).toHaveBeenCalledTimes(5);
     const arrow = equipmentDamage(10, "ion_bow", "", ""), bolt = equipmentDamage(10, "ion_staff", "", "") * STAFF_BOLT_DAMAGE_FACTOR;
     // The bow's arrows strike only the nearest; every bolt bursts on all three at full damage.
@@ -1100,9 +1108,45 @@ describe("staff combat", () => {
     expect(spawnParticle).not.toHaveBeenCalled();
   });
 
-  it("counts a staff at three quarters of its tier's bow against one target", () => {
+  it("counts a staff at three quarters of its tier's bow against one target, before the bow's quicker shots", () => {
     const bow = createCombatHarness({ equippedWeapon: () => "ion_bow" }), staff = createCombatHarness({ equippedWeapon: () => "ion_staff" });
     for (const state of [bow, staff]) Object.assign(state.player, { damage: 10, attackRate: 1, projectileCount: 1 });
-    expect(staff.controller.expectedDps() / bow.controller.expectedDps()).toBeCloseTo(.75, 6);
+    expect(staff.controller.expectedDps() / bow.controller.expectedDps()).toBeCloseTo(.75 / (1 + BOW_ATTACK_SPEED_BONUS), 6);
+  });
+});
+
+describe("crafted arrows", () => {
+  /** A bow firing for `seconds` at enemies in a line east of the player, with `held` arrows of a kind nocked. */
+  function shoot(arrowId: "steel_arrow" | "piercing_arrow" | null, held: number, seconds: number, line = 1) {
+    let now = 0, left = held;
+    const spent: string[] = [];
+    const state = createCombatHarness({ nowSeconds: () => now, equippedWeapon: () => "ion_bow", random: () => .99,
+      arrowInPlay: () => arrowId && left > 0 ? arrowId : null, onArrowShot: id => { spent.push(id); left--; } });
+    state.bosses.dragon.dead = true;
+    Object.assign(state.player, { x: 500, y: 500, hp: 100, maxHp: 100, damage: 10, attackRate: 1, attackRange: 400, projectileCount: 1, knockback: 0 });
+    const lifecycle = createEnemyLifecycle(state.enemies, state.spawnSites, () => {});
+    for (let id = 0; id < line; id++) lifecycle.spawnFromSite({ id, type: "Spitter", x: 700 + id * 60, y: 500, campName: "Line", leashRange: 500, alive: false, respawnAt: 0 });
+    for (const enemy of state.enemies) enemy.hp = enemy.maxHp = 100_000;
+    for (let frame = 0; frame < seconds * 60; frame++) { now += 1 / 60; state.controller.attackNearest(); state.controller.updateProjectiles(1 / 60); }
+    return { spent, lost: state.enemies.map(enemy => 100_000 - enemy.hp) };
+  }
+
+  it("spends one a shot while any are held, Steel hitting 10% harder, then shoots plain arrows", () => {
+    const plain = shoot(null, 0, 3), steel = shoot("steel_arrow", 100, 3);
+    expect(plain.spent).toEqual([]);
+    expect(steel.spent.length).toBeGreaterThan(2);
+    expect(steel.lost[0] / plain.lost[0]).toBeCloseTo(STEEL_ARROW_DAMAGE, 6);
+    // Two arrows held: two spent, the rest plain.
+    const short = shoot("steel_arrow", 2, 3);
+    expect(short.spent).toEqual(["steel_arrow", "steel_arrow"]);
+    expect(short.lost[0]).toBeGreaterThan(plain.lost[0]);
+    expect(short.lost[0]).toBeLessThan(steel.lost[0]);
+  });
+
+  it("carries a Piercing arrow through one more enemy in its line, and no further", () => {
+    const plain = shoot(null, 0, 3, 3), piercing = shoot("piercing_arrow", 100, 3, 3);
+    expect(plain.lost.slice(1)).toEqual([0, 0]);
+    expect(piercing.lost[1]).toBeCloseTo(piercing.lost[0], 6);
+    expect(piercing.lost[2]).toBe(0);
   });
 });

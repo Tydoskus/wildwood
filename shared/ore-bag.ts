@@ -4,6 +4,7 @@ import { REFINE_ORES, tierGrade, type OreId } from "./refine";
 import { GEAR_GRADES, GEAR_GRADE_NAMES } from "./gear-grades";
 import { ARCANE_CRYSTAL, WOOD_IDS } from "./crafting";
 import { WOOD_TREE_KINDS, WOOD_TREES } from "./woodcutting";
+import { ARROW_IDS, ARROW_KINDS, isArrowId } from "./arrows";
 
 /**
  * Ores in the bag: every kind held takes one bag slot,
@@ -13,8 +14,8 @@ import { WOOD_TREE_KINDS, WOOD_TREES } from "./woodcutting";
 
 /** The ores the Smith and the Card Seller list: the grade ores, then the Starshard. */
 export const REFINE_ORE_ORDER: readonly OreId[] = Object.freeze(["copper_ore", "iron_ore", "mithril_ore", "adamant_ore", "starshard"]);
-/** Every stack in the order the bag lists them: the ores, then the crafting wood and crystal. */
-export const ORE_ORDER: readonly OreId[] = Object.freeze([...REFINE_ORE_ORDER, ...WOOD_IDS, ARCANE_CRYSTAL]);
+/** Every stack in the order the bag lists them: the ores, then the crafting wood and crystal, then crafted arrows. */
+export const ORE_ORDER: readonly OreId[] = Object.freeze([...REFINE_ORE_ORDER, ...WOOD_IDS, ARCANE_CRYSTAL, ...ARROW_IDS]);
 
 export type OreCounts = Readonly<Partial<Record<OreId, number>>>;
 
@@ -51,6 +52,7 @@ export function bagFullForOres(needed: readonly OreId[]) {
 
 /** The stack's own lines in the item window: what it is for, and where it comes from. */
 export function oreDescription(oreId: OreId) {
+  if (isArrowId(oreId)) return { use: `Nock them for a bow: each shot spends one. ${ARROW_KINDS[oreId].text}.`, from: "Crafted at the Smith from a log and an ore." };
   if (oreId === "starshard") return { use: "Refining from ★11 up takes one a try, with the gear's ore.", from: "Every Mysterious rock in the Copper Hills holds one; the rocks are rare." };
   if (oreId === ARCANE_CRYSTAL) return { use: "Crafting staffs and Magic armor takes it.", from: "Mined from crystal rocks in the Copper Hills, east of Town." };
   const tree = WOOD_TREE_KINDS.find(kind => WOOD_TREES[kind].log === oreId);

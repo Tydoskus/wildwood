@@ -16,7 +16,7 @@ function fight(cardIds: string[], options: { random?: number[]; mapId?: string }
   const combat = createCardCombat({
     cards: () => totals, player: player as any, enemies: enemies as any, random: () => randoms[Math.min(draw++, randoms.length - 1)],
     mapId: () => mapId, isDueling: () => false, spawnBurst: () => {},
-    strike: (target, damage, reflected) => {
+    strike: (target, damage, _source, reflected) => {
       const enemy = target as unknown as TestEnemy;
       struck.push({ target: enemy, damage, reflected: reflected === true });
       enemy.hp -= damage;

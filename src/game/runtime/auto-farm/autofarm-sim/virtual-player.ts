@@ -327,7 +327,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: {
   const researchController = createResearchController({
     prestigeLevel: () => profile.prestigeLevel ?? 0, guildQuestBonus: () => 1, prestigePerks: () => perks,
     player, getRanks: () => research, isDueling: () => false, maxPlayerStat: Number.MAX_VALUE, saveProgress: noop, healthMultiplierBonus,
-    equippedFeet: () => inventory.equippedFeet,
+    equippedFeet: () => inventory.equippedFeet, equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
   });
   const minAttackInterval = () => challengeMinimumInterval(challenge);
   const weapon = () => inventory.equippedRightHand || inventory.equippedLeftHand;

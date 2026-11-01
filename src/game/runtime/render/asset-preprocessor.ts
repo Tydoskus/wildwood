@@ -198,8 +198,10 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
 
   const portalArchAsset = createLazyImageAsset("assets/wildstat/stone-portal-arch.webp");
   const portalSwirlAsset = createLazyImageAsset(PORTAL_SWIRL_SOURCE);
-  void portalArchAsset.load();
-  void portalSwirlAsset.load();
+  // Off the Play path: fetched once the page has loaded. A portal is skipped until its arch arrives.
+  const loadPortalArt = () => scheduleBackgroundTask(() => { void portalArchAsset.load(); void portalSwirlAsset.load(); });
+  if (document.readyState === "complete") loadPortalArt();
+  else window.addEventListener("load", loadPortalArt, { once: true });
 
   const preprocessTreeBounds = (
     spritesheet: HTMLImageElement,
@@ -280,7 +282,8 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   const soulShoreAsset = decodedSheet(SOUL_SHORE_SOURCE);
   const forestRoadAsset = createLazyImageAsset(FOREST_ROAD_SOURCE);
   const soulInteriorsAsset = decodedSheet(SOUL_INTERIORS_SOURCE);
-  const guildHallAssets = [GUILD_HALL_PROPS_SOURCE, GUILD_HALL_GROUND_SOURCE, GUILD_HALL_ROOMS_SOURCE, ...GUILD_EMBLEM_SHEET_SOURCES].map(source => createLazyImageAsset(source));
+  const guildHallAssets = [GUILD_HALL_PROPS_SOURCE, GUILD_HALL_GROUND_SOURCE, GUILD_HALL_ROOMS_SOURCE, ...GUILD_EMBLEM_SHEET_SOURCES]
+    .map(source => createLazyImageAsset(source));
   const assetGroups = {
     forestDecor: [treeAsset],
     orchardDecor: lavaAssets.slice(6),
@@ -370,8 +373,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     mapAssetsReady,
     worldArtReady: (mapId?: MapId) => {
       if (mapId) void ensureMapAssets(mapId);
-      return portalArchAsset.settled() && portalSwirlAsset.settled()
-        && (!mapId || mapAssetsReady(mapId));
+      return !mapId || mapAssetsReady(mapId);
     },
   };
 }

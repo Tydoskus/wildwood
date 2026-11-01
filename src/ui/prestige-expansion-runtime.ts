@@ -1,5 +1,6 @@
 import { createPrestigePanel } from "./game-ui-runtime";
 import { createPrestigeChallengePanel, installPrestigeTabs } from "./prestige-challenge-panel";
+import { createPrestigeRunsTab } from "./prestige-runs-tab";
 import { gameConfirm } from "./confirm-dialog";
 import { challengeWinReached, reflectOnlyWinNotice } from "./prestige-challenge-win";
 import { createAggroChallengePanel } from "./aggro-challenge-panel";
@@ -64,6 +65,8 @@ export function createPrestigeExpansionRuntime(d: {
       });
       const doc = options.e.prestigePerks.ownerDocument as Document;
       installPrestigeTabs(doc);
+      createPrestigeRunsTab({ container: doc.getElementById("prestigeRunsTab")!,
+        timing: () => coop?.runTiming?.() ?? null, history: () => coop?.runHistory?.() ?? [] });
       challengePanel = createPrestigeChallengePanel({ container: doc.getElementById("prestigeChallengeTab")!,
         state: () => coop?.prestigeChallenge?.() ?? { active: false, completed: 0 },
         locked: () => (coop?.prestige?.()?.level ?? 0) < 1 ? "Prestige once to unlock"

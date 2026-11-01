@@ -76,8 +76,10 @@ export function createAutoEquip(deps: {
    * row's power and looks, so everyone sees the new gear. It runs on every
    * kill report, so when the bag did not change it stops after one row read.
    */
-  function equipNewUpgrades(ctx: Ctx, identity: Identity, before: any) {
+  function equipNewUpgrades(ctx: Ctx, identity: Identity, before: any, written?: any) {
     if (!before) return;
+    // The row the report last wrote, when the caller has it: its bag and counts are stored as given.
+    if (written && !gainedGear(before, written)) return;
     const progress = readPlayerProgress(ctx, identity);
     if (!progress || !gainedGear(before, progress) || !lootSettingsFor(ctx, identity).autoEquipBest) return;
     const had = new Set(deps.inventoryForProgress(before));

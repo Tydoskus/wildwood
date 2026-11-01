@@ -52,6 +52,9 @@ export function drawScreenSpaceAt(
   const labelScale = cameraZoomPreference() / safeZoom;
   ctx.save();
   ctx.translate(x, y);
+  // The anchor on a whole device pixel, as the sprites under it are, so a name never drifts a pixel against its body.
+  const m = typeof ctx.getTransform === "function" ? ctx.getTransform() : null;
+  if (m && m.b === 0 && m.c === 0) ctx.setTransform(m.a, 0, 0, m.d, Math.round(m.e), Math.round(m.f));
   ctx.scale(labelScale, labelScale);
   try {
     draw();

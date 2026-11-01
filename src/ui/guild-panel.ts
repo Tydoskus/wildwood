@@ -1,5 +1,5 @@
 import { renderGuildMemberName } from "./guild-member-name";
-import { formatCompactNumber } from "./number-format";
+import { formatCompactNumber, formatPercentMultiplier } from "./number-format";
 import { guildMemberPresence } from './guild-presence';
 import { createGuildBattleReplay, type GuildReplayAssets } from "./guild-battle-replay";
 import { createGuildEmblem } from './guild-emblems';
@@ -7,6 +7,7 @@ import { GUILD_CREATION_MIN_POWER, GUILD_EMBLEMS, GUILD_MEMBER_LIMIT, type Guild
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 import { applyProfileIcon } from "../app/profile-icons";
 import { createGuildPreview } from './guild-preview';
+import { syncGuildOverlayOpen } from "./guild-overlay-open";
 import type { GuildQuestStanding } from "./quest-board-controller";
 import { GUILD_QUEST_BONUS_PER_POINT, GUILD_QUEST_COLLECT_LIMIT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, questDay } from "../../shared/weekly-quests";
 
@@ -403,15 +404,15 @@ export function createGuildPanel(options: Options) {
     if (standing?.guild) {
       const week = element("div", undefined, "guild-quest-week");
       week.append(element("strong", `${number(standing.guild.points)} point${standing.guild.points === 1 ? "" : "s"} this week`),
-        element("span", `Guild bonus now: +${standing.guild.bonusNow} stat gains`), element("span", `Next week: +${standing.guild.bonusNext}`));
+        element("span", `Guild bonus now: ${standing.guild.bonusNow} stat gains`), element("span", `Next week: ${standing.guild.bonusNext}`));
       body.append(week);
     } else if (standing?.solo) {
       // Guildless: their own week, what it pays, and what a guild would add.
       const week = element("div", undefined, "guild-quest-week");
       week.append(element("strong", `${standing.solo.quests}/${WEEKLY_QUEST_COUNT} quests on your own this week`),
-        element("span", `Your bonus now: +${standing.solo.bonusNow} stat gains`), element("span", `Next week: +${standing.solo.bonusNext} (up to +${standing.solo.bonusMax})`));
+        element("span", `Your bonus now: ${standing.solo.bonusNow} stat gains`), element("span", `Next week: ${standing.solo.bonusNext} (up to ${standing.solo.bonusMax})`));
       body.append(week);
-      hint(body, `In a guild, every member's quests add up: +${GUILD_QUEST_BONUS_PER_POINT * 100}% per point, up to +${Math.round(GUILD_MEMBER_LIMIT * WEEKLY_QUEST_COUNT * GUILD_QUEST_BONUS_PER_POINT * 100)}% a week. You get a guild's bonus from the first Monday you're in it.`);
+      hint(body, `In a guild, every member's quests add up: +${GUILD_QUEST_BONUS_PER_POINT * 100}% per point, up to ${formatPercentMultiplier(Math.round(GUILD_MEMBER_LIMIT * WEEKLY_QUEST_COUNT * GUILD_QUEST_BONUS_PER_POINT * 100))} a week. You get a guild's bonus from the first Monday you're in it.`);
     } else empty(body, "No guild yet", "Join or found a guild, and every weekly quest you finish becomes a point for it.");
     renderQuestMembers(body);
     heading(body, "Guild ranking", "Every guild's quest points this week.");
@@ -586,6 +587,7 @@ export function createGuildPanel(options: Options) {
     replay?.dispose(); replay = undefined; activeReplay = null;
     serial++; root.hidden = true; busy = false; options.api()?.cancel(); clearInterval(timer); timer = undefined;
     confirmation = null; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "false");
+    syncGuildOverlayOpen(doc);
     options.onClose(); previousFocus?.focus();
   }
   function open(next: Section = "guild") {
@@ -594,6 +596,7 @@ export function createGuildPanel(options: Options) {
     section = next; battleView = null; session = options.sessionKey(); page = "0"; busy = false; snapshot = null;
     error = ""; notice = ""; creating = false; choosingEmblem = false; draftName = ""; managedMember = null;
     root.hidden = false; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "true");
+    syncGuildOverlayOpen(doc);
     render(); dialog.focus(); void load();
     // Session safety only: snapshots are fetched on opening, refresh or action.
     timer = setInterval(() => { if (session !== options.sessionKey()) close(); }, 1000);
@@ -620,6 +623,7 @@ export function createGuildPanel(options: Options) {
     if (!root.hidden) close();
     previousFocus = doc.activeElement as HTMLElement | null; options.beforeOpen();
     session = options.sessionKey(); root.hidden = false; snapshot = null; activeReplay = null;
+    syncGuildOverlayOpen(doc);
     replayFromChat = true; error = ""; notice = ""; busy = true; render();
     const id = ++serial;
     timer = setInterval(() => { if (session !== options.sessionKey()) close(); }, 1000);

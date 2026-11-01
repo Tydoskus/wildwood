@@ -105,7 +105,8 @@ export function createWebGLSpritePass(
   const stats = { uploads: 0, uploadedBytes: 0, evictions: 0, bytes: () => textureBytes, count: () => textures.size, budget: TEXTURE_BUDGET_BYTES };
   let white: WebGLTexture | null = null;
   let frame = 0;
-  let uploaded = false;
+  /** The largest texture uploaded this frame, in bytes. */
+  let largestUpload = 0;
   // Whether this browser uploads an ImageBitmap with its colour already multiplied by its alpha (Chrome does);
   // measured once on a half-transparent pixel, and assumed until then.
   let bitmapsPremultiplied = true;
@@ -158,7 +159,7 @@ export function createWebGLSpritePass(
       gl.bindTexture(gl.TEXTURE_2D, white);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
       setFilter(false);
-      uploaded = true;
+      largestUpload = Math.max(largestUpload, 4);
     } else gl.bindTexture(gl.TEXTURE_2D, white);
   }
 
@@ -180,13 +181,13 @@ export function createWebGLSpritePass(
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !bitmap);
       try {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-        uploaded = true;
         stats.uploads += 1;
       } finally {
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       }
       const [width, height] = source instanceof HTMLImageElement ? [source.naturalWidth, source.naturalHeight] : [source.width, source.height];
       entry = { texture, smooth, straight: bitmap && !bitmapsPremultiplied, usedAt: frame, version: canvasVersion(source), bytes: width * height * 4 };
+      largestUpload = Math.max(largestUpload, entry.bytes);
       textures.set(source, entry);
       textureBytes += entry.bytes;
       stats.uploadedBytes += entry.bytes;
@@ -254,11 +255,11 @@ export function createWebGLSpritePass(
     }
   }
 
-  /** Draws the recording; true when it uploaded a texture, the only time an allocation error is worth checking for. */
+  /** Draws the recording; returns the largest texture it uploaded in bytes (0 for none), for the layer's allocation check. */
   function draw(recording: SpriteRecording, backingWidth: number, backingHeight: number) {
     frame += 1;
-    uploaded = false;
-    if (!recording.quads) return false;
+    largestUpload = 0;
+    if (!recording.quads) return 0;
     gl.useProgram(program);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, recording.vertices.subarray(0, recording.quads * SPRITE_VERTEX_FLOATS * 4), gl.STREAM_DRAW);
@@ -314,7 +315,7 @@ export function createWebGLSpritePass(
     gl.disable(gl.BLEND);
     gl.disable(gl.SCISSOR_TEST);
     if (frame % 30 === 0 || textureBytes > TEXTURE_BUDGET_BYTES) release(TEXTURE_IDLE_FRAMES);
-    return uploaded;
+    return largestUpload;
   }
 
   return {

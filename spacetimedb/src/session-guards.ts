@@ -75,20 +75,33 @@ export function requireSupportedSessionProtocol(ctx: any) {
   return session;
 }
 
-export function requireCurrentProtocol(ctx: any) {
+/** The stored player row, as it was last written: x, y and facing are where the last packet left them. */
+function currentPlayerRow(ctx: any) {
   requireSupportedSessionProtocol(ctx);
   const current = ctx.db.player.identity.find(ctx.sender);
   if (!current) throw new SenderError(LEGACY_CLIENT_ERRORS.missingPresence);
-  return playerWithMotion(ctx, current);
+  return current;
 }
 
-export function requireControllingPlayer(ctx: any) {
-  const current = requireCurrentProtocol(ctx);
+export function requireCurrentProtocol(ctx: any) {
+  return playerWithMotion(ctx, currentPlayerRow(ctx));
+}
+
+/**
+ * requireControllingPlayer's checks, errors and order, without moving the row to where the player's motion
+ * has carried them since: for a reducer that reads neither the position nor the facing (a kill report).
+ */
+export function requireControllingPlayerRow(ctx: any) {
+  const current = currentPlayerRow(ctx);
   const controller = ctx.db.playerController.identity.find(ctx.sender);
   if (!ctx.connectionId || !controller || !sameConnection(controller.connectionId, ctx.connectionId)) {
     throw new SenderError("Wildstat is active in another tab.");
   }
   return current;
+}
+
+export function requireControllingPlayer(ctx: any) {
+  return playerWithMotion(ctx, requireControllingPlayerRow(ctx));
 }
 
 export function hasSpacetimeAuthAccount(ctx: any) {

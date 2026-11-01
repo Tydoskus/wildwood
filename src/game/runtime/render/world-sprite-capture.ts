@@ -13,6 +13,8 @@ export type WorldSpriteCapture = {
   commit: () => boolean;
   /** Stops recording after a throw; true when the throw was the recorder's, so the canvas can draw the world. */
   abort: (error: unknown) => boolean;
+  /** Whether this frame's world is going to the WebGL layer rather than the canvas. */
+  recording: () => boolean;
 };
 
 /**
@@ -55,6 +57,7 @@ export function createWorldSpriteCapture(context: SwitchableContext | undefined,
       else { stats.canvas += 1; fallBack("WebGL"); }
       return drawn;
     },
+    recording: () => recording,
     abort(error) {
       recording = false;
       context.reset();

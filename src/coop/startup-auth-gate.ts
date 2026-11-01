@@ -363,20 +363,30 @@ export function requestDeferredGameAssets(documentValue = document) {
  * Skipped under Data Saver, where game.js loads after Play, and once it is loading.
  */
 export function preloadDeferredGameBundle(documentValue = document, saveData = Boolean((navigator as { connection?: { saveData?: boolean } }).connection?.saveData)) {
-  if (saveData || documentValue.getElementById("wildstatGameScript") || documentValue.getElementById("wildstatGamePreload")) return null;
+  if (saveData || documentValue.getElementById("wildstatGameScript")) return null;
+  // signin-auth-detect.js usually started it from the head and marks how it ended.
+  const started = documentValue.getElementById("wildstatGamePreload") as HTMLLinkElement | null;
+  if (started) return preloadSettled(started);
   const source = (documentValue.getElementById("wildstatCoopScript") as HTMLScriptElement | null)?.dataset.gameSrc;
   if (!source) return null;
   const link = documentValue.createElement("link");
-  const downloaded = new Promise<void>((resolve, reject) => {
-    link.addEventListener("load", () => resolve(), { once: true });
-    link.addEventListener("error", () => reject(new Error(`Failed to preload ${source}`)), { once: true });
-  });
+  const downloaded = preloadSettled(link);
   link.id = "wildstatGamePreload";
   link.rel = "preload";
   link.as = "script";
   link.href = source;
   documentValue.head.append(link);
   return downloaded;
+}
+
+function preloadSettled(link: HTMLLinkElement) {
+  return new Promise<void>((resolve, reject) => {
+    const failed = () => reject(new Error(`Failed to preload ${link.href}`));
+    if (link.dataset.state === "loaded") return resolve();
+    if (link.dataset.state === "failed") return failed();
+    link.addEventListener("load", () => resolve(), { once: true });
+    link.addEventListener("error", failed, { once: true });
+  });
 }
 
 export function loadDeferredGameBundle(documentValue = document, checkForUpdate = () => enforceLatestVersion(GAME_VERSION)) {

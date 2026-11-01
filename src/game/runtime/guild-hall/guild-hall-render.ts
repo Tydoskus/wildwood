@@ -1,9 +1,13 @@
-import { GUILD_HALL_FEET_OFFSET, GUILD_HALL_WORLD } from "../../../../shared/guild-hall";
+import { GUILD_HALL_FEET_OFFSET } from "../../../../shared/guild-hall";
 import { guildEmblemCell } from "../../../ui/guild-emblems";
-import { GUILD_HALL_INTERIOR_LEFT, guildHallRoomPicture, guildHallSeatAt, guildHallShown, type GuildHallSeat } from "../../guild-hall";
+import {
+  guildHallRoomPicture, guildHallSeatAt, guildHallShown, type GuildHallSeat,
+} from "../../guild-hall";
 import type { Camera } from "../render/camera";
 import { snapWorldRenderCoordinate } from "../render/render-space";
 
+/** The courtyard ground's outer grass, drawn under it so its edge never shows a seam. */
+const GUILD_HALL_GRASS = "#4a6b35";
 /** Sitting: the body drops this far onto the stool, and nothing of it below this far under its position is drawn. */
 const SIT_DROP = 6, SIT_CLIP = 16;
 /** Sitting faces the table: north seats look down at it, south seats up (an angle, y down). */
@@ -30,20 +34,25 @@ export function drawSeated(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.restore();
 }
 
-/** The dark around the great hall and the room for the hall's size, under its furniture. */
+/** Under the ground image: the courtyard's grass outdoors, the dark indoors, over the view in one fill. */
+export function createGuildHallUnderDrawer(options: { ctx: CanvasRenderingContext2D; camera: Camera }) {
+  return (viewRight: number, viewBottom: number) => {
+    const { ctx, camera } = options;
+    ctx.fillStyle = guildHallShown.indoors ? "#000" : GUILD_HALL_GRASS;
+    ctx.fillRect(0, 0, viewRight - camera.x, viewBottom - camera.y);
+  };
+}
+
+/** The room for the hall's size, under its furniture, while the player is indoors. */
 export function createGuildHallRoomsDrawer(options: {
   ctx: CanvasRenderingContext2D;
   camera: Camera;
   rooms: () => HTMLImageElement | undefined;
   devicePixelRatio: () => number;
 }) {
-  return (viewRight: number, viewBottom: number) => {
+  return () => {
     const { ctx, camera } = options;
-    const left = Math.max(GUILD_HALL_INTERIOR_LEFT, camera.x), top = Math.max(0, camera.y);
-    const right = Math.min(GUILD_HALL_WORLD.width, viewRight), bottom = Math.min(GUILD_HALL_WORLD.height, viewBottom);
-    if (left >= right || top >= bottom) return;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(left - camera.x, top - camera.y, right - left, bottom - top);
+    if (!guildHallShown.indoors) return;
     const image = options.rooms();
     if (!image?.complete || image.naturalWidth <= 0) return;
     const room = guildHallRoomPicture(guildHallShown.size);

@@ -22,6 +22,7 @@ import { serverBoostGatherMultiplierAt } from "./server-boost-tables";
 import { researchRankFor } from "./research-rank";
 import { gatherRespawnMs } from "../../shared/gather-respawn";
 import { cardStatFactors } from "../../shared/card-effects";
+import { withCourtyardFind } from "./guild-hall-bonus";
 import { activeCardTotalsFor } from "./active-cards";
 import { awardTreeCardDrops } from "./card-drops";
 import {
@@ -163,7 +164,7 @@ export function chopTreeFor(ctx: Ctx, args: { treeId: number }, deps: MiningDeps
   pruneChoppedTrees(ctx, ctx.sender);
   if (treeFelledFor(ctx, ctx.sender, tree.id)) throw new SenderError("That tree is still growing back.");
   // Chop Speed and Log Find cards among the active cards.
-  const hatchet = toolLevelFor(ctx, ctx.sender, "hatchet"), cards = cardStatFactors(activeCardTotalsFor(ctx, ctx.sender));
+  const hatchet = toolLevelFor(ctx, ctx.sender, "hatchet"), cards = withCourtyardFind(ctx, ctx.sender, cardStatFactors(activeCardTotalsFor(ctx, ctx.sender)));
   if (woodcutting && microsSince(ctx, woodcutting.lastChopAt) < woodcuttingChopSeconds(tree, skill, hatchet, cards.woodcuttingSpeed) * WOODCUTTING_RATE_SLACK * 1_000_000) {
     throw new SenderError("Still chopping.");
   }
@@ -197,7 +198,7 @@ export function reportChoppingFor(ctx: Ctx, args: { chops: readonly { treeId: nu
   const woodcutting = ctx.db.playerWoodcutting.identity.find(ctx.sender), skill = normalizeWoodcutting(woodcutting?.woodcutting);
   const rows = new Map<number, any>();
   for (const row of ctx.db.playerChoppedTree.identity.filter(ctx.sender) as Iterable<any>) rows.set(row.treeId, row);
-  const hatchet = toolLevelFor(ctx, ctx.sender, "hatchet"), cards = cardStatFactors(activeCardTotalsFor(ctx, ctx.sender));
+  const hatchet = toolLevelFor(ctx, ctx.sender, "hatchet"), cards = withCourtyardFind(ctx, ctx.sender, cardStatFactors(activeCardTotalsFor(ctx, ctx.sender)));
   const ores = oreCountsFor(ctx, ctx.sender), progress = progressOnce(ctx, ctx.sender), rank = respawnRankFor(ctx, ctx.sender);
   const { accepted, rejected, skill: reached } = judgeGatherBatch(claims, {
     node: woodTree, canWork: canChopTree, gain: woodcuttingGain, slack: WOODCUTTING_RATE_SLACK, reach: WOODCUTTING_SERVER_REACH,

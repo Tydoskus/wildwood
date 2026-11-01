@@ -48,9 +48,9 @@ describe("cards on the profile", () => {
   it("lists what the active cards add, a cost included, and counts them in each total", () => {
     const rows = (withCards: boolean) => profileStatDisplayRows(profile(withCards), () => "0%", MIN_ATTACK_INTERVAL);
     const row = (withCards: boolean, kind: string) => rows(withCards).find(entry => entry.kind === kind)!;
-    expect(row(true, "damage").sources).toContainEqual({ label: "Cards", value: "+4.9%" });
-    expect(row(true, "health").sources).toContainEqual({ label: "Cards", value: "-3.6%" });
-    expect(row(true, "armor").sources).toContainEqual({ label: "Cards", value: "+3%" });
+    expect(row(true, "damage").sources).toContainEqual({ label: "Cards", value: "×1.05" });
+    expect(row(true, "health").sources).toContainEqual({ label: "Cards", value: "×0.96" });
+    expect(row(true, "armor").sources).toContainEqual({ label: "Cards", value: "×1.03" });
     expect(row(false, "damage").sources.some(source => source.label === "Cards")).toBe(false);
     expect(Number(row(true, "armor").multiplier)).toBeCloseTo(1.03, 2);
     expect(profilePower(profile(true))).not.toBe(profilePower(profile(false)));

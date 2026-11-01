@@ -6,6 +6,7 @@ import { applyAvatarFrame } from "../app/avatar-frames";
 import type { PlayerProfileData } from "../wildstat-coop";
 import type { PlayerGender } from "../../shared/player-gender";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL } from "../../shared/prestige";
+import { formatPercentMultiplier } from "./number-format";
 import type { WeaponSchool } from "../../shared/weapon-mastery";
 import type { CraftSkill } from "../../shared/crafting";
 import type { RewardKillCounts } from "../../shared/soul-dimension";
@@ -230,7 +231,7 @@ export function createProfileWindowController(elements: {
     // Remote bonuses arrive with the inspected profile subscription.
     const prestigeLevel = own ? api.prestigeLevel?.() ?? profile.prestigeLevel ?? 0 : profile.prestigeLevel ?? 0;
     elements.prestigeRow.hidden = prestigeLevel <= 0;
-    elements.prestige.textContent = `${prestigeLevel} (+${Math.round(prestigeLevel * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}% stat gain)`;
+    elements.prestige.textContent = `${prestigeLevel} (${formatPercentMultiplier(Math.round(prestigeLevel * PRESTIGE_STAT_GAIN_PER_LEVEL * 100))} stat gain)`;
     if (elements.skillsPanel) renderProfileSkills(elements.skillsPanel, profileSkillRows(profile, own ? { mastery: api.weaponMastery?.(), crafts: api.craftExperience?.() } : undefined));
     if (elements.soulTier) renderProfileSoulTier(elements.soulTier, own ? api.rewardKills?.() ?? {} : undefined);
     api.renderStats(profile, elements.statGrid);

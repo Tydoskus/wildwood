@@ -4,6 +4,7 @@ import type { LeaderboardEntry } from "../wildstat-coop";
 import type { LeaderboardBoard, LeaderboardPage } from "../../shared/leaderboard-window";
 import { renderLeaderboardViewSwitch } from "./leaderboard-view-switch";
 import { createPlayerSearch } from "./player-search";
+import { setAttr, setText } from "./dom-write";
 import type { PlayerDirectoryEntry } from "../../shared/player-search";
 
 type Direction = "above" | "below";
@@ -264,10 +265,10 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     const button = elements.button as HTMLButtonElement;
     const label = button.querySelector<HTMLElement>(".toolbar-label");
     button.classList.toggle("is-locked", !unlocked);
-    button.setAttribute("aria-disabled", String(!unlocked));
-    button.title = unlocked ? "Leaderboard" : "Defeat the Dragon to unlock the leaderboard";
-    button.setAttribute("aria-label", unlocked ? "Open leaderboard" : "Leaderboard locked until you defeat the Dragon");
-    if (label) label.textContent = unlocked ? "Leaderboard" : "Locked";
+    setAttr(button, "aria-disabled", String(!unlocked));
+    setAttr(button, "title", unlocked ? "Leaderboard" : "Defeat the Dragon to unlock the leaderboard");
+    setAttr(button, "aria-label", unlocked ? "Open leaderboard" : "Leaderboard locked until you defeat the Dragon");
+    if (label) setText(label, unlocked ? "Leaderboard" : "Locked");
     if (!unlocked && !elements.overlay.hidden) close();
   }
 

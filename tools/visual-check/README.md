@@ -19,6 +19,10 @@ Picked by URL hash in `visual-check.html`:
 | `parts` | The parts-built enemies (goblins, skeletons, slimes …) facing right and left, aiming up-right, down-right and up-left, hit, and dying |
 | `combat-hits` | Damage numbers over a crowd at the phone framing (white dealt, yellow crits, red taken, a burst fanned out) as they rise, fade and go; each weapon's projectile and an enemy shot; bow, sword and staff skill effects partway through |
 | `bosses` | Every world boss through the game's boss renderer: idle at 0, 0.25 and 0.5 s, mid-attack, hit with the bar's loss flash, and its hitbox and anchor over the art |
+| `endless-bosses` | Each Endless enemy beside its boss (twice its size), hitbox circles over both |
+| `dps-breakdown` | The DPS breakdown card over a bow build with Koi and Dragon, at phone and desktop width |
+| `town-grid` | The Town's 3×3 grid opened to walk: north of the village, the north-east and south-west corners, and the outer wall, at the phone framing |
+| `grove` | Timberwood's pines standing, then one felled, and an elder felled: each stump's small shadow among the standing trees' |
 | `world` | Every campaign map, the first Endless map, the Soul Dimension and a guild hall where a player arrives, drawn by the game's own world renderer at the phone framing (ground, roads, decor, portals and their labels, camps, the minimap, the Night Forest's dark); players at a gate and at a boss for depth order; the Forest and the Night Forest at the desktop framing |
 | `town` | The Town at the phone framing: the arrival, the same with attack-range research (the camera must not move), the player's zoom at 50% and 150%, the river at the west bridge, Ox, the countryside's baked ground; and the desktop framing |
 | `exchange` | The Trade Chrysanthemum south of the village: the road from the village's south edge down to its square, the clerk at his booth, the square and the countryside beside it at the phone framing, and the square at the desktop framing |
@@ -83,3 +87,14 @@ watchdog kills Chrome if the script itself is killed. Still, after a session che
 left over; a forgotten headless Chrome once ran for days at full CPU:
 
     ps aux | grep remote-debugging-port | grep -v grep
+
+## Perf
+
+    npm run perf -- [--maps tutorial_forest,town] [--frames 150] [--phone] [--json <file>] [--shot <png>] [--no-build]
+
+Times the game's world drawing on real maps: the `perf` scene draws each map as the game does (its canvas runtime
+and WebGL world layer, real clocks) while the player walks a circle, at 100% and the farthest zoom-out, and again
+without tall props and without enemies to show what each costs. Chrome runs headless on the real GPU with vsync and
+the frame cap off. `work ms` is the game's own drawing a frame; `frame ms` the whole frame through to the GPU
+(median and slowest 5%). `--phone` frames a 390×844 screen. A Mac's GPU is far faster than a budget phone's, so
+compare rows with each other and runs before and after a change, not with a phone's frame rate.

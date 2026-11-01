@@ -3,6 +3,7 @@ import { PRISM_MAX_TARGETS } from "./card-bounds";
 import { type CardDefinition, type CardEffect, type CardEffectId, type CardSlot } from "./cards";
 import { MAP_DISPLAY_NAMES } from "./rules";
 import type { RewardType } from "./enemy-definitions";
+import { formatMultiplierChange } from "./compact-number";
 
 export const STAT_NAMES: Readonly<Record<RewardType, string>> = {
   damage: "Damage", health: "Max Health", speed: "Attack Speed", armor: "Armor", regen: "Regen", crit: "Crit Damage",
@@ -26,7 +27,7 @@ const capOf = (effect: CardEffectId) => effect === "dodge" ? CARD_DODGE_CAP : GU
 
 /**
  * What one effect of a card does, as players read it, for this many copies in play: the part that stacks shows its
- * total and, in brackets, one card's share times the copies ("Damage +30% [10%×3]"); durations, shares and target
+ * total and, in brackets, one card's share times the copies ("Crit Chance +30% [10%×3]", "Damage ×1.3 [+0.1×3]"); durations, shares and target
  * counts stay as they are, since copies add only the number. A capped total says so.
  */
 export function cardEffectText(effect: CardEffect, copies = 1): string {
@@ -36,21 +37,24 @@ export function cardEffectText(effect: CardEffect, copies = 1): string {
   // Signed and bare forms of the stacking number.
   const sig = (unit = "%") => `${signed(total)}${unit}${capped}${each(unit)}`;
   const ab = (unit = "%") => `${number(Math.abs(total))}${unit}${capped}${each(unit)}`;
+  // A core stat or damage bonus as the multiplier it comes to, each card adding its share: "×1.3 [+0.1×3]".
+  const step = (share: number) => `${share < 0 ? "-" : "+"}${Math.round(Math.abs(share) * 1000) / 1000}`;
+  const mul = () => `${formatMultiplierChange(1 + total / 100)}${capped} [${step(v / 100)}×${n}]`;
   const burnShare = effect.share ?? CARD_EFFECT_DEFAULTS.burn.share;
   const lines: Partial<Record<CardEffectId, () => string>> = {
-    atk: () => `Damage ${sig()}`,
+    atk: () => `Damage ${mul()}`,
     critChance: () => `Crit Chance ${sig()}`,
     critDamage: () => `Crit Damage and its cap ${sig()}`,
     doubleStrike: () => `${ab()} chance a hit lands twice`,
     splitShot: () => `${ab()} chance to also hit a second nearby enemy`,
-    bossSlayer: () => `Damage to bosses ${sig()}`,
-    eliteSlayer: () => `Damage to elites ${sig()}`,
-    raceSlayer: () => `Damage to ${mapName(effect.mapId ?? "")} enemies ${sig()}`,
-    rangedSlayer: () => `Damage to ranged enemies ${sig()}`,
-    execute: () => `Damage to enemies under ${percent(CARD_EFFECT_DEFAULTS.execute.below)} health ${sig()}`,
-    opener: () => `Damage to enemies at full health ${sig()}`,
-    berserk: () => `Damage ${sig()} while you are under ${percent(CARD_EFFECT_DEFAULTS.berserk.below)} health`,
-    steady: () => `Damage ${sig()} while you stand still`,
+    bossSlayer: () => `Damage to bosses ${mul()}`,
+    eliteSlayer: () => `Damage to elites ${mul()}`,
+    raceSlayer: () => `Damage to ${mapName(effect.mapId ?? "")} enemies ${mul()}`,
+    rangedSlayer: () => `Damage to ranged enemies ${mul()}`,
+    execute: () => `Damage to enemies under ${percent(CARD_EFFECT_DEFAULTS.execute.below)} health ${mul()}`,
+    opener: () => `Damage to enemies at full health ${mul()}`,
+    berserk: () => `Damage ${mul()} while you are under ${percent(CARD_EFFECT_DEFAULTS.berserk.below)} health`,
+    steady: () => `Damage ${mul()} while you stand still`,
     momentum: () => `Each kill: damage ${sig()} for ${CARD_EFFECT_DEFAULTS.momentum.seconds}s, stacks ${CARD_EFFECT_DEFAULTS.momentum.stacks} times`,
     // Burning on every hit stacks its share per copy; a chance to burn stacks the chance.
     burn: () => v >= 100
@@ -75,9 +79,9 @@ export function cardEffectText(effect: CardEffect, copies = 1): string {
     piercing: () => `With a bow: Piercing Shot chance ${sig()}`,
     iaido: () => "Your first hit on each enemy is always a critical",
     reap: () => `Regular enemies under ${ab()} health die at once`,
-    maxHealth: () => `Max Health ${sig()}`,
-    armor: () => `Armor ${sig()}`,
-    regen: () => `Regen ${sig()}`,
+    maxHealth: () => `Max Health ${mul()}`,
+    armor: () => `Armor ${mul()}`,
+    regen: () => `Regen ${mul()}`,
     reflect: () => `${ab()} chance to send a hit back`,
     secondWind: () => `Heal ${ab()} of max health on each kill`,
     dodge: () => `${ab()} chance to dodge a hit`,
@@ -93,8 +97,8 @@ export function cardEffectText(effect: CardEffect, copies = 1): string {
     prism: () => `A reflected hit also strikes up to ${PRISM_MAX_TARGETS} enemies near the attacker, each once a second at most`,
     fleetFoot: () => `Move Speed ${sig()}`,
     longShot: () => `Attack Range ${sig("")}`,
-    statGain: () => `${STAT_NAMES[effect.stat ?? "damage"]} from kills ${sig()}`,
-    allStatGain: () => `All stats from kills ${sig()}`,
+    statGain: () => `${STAT_NAMES[effect.stat ?? "damage"]} from kills ${mul()}`,
+    allStatGain: () => `All stats from kills ${mul()}`,
     cardHunter: () => `Card drop chance ${sig()}`,
     treasure: () => `Gold drop chance ${sig()}`,
     respawn: () => `Enemies respawn ${ab()} faster`,

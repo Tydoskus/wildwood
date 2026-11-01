@@ -265,7 +265,7 @@ describe("combat in the booted game", { timeout: 60_000 }, () => {
     expect(inRoom()).toBe(true);
     expect(at().x).toBeGreaterThan(door.room.left);
     // Out through the doorway: back on the street by the door.
-    await tab.hold("KeyD", 1_400);
+    await tab.hold("KeyD", 280_000 / PLAYER_SPEED);
     await tab.hold("KeyS", 2_000);
     await tab.play(500);
     expect(inRoom()).toBe(false);

@@ -1,5 +1,7 @@
+import { freezeEntry, type FrozenImage } from "../render/frozen-canvas";
+
 /**
- * The Town square's signpost: a wooden post with one arrow plank, painted in the
+ * The Town square's signpost:a wooden post with one arrow plank, painted in the
  * ForestVillage pack's style (warm wood, dark brown outline), its label on the
  * plank (or two lines of it, split at a line break). The plank points left and a little up, the way to the travel portal;
  * mirrored, it points right, as the Copper Hills sign by the Smith's yard does.
@@ -60,4 +62,49 @@ export function drawTownSignpost(c: CanvasRenderingContext2D, x: number, y: numb
   });
   c.restore();
   c.restore();
+}
+
+/** Room round the extent for the outline and the shadow, in world units. */
+const SPRITE_PAD = 8;
+const SPRITE_CACHE_LIMIT = 64;
+
+/**
+ * Signposts drawn once per label, direction and scale and copied on whole device pixels, instead of the
+ * whole post, plank and label every frame. Only where the foot lands on a whole device pixel under an
+ * unrotated transform, where the copy is what drawing in place gives; elsewhere it draws as before.
+ */
+export function createTownSignpostSprites() {
+  const sprites = new Map<string, FrozenImage>();
+  return function drawTownSignpostSprite(c: CanvasRenderingContext2D, x: number, y: number, label: string, mirrored = false) {
+    const m = typeof c.getTransform === "function" ? c.getTransform() : null;
+    const footX = m ? m.a * x + m.e : NaN, footY = m ? m.d * y + m.f : NaN;
+    const pixelX = Math.round(footX), pixelY = Math.round(footY);
+    if (!m || m.b !== 0 || m.c !== 0 || !(m.a > 0) || !(m.d > 0) || Math.abs(footX - pixelX) > 1e-6 || Math.abs(footY - pixelY) > 1e-6) {
+      drawTownSignpost(c, x, y, label, mirrored);
+      return;
+    }
+    const extent = mirrored ? TOWN_SIGNPOST_EXTENT_MIRRORED : TOWN_SIGNPOST_EXTENT;
+    const originX = Math.ceil((extent.left + SPRITE_PAD) * m.a), originY = Math.ceil((extent.up + SPRITE_PAD) * m.d);
+    const key = `${m.a}|${m.d}|${mirrored ? 1 : 0}|${label}`;
+    let sprite = sprites.get(key);
+    if (sprite === undefined) {
+      if (sprites.size >= SPRITE_CACHE_LIMIT) sprites.clear();
+      const canvas = document.createElement("canvas");
+      canvas.width = originX + Math.ceil((extent.right + SPRITE_PAD) * m.a);
+      canvas.height = originY + Math.ceil((extent.down + SPRITE_PAD) * m.d);
+      const target = canvas.getContext("2d");
+      if (!target) {
+        drawTownSignpost(c, x, y, label, mirrored);
+        return;
+      }
+      target.setTransform(m.a, 0, 0, m.d, originX, originY);
+      drawTownSignpost(target, 0, 0, label, mirrored);
+      sprites.set(key, sprite = canvas);
+      freezeEntry(sprites, key, canvas);
+    }
+    c.save();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.drawImage(sprite, pixelX - originX, pixelY - originY);
+    c.restore();
+  };
 }

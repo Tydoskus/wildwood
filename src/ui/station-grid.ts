@@ -1,5 +1,6 @@
 import { itemDisplayName } from "../../shared/items";
-import { appendBagTileContents } from "./bag-item-tile";
+import { REFINE_ORES, type OreId } from "../../shared/refine";
+import { appendBagTileContents, appendOreTileContents } from "./bag-item-tile";
 import { itemInspectionButtonLabel } from "./item-inspection-controller";
 import { withRefineStars } from "./refine-badge";
 
@@ -15,6 +16,10 @@ export type StationTile = {
   badge?: string;
   /** Its button cannot act right now: the tile is dimmed. */
   waits?: boolean;
+  /** Why it cannot be had at all yet, said in a message when it is tapped. */
+  why?: string;
+  /** A material stack (crafted arrows): itemId is its ore id, drawn as the bag draws it with this many held. */
+  oreCount?: number;
 };
 
 /**
@@ -46,9 +51,12 @@ export function renderStationGrid(grid: HTMLElement, tiles: readonly StationTile
     button.classList.toggle("is-waiting", Boolean(tile.waits));
     button.dataset.itemId = tile.itemId;
     if (tile.copyId !== undefined) button.dataset.copyId = String(tile.copyId);
-    const name = withRefineStars(itemInspectionButtonLabel(itemDisplayName(tile.itemId)), tile.refine ?? 0);
+    const ore = tile.oreCount !== undefined ? tile.itemId as OreId : null;
+    const name = ore ? `${REFINE_ORES[ore].name}, ${tile.oreCount} Held`
+      : withRefineStars(itemInspectionButtonLabel(itemDisplayName(tile.itemId)), tile.refine ?? 0);
     button.setAttribute("aria-label", tile.badge ? `${name}, ${tile.badge}` : name);
-    appendBagTileContents(button, tile.itemId, { refine: tile.refine, tier: tile.tier, stats: !tile.badge });
+    if (ore) appendOreTileContents(button, ore, tile.oreCount!);
+    else appendBagTileContents(button, tile.itemId, { refine: tile.refine, tier: tile.tier, stats: !tile.badge });
     if (tile.badge) {
       const badge = document.createElement("span");
       badge.className = "station-tile-badge";

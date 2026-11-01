@@ -45,3 +45,13 @@ next release that breaks clients:
 Guild invitations stay: `social_guild_invite`, `guildInviteAction` and the snapshot's
 `guildInvitations`, `outgoingGuildInvitations` and `canInviteToGuild` are in use again (invites
 arrive as a private chat from their sender, 0.916.28). Do not drop them.
+
+## Waiting (offline gathering picks unused, 0.917.36)
+
+Time away now mines and chops every vein and stand the skills open, evenly. 0.917.34-35 tabs still
+send their Auto Mine and Auto Chop picks, so the server keeps taking them. In the next release that
+breaks clients:
+
+- Drop the private table `player_gather_picks` and the reducer `setGatherPicks`
+  (`spacetimedb/src/offline-gathering.ts`, `index.ts`).
+- Remove it from account erasure (`account-erasure.ts`) and `PLAYER_STATE_TABLES` (`account-lifecycle.ts`).

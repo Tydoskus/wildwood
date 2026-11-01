@@ -56,6 +56,13 @@ export function createEnemyLifecycle(
       dead: false,
       phase: regularEnemySeededUnit("spawn-phase", site.campName, site.id, site.type) * TAU,
       idleUpdateElapsed: 0,
+      // Fields set later exist from birth, so every enemy keeps one object shape.
+      combatTargetX: undefined,
+      combatTargetY: undefined,
+      attackAnimationElapsed: undefined,
+      hpLossFlashFrom: undefined,
+      hpLossFlashTimer: undefined,
+      cardStatus: undefined,
     });
     site.alive = true;
     site.respawnAt = 0;

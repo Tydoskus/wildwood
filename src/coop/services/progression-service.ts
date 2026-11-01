@@ -1051,7 +1051,7 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       },
     },
     api: {
-      ...createProceduralMapService(dependencies.reducers),
+      ...createProceduralMapService(dependencies.reducers, dependencies.hydrationReady),
       // Portal cutscenes introduce each map once. A prestiged player has
       // unlocked every one before, so a rerun of the campaign skips them.
       hasSeenPortalCutscene: (cutscene: string) => (localPrestige?.level ?? 0) > 0 || cutscenes.hasSeen(cutscene),
@@ -1135,6 +1135,8 @@ export function createProgressionService(dependencies: ProgressionServiceDepende
       freeRespecAvailable: () => !freeRespecUsed,
       /** Today's quests and the guild's standing; null until the server has drawn them. */
       weeklyQuests: (): WeeklyQuestState | null => weeklyQuest ? { ...weeklyQuest, quests: weeklyQuest.quests.map(quest => ({ ...quest })) } : null,
+      /** This page's kills on a map that the server has not taken yet, for the quest tracker. */
+      pendingQuestKills: (mapId: string) => enemyLoot.pendingKills(mapId),
       /** Every guild's quest points in one week, best first. */
       guildQuestRanking: (week: number) => [...guildQuestWeeks.values()].filter(row => row.week === week).sort((a, b) => b.points - a.points || a.guildName.localeCompare(b.guildName)),
       refreshWeeklyQuests() {

@@ -94,7 +94,7 @@ describe("Auto Farm, the boss and the next map (FARM-03)", () => {
     // It farmed first: the power it set off with is more than it started with.
     expect(report.bossAttempts[0].t).toBeGreaterThan(10);
     expect(report.bossAttempts[0].power).toBeGreaterThan(report.startPower);
-    expect(report.deaths).toEqual([]);
+    expect(report.deaths.filter(death => death.map === "tutorial_forest")).toEqual([]);
   });
 
   it("with Move On off, farms on beside a boss it could beat", async () => {

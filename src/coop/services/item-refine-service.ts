@@ -15,8 +15,8 @@ const copyKey = (itemId: string, copyId: bigint) => `${itemId}:${copyId}`;
 const isOreId = (value: string): value is OreId => Object.prototype.hasOwnProperty.call(REFINE_ORES, value);
 
 /**
- * This account's refines, looks' kept refines, ores and last refine try, from the caller-scoped my_item_refines,
- * my_copy_refines, my_cosmetic_refines, my_ores and my_refine_result views, and the refine_item / destroy_ore reducers. The server rolls every try
+ * This account's refines, looks' kept refines, ores, last refine try and fails in a row, from the caller-scoped my_item_refines,
+ * my_copy_refines, my_cosmetic_refines, my_ores, my_refine_result and my_refine_pity views, and the refine_item / destroy_ore reducers. The server rolls every try
  * and owns every level; this only carries rows and requests.
  */
 export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: string) => number = () => 0) {
@@ -24,6 +24,7 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
   let levels = new Map<string, number>();
   let cosmeticLevels = new Map<string, number>();
   let ores: Partial<Record<OreId, number>> = {};
+  let pity = new Map<string, { level: number; fails: number }>();
   let result: RefineResult | null = null;
   let resultListener: ((result: RefineResult) => void) | null = null;
 
@@ -32,6 +33,7 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
     levels = new Map();
     cosmeticLevels = new Map();
     ores = {};
+    pity = new Map();
     result = null;
     // The standing row on connect is an old try, not one to announce.
     let hydrated = false;
@@ -55,6 +57,11 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
       ores = next;
       notify();
     };
+    const readPity = () => {
+      if (!isCurrent()) return;
+      pity = new Map([...connection.db.myRefinePity.iter()].map(row => [copyKey(row.itemId, row.copyId), { level: row.level, fails: row.fails }]));
+      notify();
+    };
     const readResult = () => {
       if (!isCurrent()) return;
       const [row] = [...connection.db.myRefineResult.iter()];
@@ -72,10 +79,11 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
     const looks = connection.db.myCosmeticRefines;
     looks.onInsert(readCosmeticLevels); looks.onUpdate(readCosmeticLevels); looks.onDelete(readCosmeticLevels);
     connection.db.myOres.onInsert(readOres); connection.db.myOres.onUpdate(readOres); connection.db.myOres.onDelete(readOres);
+    connection.db.myRefinePity.onInsert(readPity); connection.db.myRefinePity.onUpdate(readPity); connection.db.myRefinePity.onDelete(readPity);
     connection.db.myRefineResult.onInsert(readResult); connection.db.myRefineResult.onUpdate(readResult); connection.db.myRefineResult.onDelete(readResult);
     connection.subscriptionBuilder()
-      .onApplied(() => { readLevels(); readCosmeticLevels(); readOres(); readResult(); hydrated = true; })
-      .subscribe([tables.myItemRefines, tables.myCopyRefines, tables.myCosmeticRefines, tables.myOres, tables.myRefineResult]);
+      .onApplied(() => { readLevels(); readCosmeticLevels(); readOres(); readPity(); readResult(); hydrated = true; })
+      .subscribe([tables.myItemRefines, tables.myCopyRefines, tables.myCosmeticRefines, tables.myOres, tables.myRefineResult, tables.myRefinePity]);
   }
 
   return {
@@ -102,6 +110,11 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
         } catch (error) {
           return { ok: false, error: reducerErrorMessage(error) };
         }
+      },
+      /** Fails in a row on one copy at `level`, which raise its next try's chance. */
+      refineFails: (itemId: string, copyId: bigint, level: number) => {
+        const row = pity.get(copyKey(itemId, copyId));
+        return row && row.level === level ? row.fails : 0;
       },
       lastRefineResult: (): RefineResult | null => result,
       /** Called with each new try's result, once the window has asked for it (not for the standing row on connect). */

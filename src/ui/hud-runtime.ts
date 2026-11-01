@@ -70,6 +70,8 @@ export function createHudRuntime(deps: HudRuntimeDeps) {
     upgrades: () => client?.activeItemUpgrades?.() ?? [],
     inTown: deps.inTown,
     goToResearch: deps.goToResearch,
+    runTiming: () => client?.runTiming?.(),
+    runHistory: () => client?.runHistory?.() ?? [],
   });
   installServerBoostHud(() => client?.serverBoost?.()?.remainingMs ?? 0);
   installMysteriousOreTimer({ source: () => client, connected: coop.connected });

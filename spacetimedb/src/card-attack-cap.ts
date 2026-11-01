@@ -23,18 +23,23 @@ type Ctx = any;
  * the active cards it read, for a kill report to use throughout: nothing it does changes them.
  */
 export function syncCardAttackCap(ctx: Ctx, identity: Identity) {
+  return syncCardAttackCapFor(ctx, identity).worn;
+}
+
+/** syncCardAttackCap, plus the save it read when it wrote nothing, so a kill report need not read it again. */
+export function syncCardAttackCapFor(ctx: Ctx, identity: Identity) {
   const progress = readPlayerProgress(ctx, identity);
-  if (!progress) return NO_CARDS;
+  if (!progress) return { worn: NO_CARDS, progress: undefined };
   const worn = activeCardTotalsFor(ctx, identity);
   const current = cardStatFactors(worn).attackCapRaise;
   const row = ctx.db.playerCardAttackCap.identity.find(identity);
   const basis = row?.raise ?? 0;
-  if (Math.abs(current - basis) < 1e-9) return worn;
+  if (Math.abs(current - basis) < 1e-9) return { worn, progress };
   const now = attackCapInPlay(ctx, identity, worn);
   const before = { ...now, raise: Math.max(0, now.raise - current + basis) };
   const attackRate = attackIntervalUnderNewCap(progress.attackRate, before, now);
   if (attackRate !== progress.attackRate) updateSnapshotRow(ctx, "playerProgress", { ...progress, attackRate });
   if (row) ctx.db.playerCardAttackCap.identity.update({ identity, raise: current });
   else ctx.db.playerCardAttackCap.insert({ identity, raise: current });
-  return worn;
+  return { worn, progress: undefined };
 }

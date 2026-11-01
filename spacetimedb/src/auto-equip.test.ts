@@ -1,4 +1,6 @@
 import { Identity } from "spacetimedb";
+import { BOW_ATTACK_SPEED_BONUS } from "../../shared/bow-skills";
+import { PLAUSIBLE_KILL_TOLERANCE } from "./enemy-defeats";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportEnemy, seedDefeatClock } from "../../tests/helpers/enemy-defeat";
@@ -62,7 +64,8 @@ function archer(roll: Roll = LOW) {
 it("puts a better duplicate roll on the first copy, so the bow in hand reads it for kill bounds", () => {
   const plain = archer(NONE);
   reportEnemy(plain, ENEMY, 16);
-  expect(kills(plain)).toBe(12);
+  // Ten seconds of a bow's quicker shots, at the kill tolerance.
+  expect(kills(plain)).toBe(Math.floor(10 * (1 + BOW_ATTACK_SPEED_BONUS) * PLAUSIBLE_KILL_TOLERANCE));
 
   const f = archer();
   draws(f, EVERY_SKILL_AT_THE_TOP);

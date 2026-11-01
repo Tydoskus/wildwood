@@ -8,9 +8,14 @@ type SharedNotes = { sessionRead: string; indicators: Set<() => void> };
 const page = globalThis as { __wildstatReleaseNotes?: SharedNotes };
 const shared = (page.__wildstatReleaseNotes ??= { sessionRead: "", indicators: new Set() });
 
+// Release objects are cached by the changelog, so each one is stringified once.
+const signatures = new WeakMap<object, string>();
 function signature(releases: Releases) {
   const latest = releases[0];
-  return latest ? JSON.stringify([latest.version, latest.notes]) : "";
+  if (!latest) return "";
+  let text = signatures.get(latest);
+  if (text === undefined) signatures.set(latest, text = JSON.stringify([latest.version, latest.notes]));
+  return text;
 }
 
 function lastRead() {

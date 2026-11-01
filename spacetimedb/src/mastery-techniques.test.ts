@@ -4,7 +4,6 @@ import { masteryPointsForLevel, type WeaponSchool } from "../../shared/weapon-ma
 import { BLOODLUST_HEAL_SHARE, MANA_SHIELD_REDUCTION, MARK_DAMAGE_BONUS, MOMENTUM_MAX, PARRY_RETURN_BONUS, TAILWIND_SPEED_BONUS } from "../../shared/mastery-techniques";
 import { ARROW_STORM_ARROWS } from "../../shared/bow-skills";
 import { PLAYER_SPEED } from "../../shared/rules";
-import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { createCombatReport } from "./boss-combat";
 import { masteryKey } from "./weapon-mastery";
 import { bowSkillKey } from "./bow-skills";
@@ -35,13 +34,13 @@ function boundAt(f: Fixture, school: WeaponSchool, before: number, after: number
 }
 
 describe("techniques in the kill bound", () => {
-  it("counts Steady Aim's crits with no crit chance, and Hunter's Mark's 8%", () => {
+  it("counts a bow's hits as crits with no crit chance, so Steady Aim adds none, and Hunter's Mark's 8%", () => {
     const f = crystalFixture();
     holding(f, "ion_bow");
     f.patch("playerProgress", { damage: 10 });
+    // A bow crits on its own (bow-skills.ts): every hit is already at the crit multiplier before Steady Aim.
     const steady = boundAt(f, "archery", 9, 10);
-    // Every hit counted at the crit multiplier, 1.05x with nothing raising it.
-    expect(steady.trained.dps / steady.plain.dps).toBeCloseTo(criticalDamageMultiplier({}));
+    expect(steady.trained.dps / steady.plain.dps).toBeCloseTo(1);
     const mark = boundAt(f, "archery", 29, 30);
     expect(mark.trained.dps / mark.plain.dps).toBeCloseTo(1 + MARK_DAMAGE_BONUS);
   });

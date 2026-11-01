@@ -8,6 +8,7 @@ import { activeCardTotalsFor } from "./active-cards";
 import { addCard } from "./gear-cards";
 import { pinnedMapBalance } from "./map-balance";
 import { luckInPlay } from "./luck-research";
+import type { LuckRanks } from "../../shared/luck-research";
 
 type Ctx = any;
 
@@ -48,14 +49,14 @@ type CardRoll = { cardId: string; outcomes: number; times: number };
  * Rolls each card its number of times against its odds and meter; finds go to player_card and player_card_drop.
  * Active Card Hunter cards raise every roll, and Card Luck the chance but not the meter; read only once a roll is due.
  */
-function rollCards(ctx: Ctx, identity: Identity, rolls: readonly CardRoll[], chanceMultiplier = 1, worn?: CardTotals) {
+function rollCards(ctx: Ctx, identity: Identity, rolls: readonly CardRoll[], chanceMultiplier = 1, worn?: CardTotals, luck?: () => LuckRanks) {
   const found: string[] = [];
   let odds = 0, cardLuck = 0, oddsRead = false;
   for (const { cardId, outcomes, times } of rolls) {
     if (times < 1) continue;
     if (!oddsRead) {
       odds = chanceMultiplier * (1 + cardStatFactors(worn ?? activeCardTotalsFor(ctx, identity)).cardHunter);
-      cardLuck = luckInPlay(ctx, identity).cardLuck;
+      cardLuck = (luck?.() ?? luckInPlay(ctx, identity)).cardLuck;
       oddsRead = true;
     }
     const chance = cardDropChance(outcomes, odds, cardLuck);
@@ -81,7 +82,7 @@ function rollCards(ctx: Ctx, identity: Identity, rolls: readonly CardRoll[], cha
 
 /** Rolls a card for each paid kill, and one for a boss kill the boss had time to respawn for (an Endless boss: its band's Warden card). */
 export function awardCardDrops(ctx: Ctx, identity: Identity, mapId: string, kills: readonly { enemy: string; count: number }[],
-  bossKills: number, chanceMultiplier = 1, worn?: CardTotals) {
+  bossKills: number, chanceMultiplier = 1, worn?: CardTotals, luck?: () => LuckRanks) {
   const rolls: CardRoll[] = [];
   for (const { enemy, count } of kills) {
     const card = cardForEnemy(mapId, enemy);
@@ -89,7 +90,7 @@ export function awardCardDrops(ctx: Ctx, identity: Identity, mapId: string, kill
   }
   const boss = bossKills > 0 ? cardForBoss(mapId) : undefined;
   if (boss && bossCardRollReady(ctx, identity, mapId)) rolls.push({ cardId: boss.id, outcomes: cardOutcomes(boss), times: 1 });
-  return rollCards(ctx, identity, rolls, chanceMultiplier, worn);
+  return rollCards(ctx, identity, rolls, chanceMultiplier, worn, luck);
 }
 
 /** Rolls the tree cards for the trees a player felled (Oak Tree and Elder Tree cards), on the same meters. */

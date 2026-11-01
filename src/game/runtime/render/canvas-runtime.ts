@@ -4,6 +4,7 @@ import { createCanvasPrimitives } from "../../canvas";
 import { requiredCanvasContext } from "../dom";
 import { canvasRenderPixelRatio } from "./render-budget";
 import { createSwitchableContext } from "./switchable-context";
+import { worldSpritesWanted } from "./world-sprites-wanted";
 
 export function gameplayBottomInset(toolbarHeight: number, fullScreenScene = false) {
   if (fullScreenScene) return 0;
@@ -41,8 +42,10 @@ export function createCanvasRuntime({
   transparent?: boolean;
   getActorShadowSprite: () => HTMLImageElement | null;
 }) {
-  // Everything draws through the switchable context, so the world can be sent to the WebGL layer (world-sprite-capture.ts).
-  const worldContext = createSwitchableContext(requiredCanvasContext(canvas, { alpha: transparent }));
+  // Everything draws through the switchable context, so the world can be sent to the WebGL layer (world-sprite-capture.ts);
+  // with no layer (transparent is set when there is one) or no sprites wanted, through the real context.
+  const sprites = transparent && worldSpritesWanted(window.location.search, navigator);
+  const worldContext = createSwitchableContext(requiredCanvasContext(canvas, { alpha: transparent }), sprites);
   const ctx = worldContext.context;
   const primitives = createCanvasPrimitives(ctx);
   let dpr = 1;

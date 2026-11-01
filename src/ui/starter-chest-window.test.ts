@@ -32,8 +32,8 @@ it("shows three cards, a Crude Bow, Sword and Staff, each with art, school and w
     ["Crude Bow", "Archery"], ["Crude Sword", "Swordplay"], ["Crude Staff", "Sorcery"],
   ]);
   // The sword's card gives the bonus the Crude Sword really has, not its 1.5x over the bow.
-  const swordBonus = Math.round(GRADE_ITEM_DEFINITIONS.crude_sword.weapon!.damageMultiplierBonus! * 10_000) / 100;
-  expect(cards(dialog)[1].querySelector(".smith-shop-stat")!.textContent).toContain(`+${swordBonus}%`);
+  const swordBonus = Number((1 + GRADE_ITEM_DEFINITIONS.crude_sword.weapon!.damageMultiplierBonus!).toFixed(2));
+  expect(cards(dialog)[1].querySelector(".smith-shop-stat")!.textContent).toContain(`×${swordBonus}`);
   for (const card of cards(dialog)) expect(card.querySelector(".smith-shop-art .inventory-item-art"), card.dataset.kind).toBeTruthy();
 });
 

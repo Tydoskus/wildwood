@@ -38,6 +38,7 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
   /** When this tab last asked for a change to each item's copies. */
   const localActions = new Map<string, number>();
 
+  /** Listens, and returns what to subscribe and what to read once applied; the caller's one subscription adds my_staff_skills. */
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     const readIgnoredDrops = ignoredDrops.watch(connection, isCurrent);
     const readLootSettings = lootSettings.watch(connection, isCurrent);
@@ -84,8 +85,10 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
     connection.db.myEquipmentOffers.onInsert(readOffers);
     connection.db.myEquipmentOffers.onUpdate(readOffers);
     connection.db.myEquipmentOffers.onDelete(readOffers);
-    connection.subscriptionBuilder().onApplied(() => { readStaff(); readIgnoredDrops(); readLootSettings(); readLocks(); })
-      .subscribe([tables.myEquipmentLocks, tables.myEquipmentCopies, tables.myEquipmentOffers, tables.myStaffSkills, ignoredDrops.table, lootSettings.table]);
+    return {
+      tables: [tables.myEquipmentLocks, tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table, lootSettings.table],
+      applied() { readStaff(); readIgnoredDrops(); readLootSettings(); readLocks(); },
+    };
   }
 
   async function call(send: (connection: DbConnection) => Promise<unknown>, itemId?: string): Promise<EquipmentCopyResult> {

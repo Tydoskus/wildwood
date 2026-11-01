@@ -3,6 +3,7 @@ import { CAMPAIGN_ITEM_DEFINITIONS } from "./campaign-equipment";
 import { GRADE_ITEM_DEFINITIONS, armorClassOf } from "./grade-equipment";
 import { ARMOR_CLASS_DETAILS, CLASS_SET_DAMAGE_PERCENT } from "./gear-grades";
 import { refineMultiplier } from "./refine-multiplier";
+import { itemStatLine } from "./item-stat-line";
 
 // Browser- and server-safe equipment catalog. Add gameplay-facing item data
 // here; client-only sprites and draw anchors live in item-presentation.ts.
@@ -532,34 +533,29 @@ export function itemDisplayName(itemId: unknown, upgradeLevel: ItemLevel = 0) {
   return level > 0 ? `${item.name} +${level}` : item.name;
 }
 
-export function itemStats(itemId: unknown, upgradeLevel: ItemLevel = 0): readonly string[] {
+export function itemStats(itemId: unknown, upgradeLevel: ItemLevel = 0, decimals = 2): readonly string[] {
   const item = itemDefinition(canonicalItemId(itemId));
   if (!item || (!isUpgradeableItem(item.id) && !hasBootStat(item.id))) return item?.stats ?? [];
   const level = upgradeLevel;
   const stats: string[] = [];
-  if (item.weapon?.damageMultiplierBonus !== undefined) {
-    stats.push(`DAMAGE +${upgradedStatBonus(item.weapon.damageMultiplierBonus * 100, level)}%`);
-  }
-  if (item.modifiers?.damageMultiplierBonus !== undefined) {
-    stats.push(`DAMAGE +${upgradedStatBonus(item.modifiers.damageMultiplierBonus * 100, level)}%`);
-  }
-  if (item.modifiers?.maxHealthMultiplierBonus !== undefined) {
-    stats.push(`MAX HEALTH +${upgradedStatBonus(item.modifiers.maxHealthMultiplierBonus * 100, level)}%`);
-  }
-  if (item.modifiers?.regenerationMultiplierBonus !== undefined) {
-    stats.push(`REGEN +${upgradedStatBonus(item.modifiers.regenerationMultiplierBonus * 100, level)}%`);
-  }
-  if (item.modifiers?.armorMultiplierBonus !== undefined) stats.push(`ARMOR +${upgradedStatBonus(item.modifiers.armorMultiplierBonus * 100, bootLevel(level))}%`);
-  if (item.modifiers?.moveSpeedMultiplierBonus !== undefined) stats.push(`MOVE SPEED +${upgradedStatBonus(item.modifiers.moveSpeedMultiplierBonus * 100, bootLevel(level))}%`);
-  if (item.modifiers?.skillChanceMultiplierBonus !== undefined) stats.push(`SKILL CHANCE +${upgradedStatBonus(item.modifiers.skillChanceMultiplierBonus * 100, bootLevel(level))}%`);
+  const line = (label: string, bonus: number, at: ItemLevel) => stats.push(itemStatLine(label, upgradedStatBonus(bonus * 100, at), decimals));
+  if (item.weapon?.damageMultiplierBonus !== undefined) line("DAMAGE", item.weapon.damageMultiplierBonus, level);
+  if (item.modifiers?.damageMultiplierBonus !== undefined) line("DAMAGE", item.modifiers.damageMultiplierBonus, level);
+  if (item.modifiers?.maxHealthMultiplierBonus !== undefined) line("MAX HEALTH", item.modifiers.maxHealthMultiplierBonus, level);
+  if (item.modifiers?.regenerationMultiplierBonus !== undefined) line("REGEN", item.modifiers.regenerationMultiplierBonus, level);
+  if (item.modifiers?.armorMultiplierBonus !== undefined) line("ARMOR", item.modifiers.armorMultiplierBonus, bootLevel(level));
+  if (item.modifiers?.moveSpeedMultiplierBonus !== undefined) line("MOVE SPEED", item.modifiers.moveSpeedMultiplierBonus, bootLevel(level));
+  if (item.modifiers?.skillChanceMultiplierBonus !== undefined) line("SKILL CHANCE", item.modifiers.skillChanceMultiplierBonus, bootLevel(level));
   return stats;
 }
 
 export function itemUpgradeStatChanges(itemId: unknown, currentLevel: ItemLevel) {
   const { tier: level, refine } = itemLevelParts(currentLevel);
   if (!isUpgradeableItem(itemId) || level >= MAX_ITEM_UPGRADE_LEVEL) return [];
-  const current = itemStats(itemId, { tier: level, refine });
-  const next = itemStats(itemId, { tier: level + 1, refine });
+  // A small step can round away at two decimals (×1.05 → ×1.05); then both sides show three.
+  const both = (decimals: number) => [itemStats(itemId, { tier: level, refine }, decimals), itemStats(itemId, { tier: level + 1, refine }, decimals)];
+  let [current, next] = both(2);
+  if (current.some((stat, index) => stat === next[index])) [current, next] = both(3);
   return current.map((stat, index) => {
     const splitAt = stat.lastIndexOf(" ");
     return {

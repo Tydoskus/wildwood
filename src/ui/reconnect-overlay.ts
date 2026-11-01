@@ -1,4 +1,5 @@
 import { hasApprovedGameSession } from "../coop/startup-state-machine";
+import { setHidden, setText } from "./dom-write";
 import type { CoopAccess } from "../game/runtime/coop-access";
 import type { createGameElements } from "./game-elements";
 
@@ -46,19 +47,19 @@ export function createReconnectOverlay(deps: ReconnectOverlayDeps) {
     const diagnostics = client?.connectionDiagnostics?.();
     const updateShown = updating || Boolean(scheduledUpdate);
     const reconnectShown = reconnecting && !waitingForServer && !accountRecoveryRequired;
-    reconnectOverlayEl.hidden = !updateShown && !reconnectShown;
+    setHidden(reconnectOverlayEl, !updateShown && !reconnectShown);
     reconnectOverlayEl.classList.toggle("is-updating", updateShown);
     // A badge, not the overlay
     reconnectOverlayEl.classList.toggle("is-quiet", !updateShown && Boolean(client?.isReconnectingQuietly?.()));
-    reconnectTitleEl.textContent = updateShown ? "Game Updating" : "Reconnecting";
-    reconnectDetailEl.textContent = scheduledUpdate || (updating ? "Reconnecting when the new version is ready"
+    setText(reconnectTitleEl, updateShown ? "Game Updating" : "Reconnecting");
+    setText(reconnectDetailEl, scheduledUpdate || (updating ? "Reconnecting when the new version is ready"
       : diagnostics?.phase === "connecting"
       ? "Connecting to WildStat…"
       : diagnostics?.phase === "preparing-session"
         ? "Restoring your session…"
         : diagnostics?.phase === "hydrating"
           ? "Syncing the world…"
-          : diagnostics?.issue?.message || "Restoring your connection");
+          : diagnostics?.issue?.message || "Restoring your connection"));
     // Pause reasons compose: ending an ad, reward window, or reconnect cannot
     // accidentally resume gameplay while another blocking surface remains.
     deps.setGameplayPause("connection-gate", reconnecting || waitingForServer || accountRecoveryRequired);

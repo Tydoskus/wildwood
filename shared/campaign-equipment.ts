@@ -1,5 +1,6 @@
 import { equipmentStatDefinition } from "./equipment-budget";
 import type { ItemDefinition } from "./items";
+import { itemStatLine } from "./item-stat-line";
 
 // Catalog additions and their per-enemy loot odds share one declaration, so new
 // campaign maps cannot accidentally advertise equipment without awarding it.
@@ -27,7 +28,7 @@ function sword(id: string, name: string, tier: number): ItemDefinition {
   return {
     id, name: name.toUpperCase(), slot: "HAND", acquisition: "CAMPAIGN_DROP",
     description: "A sword that increases damage. It strikes up close.",
-    stats: [`DAMAGE +${percent}%`], weapon: { mode: "MELEE", range: SWORD_REACH, damageMultiplierBonus: percent / 100, tier },
+    stats: [itemStatLine("DAMAGE", percent)], weapon: { mode: "MELEE", range: SWORD_REACH, damageMultiplierBonus: percent / 100, tier },
   };
 }
 

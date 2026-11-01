@@ -147,9 +147,9 @@
 
 .guild-row-copy > .guild-presence--online { color: #65d66d; }
 .guild-row-copy > .guild-presence--offline { color: #a7aba8; }
-/* Keep the roster and its scroll position behind an inspected player. */
-body:has(.guild-overlay:not([hidden])) #playerProfile { z-index: 13; pointer-events: auto; }
-body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
+/* Keep the roster and its scroll position behind an inspected player (body.guild-overlay-open, guild-overlay-open.ts). */
+body.guild-overlay-open #playerProfile { z-index: 13; pointer-events: auto; }
+body.guild-overlay-open #profileIconPicker { z-index: 14; }
 
 .guild-emblem.guild-emblem { display: block; aspect-ratio: 1; background: url("guild-emblems-v3.webp") no-repeat; background-size: 418% 418%; clip-path: none; border-radius: 0; }
 .guild-emblem.guild-emblem--sheet-2 { background-image: url("guild-emblems-v4.webp"); }
@@ -214,3 +214,8 @@ body:has(.guild-overlay:not([hidden])) #profileIconPicker { z-index: 14; }
 .guild-quest-pool .guild-row-copy strong { color: #ffd66b; }
 .guild-quest-pool .guild-quest-collect, .guild-quest-member .guild-quest-collect { flex-shrink: 0; min-height: 34px; margin: 0; padding: 4px 10px; font-size: 12px; }
 .guild-window .guild-hall-button { width: 100%; font-size: 14px; }
+
+/* The next level's bonus, under the upgrade's name and price. */
+.guild-hall-sheet .guild-hall-upgrade { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-align: center; }
+.guild-hall-upgrade small { display: block; color: #aeb3bb; font-size: 13px; font-weight: 700; }
+.guild-hall-bonus { margin: 2px 0 8px; color: #e8e8e2; }

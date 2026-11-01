@@ -7,6 +7,7 @@ vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module
 
 function startWithRanks(researchId: ResearchId, ranks: Partial<ResearchRanks> = {}) {
   const f = crystalFixture();
+  f.standAtResearch();
   f.seed("playerResearch", { identity: f.ctx.sender, frontierMastery: 0, ...createEmptyResearchRanks(), ...ranks });
   return () => f.run(server.startResearch, { researchId });
 }
@@ -28,6 +29,7 @@ it("enforces Utility row unlocks in the research reducer", () => {
 
 it("persists utility ranks and speeds up the next research timer", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   f.run(server.startResearch, { researchId: "researchSpeed" });
   const first = f.db.activeResearch.identity.find(f.ctx.sender);
   expect(first.completesAt.microsSinceUnixEpoch - first.startedAt.microsSinceUnixEpoch).toBe(45_000_000n);
@@ -44,6 +46,7 @@ it("persists utility ranks and speeds up the next research timer", () => {
 
 it("adds attack range when research completes and preserves it through a normal save", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   f.seed("playerResearch", { identity: f.ctx.sender, frontierMastery: 0,
     ...createEmptyResearchRanks(), utilityMoveSpeed: 1 });
   f.run(server.startResearch, { researchId: "utilityAttackRange" });
@@ -60,6 +63,7 @@ it("adds attack range when research completes and preserves it through a normal 
 
 it("shortens research already in progress when the speed rank rises", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   f.seed("playerResearch", { identity: f.ctx.sender, frontierMastery: 0, ...createEmptyResearchRanks() });
   f.run(server.startResearch, { researchId: "foraging" });
   const before = f.db.activeResearch.identity.find(f.ctx.sender);

@@ -395,6 +395,8 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
     commit: (reward: EnemyStatReward) => void;
     /** The active cards, when the caller already read them for this report. */
     wornCards?: () => CardTotals | undefined;
+    /** The research row, read once for the report and the bound alike. */
+    research?: () => any;
   },
   /** The account's clocks as throttleKillReports left them; read here when not given. */
   clocksRow?: DefeatClocks) {
@@ -435,7 +437,7 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
   let clocks = simulation.clocks;
   const scale = simulation.scale;
   const balance = pinnedMapBalance(ctx, ctx.sender, batch.mapId);
-  const utility = ctx.db.playerResearch.identity.find(ctx.sender);
+  const utility = combat.research ? combat.research() : ctx.db.playerResearch.identity.find(ctx.sender);
   // Respawn cards bring the map back sooner, so the spawn wall below comes down with them.
   const regularRespawn = respawnSecondsWithCards(enemyRespawnSecondsWithResearch(balance?.regularRespawnSeconds ?? REGULAR_ENEMY_RESPAWN_SECONDS, utility?.enemyRespawn ?? 0),
     cardStatFactors(combat.wornCards?.() ?? activeCardTotalsFor(ctx, ctx.sender)).respawn);

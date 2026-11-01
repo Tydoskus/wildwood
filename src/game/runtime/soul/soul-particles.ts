@@ -8,6 +8,9 @@ type Particle = { x: number; y: number; vx: number; vy: number; age: number; lif
 type Running = { emitter: SoulEmitter; particles: Particle[]; owed: number };
 
 const TINT_STEPS = 12;
+/** Clear pixels kept round a puff's trimmed art, so its soft edge samples as it did from the whole frame. */
+const TRIM_MARGIN = 2;
+type Trim = { x: number; y: number; w: number; h: number };
 const random = (range: readonly number[]) => range[0] + Math.random() * ((range[1] ?? range[0]) - range[0]);
 
 /** A one-value curve's value at t (alpha, size), without the array `sample` makes: it runs per particle per frame. */
@@ -52,7 +55,40 @@ export function createSoulParticles(options: {
 }) {
   const running = TOWN_VILLAGE_EMITTERS.map(emitter => ({ emitter, particles: [], owed: 0 } as Running));
   const tinted = new Map<string, FrozenImage>();
+  const trims = new Map<string, Trim>();
   let lastTime = Number.NaN;
+
+  /**
+   * The part of a frame that has any colour, plus a margin: most of a smoke puff's square is clear, and a
+   * canvas fills every pixel of the square it draws, rotated and blended, clear or not.
+   */
+  function trimOf(image: HTMLImageElement, frameName: string, frame: { x: number; y: number; w: number; h: number }): Trim {
+    const known = trims.get(frameName);
+    if (known) return known;
+    let trim: Trim = { x: 0, y: 0, w: frame.w, h: frame.h };
+    const probe = document.createElement("canvas");
+    probe.width = frame.w; probe.height = frame.h;
+    const context = probe.getContext("2d", { willReadFrequently: true });
+    try {
+      if (context) {
+        context.drawImage(decodedImage(image), frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+        const alpha = context.getImageData(0, 0, frame.w, frame.h).data;
+        let left = frame.w, top = frame.h, right = -1, bottom = -1;
+        for (let y = 0; y < frame.h; y++) for (let x = 0; x < frame.w; x++) {
+          if (!alpha[(y * frame.w + x) * 4 + 3]) continue;
+          left = Math.min(left, x); right = Math.max(right, x);
+          top = Math.min(top, y); bottom = Math.max(bottom, y);
+        }
+        if (right >= 0) {
+          left = Math.max(0, left - TRIM_MARGIN); top = Math.max(0, top - TRIM_MARGIN);
+          right = Math.min(frame.w - 1, right + TRIM_MARGIN); bottom = Math.min(frame.h - 1, bottom + TRIM_MARGIN);
+          trim = { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+        }
+      }
+    } catch { /* unreadable art draws whole */ }
+    trims.set(frameName, trim);
+    return trim;
+  }
 
   /** The emitter's sprite in one of a few steps of its colour, made once: a canvas cannot tint per draw. */
   function tintedSprite(emitter: SoulEmitter, image: HTMLImageElement, step: number) {
@@ -60,18 +96,20 @@ export function createSoulParticles(options: {
     const cached = tinted.get(key);
     if (cached) return cached;
     const frame = soulFrame(String(emitter.frame), "village");
+    const trim = frame ? trimOf(image, String(emitter.frame), frame) : { x: 0, y: 0, w: 1, h: 1 };
     const canvas = document.createElement("canvas");
-    canvas.width = frame?.w ?? 1; canvas.height = frame?.h ?? 1;
+    canvas.width = trim.w; canvas.height = trim.h;
     const context = canvas.getContext("2d");
     if (context && frame) {
-      context.drawImage(decodedImage(image), frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+      const sx = frame.x + trim.x, sy = frame.y + trim.y;
+      context.drawImage(decodedImage(image), sx, sy, trim.w, trim.h, 0, 0, trim.w, trim.h);
       const [r, g, b] = sample(emitter.color?.colors ?? [[0, 1, 1, 1]], step / (TINT_STEPS - 1), 3);
       const [sr, sg, sb] = sample(emitter.startColor.colors, 0, 3);
       context.globalCompositeOperation = "multiply";
       context.fillStyle = `rgb(${Math.round(r * sr * 255)},${Math.round(g * sg * 255)},${Math.round(b * sb * 255)})`;
-      context.fillRect(0, 0, frame.w, frame.h);
+      context.fillRect(0, 0, trim.w, trim.h);
       context.globalCompositeOperation = "destination-in";
-      context.drawImage(decodedImage(image), frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+      context.drawImage(decodedImage(image), sx, sy, trim.w, trim.h, 0, 0, trim.w, trim.h);
     }
     tinted.set(key, canvas);
     freezeEntry(tinted, key, canvas);
@@ -124,11 +162,16 @@ export function createSoulParticles(options: {
         // Simulated near the view, so smoke drifts in already risen, but only drawn when it shows.
         if (p.x + size < viewLeft || p.x - size > viewRight || p.y + size < viewTop || p.y - size > viewBottom) continue;
         const sprite = tintedSprite(emitter, image, emitter.color ? Math.round(t * (TINT_STEPS - 1)) : 0);
+        const frame = soulFrame(String(emitter.frame), "village");
+        const trim = trims.get(String(emitter.frame));
         ctx.save();
         ctx.globalAlpha = Math.min(1, alpha);
         ctx.translate(p.x - camera.x, p.y - camera.y);
         ctx.rotate(-p.rotation);
-        ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
+        if (frame && trim) {
+          const unit = size / frame.w, unitY = size / frame.h;
+          ctx.drawImage(sprite, -size / 2 + trim.x * unit, -size / 2 + trim.y * unitY, trim.w * unit, trim.h * unitY);
+        } else ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
         ctx.restore();
       }
       ctx.restore();

@@ -19,6 +19,7 @@ it("adds a bag slot for each Bag Slots rank, on top of every slot bought", () =>
 
 it("researches Bag Slots behind Crit Cap, each level taking 40% longer", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   research(f, { utilityAttackRange: 1, critCap: 1 });
   f.run(server.startResearch, { researchId: "inventorySlots" });
   const first = f.db.activeResearch.identity.find(f.ctx.sender);
@@ -32,12 +33,14 @@ it("researches Bag Slots behind Crit Cap, each level taking 40% longer", () => {
 
 it("opens Bag Slots from Enemy Respawn's second band as well", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   research(f, { utilityAttackRange: 1, enemyRespawn: 6 });
   expect(() => f.run(server.startResearch, { researchId: "inventorySlots" })).not.toThrow();
 });
 
 it("refuses Bag Slots before Crit Cap or Enemy Respawn's second band", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   research(f, { utilityAttackRange: 1, enemyRespawn: 5 });
   expect(() => f.run(server.startResearch, { researchId: "inventorySlots" })).toThrow("Research prerequisites not met.");
 });

@@ -143,7 +143,7 @@ export function createGameSession(deps: GameSessionWiringDeps) {
     renderPerformancePanel: deps.devPanel.renderPerformance, performancePanelVisible: deps.devPanel.isPerformanceVisible,
     renderFpsDisplay: () => {
       const performance = deps.performanceMonitor.snapshot();
-      appShell.renderFps(performance.fps);
+      appShell.renderFps(performance.fps, performance.workMs);
     },
     fpsDisplayVisible: appShell.fpsVisible,
     fadeElement: deps.e.sceneFadeEl,

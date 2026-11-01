@@ -1,4 +1,5 @@
 import { Timestamp } from "spacetimedb";
+import { BOW_ATTACK_SPEED_BONUS } from "../../shared/bow-skills";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportEnemy, seedDefeatClock } from "../../tests/helpers/enemy-defeat";
@@ -129,7 +130,7 @@ it("pays an honest top-rolled bow its full claim where the skill-free bound woul
   expect(honest).toBe(26);
   const plain = oneShotter();
   reportEnemy(plain, ENEMY, honest);
-  expect(kills(plain)).toBe(Math.floor(10 * PLAUSIBLE_KILL_TOLERANCE));
+  expect(kills(plain)).toBe(Math.floor(10 * (1 + BOW_ATTACK_SPEED_BONUS) * PLAUSIBLE_KILL_TOLERANCE));
   const skilled = oneShotter(TOP);
   reportEnemy(skilled, ENEMY, honest);
   expect(kills(skilled)).toBe(honest);
@@ -141,7 +142,7 @@ it("still bounds a script that claims more than even a top-rolled bow could land
   // Whichever binds first: what the bow could land in ten seconds, or what the
   // map could put back in front of anyone (its whole population once per
   // respawn).
-  const bow = Math.floor(10 * bowSkillReachMultiplier(TOP) * PLAUSIBLE_KILL_TOLERANCE);
+  const bow = Math.floor(10 * (1 + BOW_ATTACK_SPEED_BONUS) * bowSkillReachMultiplier(TOP) * PLAUSIBLE_KILL_TOLERANCE);
   const wall = Math.floor(10 * mapEnemyPopulation("crystal_hollows") / REGULAR_ENEMY_RESPAWN_SECONDS + 1e-6);
   expect(kills(f)).toBe(Math.min(bow, wall));
   expect(kills(f)).toBeLessThan(100);
@@ -152,7 +153,7 @@ it("gives a bow with no roll, or a roll on a bow not in hand, no extra reach", (
   const f = oneShotter();
   seedRoll(f, "iron_bow", TOP);
   reportEnemy(f, ENEMY, 26);
-  expect(kills(f)).toBe(Math.floor(10 * PLAUSIBLE_KILL_TOLERANCE));
+  expect(kills(f)).toBe(Math.floor(10 * (1 + BOW_ATTACK_SPEED_BONUS) * PLAUSIBLE_KILL_TOLERANCE));
 });
 
 

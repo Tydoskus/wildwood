@@ -141,8 +141,8 @@ describe("equipment catalog", () => {
     expect(itemDamageMultiplierBonus(NIGHT_BOW)).toBeCloseTo(.1639, 6);
     expect(itemDamageMultiplierBonus(FIRE_METAL_BOW)).toBeCloseTo(.1929, 6);
     expect(itemDamageMultiplierBonus(FIRE_METAL_HELMET)).toBe(0);
-    expect(itemStats(MAGMA_ARMOR)).toEqual(["MAX HEALTH +15.18%"]);
-    expect(itemStats(DARK_METAL_HELMET)).toEqual(["REGEN +19.29%"]);
+    expect(itemStats(MAGMA_ARMOR)).toEqual(["MAX HEALTH ×1.15"]);
+    expect(itemStats(DARK_METAL_HELMET)).toEqual(["REGEN ×1.19"]);
   });
 
   it("requires earned regeneration for helmet percentage bonuses", () => {
@@ -196,21 +196,21 @@ describe("equipment catalog", () => {
     expect(itemMaxHealthMultiplierBonus(WOODEN_ARMOR, 35)).toBe(.12);
     expect(itemRegenerationMultiplierBonus(WOODEN_ARMOR, 10)).toBe(0);
     expect(itemDisplayName(FROST_BOW, 1)).toBe("FROST BOW +1");
-    expect(itemStats(STARTER_BOW, 1)).toEqual(["DAMAGE +5.2%"]);
+    expect(itemStats(STARTER_BOW, 1)).toEqual(["DAMAGE ×1.05"]);
     expect(itemUpgradeStatChanges(STARTER_BOW, 0)).toEqual([
-      { label: "DAMAGE", current: "+5%", next: "+5.2%" },
+      { label: "DAMAGE", current: "×1.05", next: "×1.052" },
     ]);
     expect(equipmentDamage(100, STARTER_BOW, "", "", 1.4, 35)).toBeCloseTo(156.8);
   });
 });
 
 
-it("shows percentage health and regen upgrade previews with fractional precision", () => {
+it("shows health and regen upgrade previews with a third decimal when two would hide the step", () => {
   expect(itemUpgradeStatChanges(WOODEN_ARMOR, 0)).toEqual([
-    { label: "MAX HEALTH", current: "+5%", next: "+5.2%" },
+    { label: "MAX HEALTH", current: "×1.05", next: "×1.052" },
   ]);
   expect(itemUpgradeStatChanges(WOOD_FULL_HELM, 0)).toEqual([
-    { label: "REGEN", current: "+8.04%", next: "+8.36%" },
+    { label: "REGEN", current: "×1.08", next: "×1.084" },
   ]);
   expect(itemRegenerationMultiplierBonus(WOOD_FULL_HELM, 1)).toBe(.0836);
 });

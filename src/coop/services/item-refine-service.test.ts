@@ -16,7 +16,7 @@ function fakeConnection() {
   const reducers = { refineItem: vi.fn(async () => {}), destroyOre: vi.fn(async () => {}) };
   const connection = {
     isActive: true,
-    db: { myItemRefines: view(rows.first), myCopyRefines: view(rows.copies), myCosmeticRefines: view([]), myOres: view(rows.ores), myRefineResult: view(rows.result) },
+    db: { myItemRefines: view(rows.first), myCopyRefines: view(rows.copies), myCosmeticRefines: view([]), myOres: view(rows.ores), myRefineResult: view(rows.result), myRefinePity: view([]) },
     reducers,
     subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied.push(callback); return this; }, subscribe: vi.fn() }),
   };

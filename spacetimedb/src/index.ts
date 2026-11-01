@@ -1,4 +1,5 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
+import { standsAtResearch } from "./research-station";
 import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild, refreshQuestBonus } from "./daily-quests";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
@@ -18,13 +19,18 @@ import { recordBossGateClear } from "./boss-gates";
 import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multiplayer-preference";
 import { enemyDefeatBudget, playerDefeatClock, playerMapDeparture, acceptEnemyDefeats, permittedDefeatMaps, pruneIdleDefeatBudgets, throttleKillReports, type DefeatClocks, type EnemyDefeatBatch } from "./enemy-defeats";
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
-import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, acknowledgeOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
+import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, collectOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
+import { offlineGatherChoice, playerGatherPicks, registerGatherPicks } from "./offline-gathering";
+import { ensureRunTiming, playerRunTiming, playerRunHistory } from "./run-timing";
+import { playerNockedArrow, registerArrows } from "./arrows";
+import { offlineActivity } from "../../shared/offline-gathering";
 import { playerOfflinePreference, writeOfflinePreference } from "./offline-preference";
 import { playerAudioSetting, writeAudioSettings } from "./audio-settings";
 import { playerIgnoredDrop, writeIgnoredDrops } from "./ignored-drops";
 import { playerLootSetting, writeLootSettings } from "./loot-settings";
 import { playerProfileSnapshot, requireSnapshotForIcon, takeProfileSnapshot } from "./profile-snapshot";
 import { claimAdGemReward, playerAdReward, playerAdWatch, startAdWatch } from "./ad-gem-reward";
+import { playerClientHost, recordClientHost } from "./client-host";
 import { playerChatMute, setChatMute } from "./chat-mute";
 import { requireErasureConfirmation } from "./account-erasure";
 import { chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, playerChatHearts, reactionCountsFor, chatReaction, readChatReactions, setChatReaction, grantGemHeartUnlock, isChatModerator, chatModerator, moderatorHeartFor, setChatModerator, removeAccountReactions } from "./chat-reactions";
@@ -44,7 +50,7 @@ import { playerDaggerSkill } from "./dagger-skills"
 import { duelStaffSkill, playerStaffSkill, playerWornStaffSkill } from "./staff-skills"; import { registerStaffs } from "./starter-staff";
 import { ensureWeaponSkillRoll } from "./weapon-skills";
 import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, playerItemCollection, registerItemCollection } from "./equipment-copies";
-import { playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, registerItemRefine } from "./item-refine";
+import { playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, registerItemRefine } from "./item-refine";
 import { reachableStopFor } from "./door-reach";
 import { playerMining, playerMinedNode, playerMiningLevel, registerMining } from "./mining";
 import { playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, registerWoodcutting } from "./woodcutting";
@@ -57,7 +63,7 @@ import { playerStarterWeapon, registerStarterChest } from "./starter-chest";
 import { playerCraftSkill, playerCraftLevel, registerCrafting } from "./crafting";
 import { playerTool, registerTools } from "./tools";
 import { mergeOldGearPayout, oldGearPayout, payOutOldGear } from "./old-gear-payout";
-import { playerCard, playerGearSlots, playerCopySlots, playerCardDrop, registerGearCards } from "./gear-cards"; import { playerActiveCard, registerActiveCards } from "./active-cards"; import { playerCardAttackCap, syncCardAttackCap } from "./card-attack-cap"; import { playerBuild, playerBuildName, registerBuilds } from "./builds"; import { playerWornSkill, syncWornSkill } from "./worn-skill";
+import { playerCard, playerGearSlots, playerCopySlots, playerCardDrop, registerGearCards } from "./gear-cards"; import { playerActiveCard, registerActiveCards } from "./active-cards"; import { playerCardAttackCap, syncCardAttackCap, syncCardAttackCapFor } from "./card-attack-cap"; import { playerBuild, playerBuildName, registerBuilds } from "./builds"; import { playerWornSkill, syncWornSkill } from "./worn-skill";
 import { awardCardDrops, playerBossCardRoll, playerCardMeter } from "./card-drops"; import { playerCardShopPurchase, registerCardShop } from "./card-shop";
 import { awardRegularEnemyLoot } from "./enemy-loot-award";
 import { moderateReportedMessage } from "./chat-report-moderation";
@@ -90,7 +96,7 @@ import { allowedAvatarFrame, isAvatarFrame } from "../../shared/avatar-frames";
 import { createGemPurchaseService } from "./gem-purchase-service";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
 import { registerTown, TOWN_ARRIVAL, TOWN_MAP_ID } from "./town";
-import { guildHallMember, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
+import { guildHallMember, guildHallReturnPointFor, memberEnteredWorld, guildHallMemberLeft, guildHallTables, isGuildHallMap, registerGuildHall } from "./guild-hall";
 import { isSoulMap, noteEnemyDefeats, registerSoulDimension, soulDimensionOpenFor, soulDimensionTables, wideMotionMap, worldBoundsFor } from "./soul-dimension";
 import { insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { createPlayerMotionFrameSampler } from "../../shared/player-motion-sample";
@@ -179,7 +185,7 @@ import {
 } from "../../shared/rules";
 import { readPlayerProgress, withDuelWide } from "./wide-stats";
 import { playerInventory, playerWideStats, duelWideStats, duelReplayWideStats, playerCombatRating } from "./wide-stats-table";
-import { LEGACY_CLIENT_ERRORS, sameConnection, sessionForContext, requireSession, blockedSession, isSupportedProtocol, requireCurrentLegalConsent, requireChatAge, requireSupportedSessionProtocol, requireControllingPlayer, isDeveloperIdentity, isDatabaseOwnerIdentity, isVirtualPlayer, requireDeveloperSession, requireDeveloper, touchPlayerAccessAudit, backfillKnownAccessAudit, sameIdentity, hasSpacetimeAuthAccount } from "./session-guards";
+import { LEGACY_CLIENT_ERRORS, sameConnection, sessionForContext, requireSession, blockedSession, isSupportedProtocol, requireCurrentLegalConsent, requireChatAge, requireSupportedSessionProtocol, requireControllingPlayer, requireControllingPlayerRow, isDeveloperIdentity, isDatabaseOwnerIdentity, isVirtualPlayer, requireDeveloperSession, requireDeveloper, touchPlayerAccessAudit, backfillKnownAccessAudit, sameIdentity, hasSpacetimeAuthAccount } from "./session-guards";
 import { defaultPlayerProgress, samePlayerProgressValues, hasFreshProgress, resultIncludesContributor, contributedToLatestPrismshell, forestItemCountForProgress, inventoryForProgress, slotUpgradeKey, itemUpgradeLevelFor, itemLevelFor, playerOwnsItem, restoreItemToProgress, equippedHeadForProgress, equippedChestForProgress, equippedFeetForProgress, equippedRightHandForProgress, equippedLeftHandForProgress, cosmeticEquipmentForProgress, equipmentPresentationForProgress, leaderboardAppearanceForProgress, maxHealthForProgress } from "./progress-helpers";
 import { researchForPlayer, assertResearchAvailable, activeResearchIsAvailable, removeResearchCompletionSchedules, completeActiveResearch, ensureResearchCompletionSchedule, reconcileActiveResearch } from "./research-runtime";
 import { ensurePlayerLifetime, finishLifetimeSession, markPlayerBalanceCurrent, playerBalanceProgress, effectivePowerStatsForProgress, effectivePowerForProgress, powerFieldsForProgress, researchedDamage, researchedArmor, researchedRegen } from "./player-power";
@@ -348,7 +354,8 @@ const playerMotionIdentity = table(
     gender: t.u8().default(PLAYER_GENDER_UNSET),
     // Stable map-wide presentation. These fields change only when the player's
     // visible stats or equipment change; movement never republishes them.
-    speed: t.f32().default(PLAYER_SPEED),
+    // The column's default as published; movement itself comes from PLAYER_SPEED.
+    speed: t.f32().default(200),
     powerLevel: t.f64().default(95),
     feetItem: t.string().default(""),
     headItem: t.string().default(""),
@@ -1421,9 +1428,9 @@ const spacetimedb = schema({
   playerGemWallet,
   gemTransaction,
   dailyGemBonus,
-  playerAdReward, playerAdWatch, playerChatMute,
+  playerAdReward, playerAdWatch, playerChatMute, playerClientHost, offlineGatherChoice, playerGatherPicks, playerRunTiming, playerRunHistory, playerNockedArrow,
   balanceApologyNotice,
-  playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerDaggerSkill, playerWornStaffSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
+  playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerDaggerSkill, playerWornStaffSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, regularEnemyStream, enemyDefeatBudget, playerDefeatClock, playerMapDeparture,
@@ -1764,7 +1771,7 @@ export const devSwapCharacters = spacetimedb.reducer(
 /** What offline-progress.ts needs from this module, wired once. */
 const OFFLINE_GRANT_PORTS = { effectiveStats: effectivePowerStatsForProgress, mapBalance: liveMapBalance,
   statMultiplier: statRewardMultiplierFor, endlessClaimBit: BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS],
-  writeProgress: (ctx: any, progress: any) => writeProgressAndPresentation(ctx, progress) };
+  writeProgress: (ctx: any, progress: any) => writeProgressAndPresentation(ctx, progress), inventoryForProgress };
 
 const cosmeticConversion = createCosmeticConversion({ requireControllingPlayer, activeDuelFor,
   inventoryForProgress, writeProgressAndPresentation, applyGemBalanceChange });
@@ -1900,6 +1907,7 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
   // player row is written, so the entry snapshot carries the payout. A player
   // still in the tutorial has no map to have been farming.
   if (!virtualRegistration && !needsOnboarding(ctx, ctx.sender)) existingProgress = grantOfflineProgress(ctx, existingProgress, OFFLINE_GRANT_PORTS);
+  if (!virtualRegistration) ensureRunTiming(ctx, ctx.sender);
   if (!virtualRegistration && (!session.enteredWorld || session.tabId !== normalizedTabId)) {
     const updatedSession = ctx.db.playerSession.connectionId.find(ctx.connectionId);
     if (updatedSession) {
@@ -1958,8 +1966,8 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
       && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId // Home is retired: its players arrive in the Town.
       : isSoulMap(normalizedMapId) || isGuildHallMap(normalizedMapId) || normalizedMapId === HOME_EXTERIOR_MAP_ID ? TOWN_MAP_ID : TUTORIAL_FOREST_MAP_ID;
     const fallbackPosition = entryMapId === TOWN_MAP_ID ? TOWN_ARRIVAL : MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
-    const entryPosition = entryMapId === normalizedMapId
-      ? {
+    const entryPosition = entryMapId === normalizedMapId && isGuildHallMap(entryMapId) ? guildHallReturnPointFor(ctx, entryMapId, existing.x, existing.y)
+      : entryMapId === normalizedMapId ? {
         x: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).width - PLAYER_RADIUS, existing.x)),
         y: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).height - PLAYER_RADIUS, existing.y)),
       }
@@ -2330,6 +2338,12 @@ export const registerClientVersion = spacetimedb.reducer(
     writeSessionAnalytics(ctx, session.connectionId, { clientVersion });
   },
 );
+
+/** The host the client was served from, for hosting stats (client-host.ts). */
+export const registerClientHost = spacetimedb.reducer({ host: t.string() }, (ctx, { host }) => {
+  requireSession(ctx);
+  recordClientHost(ctx, host);
+});
 
 export const recordConnectionDiagnostic = spacetimedb.reducer(
   { payload: t.string() },
@@ -2917,7 +2931,7 @@ export const savePlayerProgress = spacetimedb.reducer(
 export const startResearch = spacetimedb.reducer(
   { researchId: t.string() },
   (ctx, { researchId }) => {
-    requireControllingPlayer(ctx);
+    if (!standsAtResearch(ctx, requireControllingPlayer(ctx))) throw new SenderError("Go to Tech Research in Town first.");
     if (!isResearchId(researchId)) throw new SenderError("Unknown research.");
     const research = researchForPlayer(ctx, ctx.sender);
     const active = ctx.db.activeResearch.identity.find(ctx.sender);
@@ -3244,10 +3258,11 @@ const EnemyDefeatEntry = t.object("EnemyDefeat", { enemy: t.string(), count: t.u
 // Plus the milliseconds the client simulated since its previous report (0 when it cannot say); see simulationClock.
 const enemyDefeatReportArgs = { streamId: t.string(), sequence: t.u64(), mapId: t.string(), simulatedMillis: t.u32(), enemies: t.array(EnemyDefeatEntry) };
 function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: DefeatClocks) {
-    const player = requireControllingPlayer(ctx);
-    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection."); const worn = syncCardAttackCap(ctx, ctx.sender);
-    // Everything the combat bound reads, read once for the whole report.
-    const combat = combatBoundForReport(ctx, worn);
+    // Only the map and power are read here; the position is worked out below if the row is written.
+    const player = requireControllingPlayerRow(ctx);
+    if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
+    // Everything the combat bound reads, read once for the whole report, the save included when the sync wrote none.
+    const { worn, progress } = syncCardAttackCapFor(ctx, ctx.sender), combat = combatBoundForReport(ctx, worn, progress);
     const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, TOWN_MAP_ID), combat, clocks);
     if (!accepted) return;
     const enforce = () => {
@@ -3264,9 +3279,10 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: Defea
     if (!accepted.count && !accepted.bossCleared) { enforce(); return; }
     // Validation wrote no progress, so the row the bound read is still current.
     const base = accepted.count ? combat.savedProgress() : null;
+    let rewarded: any;
     if (accepted.count) {
       const next = combat.rewardedProgress()!;
-      const rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, accepted.balance, { progress: next });
+      rewarded = awardRegularEnemyLoot(ctx, batch.mapId, accepted.lootCount, accepted.balance, { progress: next });
       updateSnapshotRow(ctx, "playerProgress", rewarded);
       const power = combat.powerFields(rewarded);
       // Both rows below are broadcast to everyone on the map, and kills move
@@ -3274,25 +3290,26 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: Defea
       // so write when that changes; the row is exact when written and never
       // more than one displayed step behind.
       if (compactNumberChanged(player.powerLevel, power.powerLevel)) {
-        const nextPlayer = { ...player, ...power };
+        const nextPlayer = { ...playerWithMotion(ctx, player), ...power };
         updateSnapshotRow(ctx, "player", nextPlayer);
         syncPlayerMotionIdentity(ctx, playerWithMotion(ctx, nextPlayer));
       }
     }
     const gate = accepted.bossCleared ? recordBossGateClear(ctx, batch.mapId) : null;
-    awardCardDrops(ctx, ctx.sender, batch.mapId, accepted.kills, accepted.bossCleared ? 1 : 0, 1, worn);
-    awardWeaponMastery(ctx, ctx.sender, (base ?? gate?.previousProgress ?? combat.savedProgress())?.equippedRightHand, accepted.count, Boolean(gate));
-    // New regular loot goes on when it beats the slot.
-    autoEquip.equipNewUpgrades(ctx, ctx.sender, base ?? gate?.previousProgress);
+    awardCardDrops(ctx, ctx.sender, batch.mapId, accepted.kills, accepted.bossCleared ? 1 : 0, 1, worn, combat.luck);
+    awardWeaponMastery(ctx, ctx.sender, (base ?? gate?.previousProgress ?? combat.savedProgress())?.equippedRightHand, accepted.count, Boolean(gate),
+      combat.inChallenge);
+    // New regular loot goes on when it beats the slot. A gate clear wrote the save again after the loot.
+    autoEquip.equipNewUpgrades(ctx, ctx.sender, base ?? gate?.previousProgress, gate ? undefined : rewarded);
     if (accepted.count) {
       const lifetime = ensurePlayerLifetime(ctx);
       const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
       ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
       recordAnalyticsMilestone(ctx, "kill");
       killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
-      recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills); noteEnemyDefeats(ctx, batch.mapId, accepted.rewards);
+      recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills, combat.bonuses().quest); noteEnemyDefeats(ctx, batch.mapId, accepted.rewards);
     }
-    awardKillGold(ctx, ctx.sender, accepted.count, Boolean(gate), worn);
+    awardKillGold(ctx, ctx.sender, accepted.count, Boolean(gate), worn, combat);
     enforce();
     if (!accepted.restrict && gate) {
       recordAnalyticsMilestone(ctx, "boss");
@@ -3327,6 +3344,21 @@ export const myOfflineProgress = spacetimedb.view(
 export const myLegalConsent = spacetimedb.view(
   { name: "my_legal_consent", public: true }, t.array(playerLegalConsent.rowType),
   ctx => { const row = ctx.db.playerLegalConsent.identity.find(ctx.sender); return row ? [row] : []; },
+);
+
+/** The mining and chopping on offer beside the waiting fight summary. */
+export const myOfflineGatherChoice = spacetimedb.view(
+  { name: "my_offline_gather_choice", public: true }, t.array(offlineGatherChoice.rowType),
+  ctx => { const row = ctx.db.offlineGatherChoice.identity.find(ctx.sender); return row ? [row] : []; },
+);
+/** The caller's prestige run timing (run-timing.ts): its start in active play and each boss's first clear. */
+export const myRunTiming = spacetimedb.view(
+  { name: "my_run_timing", public: true }, t.array(playerRunTiming.rowType),
+  ctx => { const row = ctx.db.playerRunTiming.identity.find(ctx.sender); return row ? [row] : []; },
+);
+/** The caller's finished runs (run-timing.ts), for the run log and personal bests. */
+export const myRunHistory = spacetimedb.view(
+  { name: "my_run_history", public: true }, t.array(playerRunHistory.rowType), ctx => [...ctx.db.playerRunHistory.identity.filter(ctx.sender)],
 );
 
 export const myOfflinePreference = spacetimedb.view(
@@ -3497,10 +3529,18 @@ export const devSetJoinDate = spacetimedb.reducer(
   },
 );
 
-/** The summary has been shown. Nothing else about the window changes. */
+/** The summary has been shown, by a client from before the choice: it collects the fight. */
 export const acknowledgeOfflineSummary = spacetimedb.reducer({}, (ctx) => {
   requireControllingPlayer(ctx);
-  acknowledgeOfflineProgress(ctx, ctx.sender);
+  collectOfflineProgress(ctx, "fight", OFFLINE_GRANT_PORTS);
+});
+
+/** Collects the time away as the fight, the mining or the chopping (offline-progress.ts). */
+export const collectOfflineProgressAs = spacetimedb.reducer({ activity: t.string() }, (ctx, { activity }) => {
+  requireControllingPlayer(ctx);
+  const picked = offlineActivity(activity);
+  if (!picked) throw new SenderError("Pick fight, mine or chop.");
+  collectOfflineProgress(ctx, picked, OFFLINE_GRANT_PORTS);
 });
 
 /**
@@ -3797,7 +3837,7 @@ export const { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setG
   setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle, getGuildBattleBadges } = registerGuildReducers(spacetimedb,
   { guildService, requireGuildPlayer, requireGuildConnection, effectivePowerForProgress, isPublicDisplayNameAllowed });
 // Refining (item-refine.ts, shared/refine.ts).
-export const { refineItem, destroyOre, myItemRefines, myCopyRefines, myOres, myRefineResult } = registerItemRefine(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress, writeProgressAndPresentation });
+export const { refineItem, destroyOre, myItemRefines, myCopyRefines, myOres, myRefineResult, myRefinePity } = registerItemRefine(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress, writeProgressAndPresentation });
 export const { myCosmeticRefines } = registerCosmeticRefine(spacetimedb);
 // Mining in the Copper Hills (mining.ts, shared/mining.ts).
 export const { claimPickaxe, mineNode, reportMining, myMining, myMinedNodes } = registerMining(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress });
@@ -3815,7 +3855,10 @@ export const { buyShopCard, myCardShopPurchases } = registerCardShop(spacetimedb
 export const { buyGradeGear } = registerGradeShop(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress, restoreItemToProgress, writeProgressAndPresentation });
 // The Starter Chest by the forest spawn (starter-chest.ts).
 export const { claimStarterWeapon, myStarterWeapon } = registerStarterChest(spacetimedb, { requireControllingPlayer, activeDuelFor });
-export const { craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills } = registerCrafting(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress, restoreItemToProgress, writeProgressAndPresentation });
+const craftingDeps = { requireControllingPlayer, activeDuelFor, inventoryForProgress, restoreItemToProgress, writeProgressAndPresentation };
+export const { craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills } = registerCrafting(spacetimedb, craftingDeps);
+export const { craftArrows, nockArrow, spendArrows, myNockedArrow } = registerArrows(spacetimedb, craftingDeps);
+export const setGatherPicks = registerGatherPicks(spacetimedb);
 export const { upgradeTool, myTools } = registerTools(spacetimedb, { requireControllingPlayer, activeDuelFor });
 export const myGuildJoinRequests = registerGuildJoinRequestView(spacetimedb);
 export const { myGuildHall, upgradeGuildHall, useGuildHallDoor } = registerGuildHall(spacetimedb, { requireGuildPlayer, requireControllingPlayer, playerWithMotion, transitionPlayerMap, persistWorldLocation });

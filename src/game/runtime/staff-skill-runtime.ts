@@ -7,6 +7,7 @@ import {
 import { METEOR_SHOWER_GAP_SECONDS } from "../../../shared/mastery-techniques";
 import { isSkillSecondaryTarget } from "./bow-skill-procs";
 import type { BossTarget, EnemyState, PlayerState } from "./types";
+import type { DamageSource } from "./dps-meter";
 
 type Target = EnemyState | BossTarget;
 export type StaffSkillEffects = {
@@ -43,7 +44,7 @@ export function createStaffSkillRuntime(options: {
   chainScale?: () => number;
   extraMeteorFalls?: () => number;
   effects?: StaffSkillEffects;
-  hit: (target: Target, damage: number, critical: boolean, angle: number) => void;
+  hit: (target: Target, damage: number, critical: boolean, angle: number, source: DamageSource) => void;
 }) {
   const { enemies } = options;
   const meteors: Meteor[] = [];
@@ -63,10 +64,10 @@ export function createStaffSkillRuntime(options: {
    */
   function burst(primary: Target, x: number, y: number, damage: number, critical: boolean, angle: number, procs: BoltSkillProcs | null | undefined) {
     const struck = new Set<object>([primary]), radius = options.blastRadius?.() ?? STAFF_SPLASH_RADIUS;
-    options.hit(primary, damage, critical, angle);
+    options.hit(primary, damage, critical, angle, 'staff-direct');
     for (const enemy of enemiesAround(enemies, x, y, radius, struck).slice(0, STAFF_SPLASH_MAX_TARGETS - 1)) {
       struck.add(enemy);
-      options.hit(enemy, damage, critical, Math.atan2(enemy.y - y, enemy.x - x));
+      options.hit(enemy, damage, critical, Math.atan2(enemy.y - y, enemy.x - x), 'staff-splash');
     }
     options.effects?.spawnStaffBurst?.(x, y, radius, options.boltColor());
     if (!ready()) return;
@@ -78,7 +79,7 @@ export function createStaffSkillRuntime(options: {
         if (!next) break;
         struck.add(next);
         options.effects?.spawnSkillStreak?.(from.x, from.y - 10, next.x, next.y - 10, "#bfe6ff", 3, .3, true);
-        options.hit(next, damage * share, critical, Math.atan2(next.y - from.y, next.x - from.x));
+        options.hit(next, damage * share, critical, Math.atan2(next.y - from.y, next.x - from.x), 'staff-chain');
         from = next;
       }
     }
@@ -123,7 +124,7 @@ export function createStaffSkillRuntime(options: {
       }
       targets.push(...enemiesAround(enemies, meteor.x, meteor.y, METEOR_RADIUS, new Set()).slice(0, METEOR_MAX_TARGETS));
       for (const target of targets) {
-        if (!target.dead) options.hit(target, meteor.damage, meteor.critical, Math.atan2(target.y - meteor.y, target.x - meteor.x));
+        if (!target.dead) options.hit(target, meteor.damage, meteor.critical, Math.atan2(target.y - meteor.y, target.x - meteor.x), 'staff-meteor');
       }
     }
   }

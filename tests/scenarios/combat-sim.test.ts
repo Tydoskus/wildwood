@@ -195,7 +195,8 @@ describe("enemies", { timeout: 60_000 }, () => {
       for (let step = 0; step < 20; step++) {
         await sim.walk((archer.x - parts.player.x) / before, (archer.y - parts.player.y) / before, .05);
         const now = gap(archer, parts.player);
-        expect(now, weapon).toBeLessThanOrEqual(before + 1);
+        // Once touching, bodies push apart a little; that is not backing away.
+        expect(now, weapon).toBeLessThanOrEqual(Math.max(before, parts.player.r + archer.r) + 1);
         before = now;
       }
       sim.dispose();

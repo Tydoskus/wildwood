@@ -1,5 +1,6 @@
 import { GRADE_ITEM_DEFINITIONS, GRADE_WEAPON_KINDS, gradeItemId, type GradeWeaponKind, type GradeWeaponId } from "./grade-equipment";
 import { PLAYER_SPAWN, TUTORIAL_FOREST_MAP_ID } from "./rules";
+import { formatPercentMultiplier } from "./compact-number";
 import type { WeaponSchool } from "./weapon-mastery";
 
 /**
@@ -27,7 +28,7 @@ const crudeSwordBonusPercent = () => Math.round((GRADE_ITEM_DEFINITIONS[gradeIte
 /** The three picks as the window shows them, in this order. */
 export const STARTER_WEAPON_CHOICES: readonly { kind: StarterWeaponKind; name: string; school: WeaponSchool; text: string }[] = [
   { kind: "bow", name: "Crude Bow", school: "archery", text: "Shoots from range" },
-  { kind: "sword", name: "Crude Sword", school: "swordplay", text: `Fights up close · Damage +${crudeSwordBonusPercent()}%` },
+  { kind: "sword", name: "Crude Sword", school: "swordplay", text: `Fights up close · Damage ${formatPercentMultiplier(crudeSwordBonusPercent())}` },
   { kind: "staff", name: "Crude Staff", school: "sorcery", text: "Bursting bolts" },
   { kind: "dagger", name: "Crude Dagger", school: "swordplay", text: "Ooh, a fancy new thing :3" }
 ];

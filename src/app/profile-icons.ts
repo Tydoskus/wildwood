@@ -9,6 +9,7 @@ const POSITION_STEP = ZOOM / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 const POSITION_START = (ZOOM - 1) / 2 / (PROFILE_ICON_GRID * ZOOM - 1) * 100;
 
 const appliedSnapshots = new WeakMap<HTMLElement, string>();
+const appliedInputs = new WeakMap<HTMLElement, { inputs: string; portrait: ProfileSnapshotPortrait | undefined }>();
 
 /** Draws a moving snapshot into its canvas at the canvas's own size on screen. */
 /** No portrait is drawn larger than this; it also stops a canvas the page has not sized from growing itself. */
@@ -130,12 +131,18 @@ function showSheet(target: HTMLElement, path: string) {
  */
 export function applyProfileIcon(element: HTMLElement, iconIndex: number, identity?: string) {
   const icon = profileIconLocation(iconIndex);
-  // The HUD repaints its portrait every tick: write only what changed.
+  watchProfileSnapshotElement(element, icon.snapshot && identity ? () => applyProfileIcon(element, iconIndex, identity) : null);
+  const portrait = icon.snapshot ? profileSnapshotPortrait(identity) : undefined;
+  // The HUD repaints its portrait every tick: with the same icon and the same drawn snapshot there is nothing to write.
+  // Sheets that load later repaint through showSheet's own callback.
+  const inputs = `${icon.index}|${icon.snapshot ? identity ?? "" : ""}`;
+  const last = appliedInputs.get(element);
+  if (element.isConnected && last?.inputs === inputs && last.portrait === portrait) return;
+  // Only remembered on the page: a moving portrait drawn off it is let go by its loop and must register again.
+  if (element.isConnected) appliedInputs.set(element, { inputs, portrait }); else appliedInputs.delete(element);
   if (element.dataset.profileIcon !== String(icon.index)) element.dataset.profileIcon = String(icon.index);
   if (element.dataset.profileBackground !== icon.background) element.dataset.profileBackground = icon.background;
   element.style.backgroundColor = PROFILE_ICON_BACKGROUND_COLORS[icon.background];
-  watchProfileSnapshotElement(element, icon.snapshot && identity ? () => applyProfileIcon(element, iconIndex, identity) : null);
-  const portrait = icon.snapshot ? profileSnapshotPortrait(identity) : undefined;
   element.classList.toggle("profile-icon-is-snapshot", Boolean(portrait));
   if (portrait) {
     delete element.dataset.profileSheet;

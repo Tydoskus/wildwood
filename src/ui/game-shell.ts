@@ -377,8 +377,9 @@ const afterUpdateGateShell = String.raw`
       <div id="prestigeLevel" class="prestige-level" aria-live="polite">PRESTIGE 0</div>
     </header>
     <div class="prestige-tabs" role="tablist" aria-label="Prestige view">
-      <button id="prestigePerksTabBtn" class="prestige-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="prestigePerksTab">PERKS</button>
-      <button id="prestigeChallengeTabBtn" class="prestige-tab" type="button" role="tab" aria-selected="false" aria-controls="prestigeChallengeTab" tabindex="-1">CHALLENGE</button>
+      <button id="prestigePerksTabBtn" class="prestige-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="prestigePerksTab">Perks</button>
+      <button id="prestigeChallengeTabBtn" class="prestige-tab" type="button" role="tab" aria-selected="false" aria-controls="prestigeChallengeTab" tabindex="-1">Challenge</button>
+      <button id="prestigeRunsTabBtn" class="prestige-tab" type="button" role="tab" aria-selected="false" aria-controls="prestigeRunsTab" tabindex="-1">Runs</button>
     </div>
     <div id="prestigePerksTab" class="prestige-tab-panel" role="tabpanel" aria-labelledby="prestigePerksTabBtn">
       <dl class="prestige-summary">
@@ -390,6 +391,7 @@ const afterUpdateGateShell = String.raw`
       <p id="prestigeCost" class="prestige-cost"></p>
     </div>
     <div id="prestigeChallengeTab" class="prestige-tab-panel" role="tabpanel" aria-labelledby="prestigeChallengeTabBtn" hidden></div>
+    <div id="prestigeRunsTab" class="prestige-tab-panel prestige-runs" role="tabpanel" aria-labelledby="prestigeRunsTabBtn" hidden></div>
     <div id="prestigeStatus" class="prestige-status" role="status" aria-live="polite"></div>
     <footer class="prestige-footer">
       <button id="prestigeConfirmBtn" class="prestige-confirm" type="button">Prestige</button>
@@ -454,6 +456,10 @@ export function installGameShell(doc: Document = document) {
   // Gold sits right of the gems, in the same chip; the coin is drawn here rather than shipped as art.
   if (!doc.getElementById("hudGoldWallet")) {
     doc.getElementById("hudGemWallet")?.insertAdjacentHTML("afterend", `<div id="hudGoldWallet" class="hud-gem-wallet hud-gold-wallet" aria-label="0 Gold"><svg class="hud-gem-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.5" fill="#e3b23c" stroke="#7a4f12" stroke-width="1.5"/><circle cx="10" cy="10" r="5.5" fill="none" stroke="#a8741d" stroke-width="1.2"/><path d="M6.5 7.5a4.5 4.5 0 0 1 3-2.5" fill="none" stroke="#fff3c4" stroke-width="1.2" stroke-linecap="round"/></svg><strong id="hudGoldBalance" class="hud-gem-balance">0</strong></div>`);
+  }
+  // The nocked arrow beside gold, shown while a bow is in hand (hud-arrow-chip.ts).
+  if (!doc.getElementById("hudArrowChip")) {
+    doc.getElementById("hudGoldWallet")?.insertAdjacentHTML("afterend", `<button id="hudArrowChip" class="hud-gem-wallet hud-arrow-chip" type="button" aria-label="Nocked arrow" hidden><img class="hud-gem-icon" alt="" aria-hidden="true" draggable="false"><strong class="hud-gem-balance">0</strong></button>`);
   }
   const toolbar = doc.getElementById("toolbar");
   for (const [id, label, icon] of [

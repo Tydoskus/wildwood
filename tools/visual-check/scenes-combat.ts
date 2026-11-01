@@ -4,6 +4,8 @@ import { createCanvasPrimitives } from "../../src/game/canvas";
 import { targetCameraZoom } from "../../src/game/runtime/render/camera";
 import { createCombatEffects, DAMAGE_NUMBER_FADE_DURATION, DAMAGE_NUMBER_RISE_DURATION } from "../../src/game/runtime/combat-effects";
 import type { EnemyShot, Projectile } from "../../src/game/runtime/types";
+import type { ArrowId } from "../../shared/arrows";
+import { arrowArtSource, arrowImage } from "../../src/game/runtime/render/arrow-images";
 import { STARTER_BOW, STARTER_STAFF, STARTER_STONE } from "../../shared/items";
 import { drawUntilStable, resetRandom } from "./determinism";
 import { createWorld, enemySprites, fakeEnemy, label, resetCanvas, sceneCanvas, section, type FakePlayer, type SceneCanvas } from "./world";
@@ -58,13 +60,19 @@ async function damagePanel(title: string, age: number, sprites: Awaited<ReturnTy
   };
 }
 
-/** Each weapon's projectile in flight (a thrown stone, an arrow, a staff bolt) and an enemy's shot, in four directions. */
+/** Each weapon's projectile in flight (a thrown stone, an arrow, crafted arrows, a staff bolt) and an enemy's shot, in four directions. */
 async function projectilePanel(): Promise<Panel> {
-  const height = 340;
-  const scene = sceneCanvas(section("Projectiles · stone, arrow and staff bolt from the player; an enemy's shot"), WIDTH, height);
-  const rows = [
-    { name: "stone", weapon: STARTER_STONE }, { name: "arrow", weapon: STARTER_BOW }, { name: "bolt", weapon: STARTER_STAFF }, { name: "enemy", weapon: STARTER_BOW, enemy: true },
+  const height = 500;
+  const scene = sceneCanvas(section("Projectiles · stone, arrow, crafted arrows and staff bolt from the player; an enemy's shot"), WIDTH, height);
+  const rows: { name: string; weapon: string; enemy?: boolean; ammo?: ArrowId }[] = [
+    { name: "stone", weapon: STARTER_STONE }, { name: "arrow", weapon: STARTER_BOW },
+    { name: "fire", weapon: STARTER_BOW, ammo: "fire_arrow" }, { name: "star", weapon: STARTER_BOW, ammo: "star_arrow" },
+    { name: "bolt", weapon: STARTER_STAFF }, { name: "enemy", weapon: STARTER_BOW, enemy: true },
   ];
+  // Crafted arrows fly as their art, once it has loaded.
+  for (const row of rows) if (row.ammo) await new Promise(resolve => { const image = new Image(); image.onload = image.onerror = resolve; image.src = arrowArtSource(row.ammo!); });
+  for (const row of rows) if (row.ammo) arrowImage(row.ammo);
+  await new Promise(resolve => setTimeout(resolve, 50));
   const world = await createWorld(scene.ctx, { zoom: 1, viewport: { width: WIDTH, height }, players: [ME] });
   const directions = [[1, 0], [0, 1], [-1, -1], [1, -.5]];
   return {
@@ -78,7 +86,7 @@ async function projectilePanel(): Promise<Panel> {
         // Drawing the player first puts the weapon in hand, which picks the projectile.
         world.drawLocalPlayer({ ...ME, rightHandItem: row.weapon }, -200, -200);
         directions.forEach(([vx, vy], column) => {
-          const shot = { x: 110 + column * 75, y, r: 6, vx: vx * 400, vy: vy * 400, damage: 1, critical: false, life: 1, trail: 1 };
+          const shot = { x: 110 + column * 75, y, r: 6, vx: vx * 400, vy: vy * 400, damage: 1, critical: false, life: 1, trail: 1, ammo: row.ammo ?? null };
           world.actor.drawProjectile(shot as Projectile | EnemyShot, Boolean(row.enemy));
         });
       });

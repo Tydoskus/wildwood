@@ -89,8 +89,7 @@ import { createDeathScreenController } from "./ui/death-screen-controller";
 import { createGameElements } from "./ui/game-elements";
 import { bindGameInteractionListeners } from "./ui/game-interaction-bindings";
 import { createDuplicateLoginRuntime, createGameOverlays, createPrestigeUnlockRuntime } from "./ui/game-ui-runtime";
-import { formatGemAmount } from "./ui/number-format";
-import { refreshGoldCounter } from "./ui/gold-counter";
+import { refreshWalletCounters } from "./ui/gold-counter";
 import { createRewardDisplay } from "./game/runtime/reward-display";
 import { onwardCue } from "./game/runtime/onward-cue";
 import { bossPortalCutscenes } from "./game/runtime/boss/boss-portal-cutscenes";
@@ -107,8 +106,8 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
 
   const gameElements = createGameElements({ names: PLAYER_SKIN_TONE_NAMES, colors: PLAYER_SKIN_TONES });
   const {
-    canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, playerHudProfileGear, hudGemWallet,
-    hudGemBalance, minimapButton, toolbar, settingsBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas,
+    canvas, gameOverEl, deathCountdownEl, hpText, playerHudProfileIcon, playerHudProfileGear,
+    minimapButton, toolbar, settingsBtn, settingsPanel, inventoryPanel, inventoryCharacterCanvas,
     joystickEl, stickEl, duelResultEl, watchDuelReplayBtn, cutsceneOverlayEl,
     playerProfileEl, playerProfileIcon, profileCharacterCanvas, closeProfileIconPickerBtn,
   } = gameElements;
@@ -136,10 +135,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     gameplayReadyTelemetry?.finish();
   }
   function refreshGemCounter() {
-    const balance = formatGemAmount(coopAccess.gemBalance());
-    hudGemBalance.textContent = balance;
-    hudGemWallet.setAttribute("aria-label", `${balance} Gems`);
-    refreshGoldCounter(gameElements, coop?.gold?.() ?? 0n);
+    refreshWalletCounters(gameElements, coopAccess.gemBalance(), coop?.gold?.() ?? 0n);
   }
   refreshGemCounter();
   const overlays = createGameOverlays({
@@ -395,6 +391,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     guildQuestBonus: () => coop?.weeklyQuests?.()?.bonus ?? 1,
     serverBoost: () => coop?.serverBoostMultiplier?.() ?? 1,
     prestigePerks: () => coop?.prestigePerks?.(), cards: () => coop?.activeCardStats?.(), equippedFeet: () => inventory.equippedFeet,
+    equippedWeapon: () => inventory.equippedRightHand || inventory.equippedLeftHand,
     itemLevel: coopAccess.itemLevel,
     player,
     getRanks: () => coop?.researchInPlay?.(),
@@ -488,7 +485,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
   });
   const { questTracker, quests, travel, soulDimension, guildHall } = createWorldPlaces({
     coop: coopAccess, world: bootstrap, currentMapId: () => currentMapId, spawnFromSite, mapController, playerInput, playerCombat,
-    research, regenerationPerSecond, autoFarm, logPickup, showMessage, spawnBurst,
+    research, regenerationPerSecond, autoFarm, logPickup, showMessage, spawnBurst, camera,
     later: {
       invalidateDepthOrder: () => worldRenderRuntime.invalidateDepthOrder(), fadeToWorld: (action, ms) => session.fadeToWorld(action, ms),
       showQuestProgress: (enemy, count, target) => runtimeHud.showQuestProgress(enemy, count, target),
@@ -617,7 +614,8 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     coop, started: () => session?.hasStarted(), pause: (paused: boolean) => setGameplayPause("duplicate-login", paused),
   });
   function updateHud(force = false) {
-    runtimeHud.updateHud(force);
+    // These polls share the HUD's 100 ms gate and, like its drawing, rest in a hidden tab.
+    if (!runtimeHud.updateHud(force)) return;
     expansionNotice.tick();
     offlineProgressSummary?.showPending();
     prestigeUnlock.poll();
@@ -661,7 +659,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     coop: coopAccess, e: gameElements, currentMapId: () => currentMapId, mapName: mapId => MAP_CONFIG[mapId].name, inventory,
     world: bootstrap, player, rewardDisplay, rewardContext: rewardLabelContext, mapController, proceduralBoss, profileWindow,
     closeCompetingWindows: () => panels.closeAllExcept("mapGuide"), clearInput: playerInput.clear, power: () => playerPower(player),
-    prestigeExpanded: expansionNotice.unlocked, preferTravel: travel.prefer,
+    prestigeExpanded: expansionNotice.unlocked, preferTravel: travel.prefer, villageGround: () => assets.townVillageGround,
   });
 
   const { runtimeHud, rewardedRespawnAd } = createHudRuntime({
@@ -728,7 +726,6 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
   const giftsAndMail = createGiftsAndMail({
     coop: coopAccess, e: gameElements, playing: () => session.hasStarted() && !inTutorial(), guildPanel: () => guildPanel, showMessage,
   });
-  const { mailbox } = giftsAndMail;
 
   const reconnectOverlay = createReconnectOverlay({
     coop: coopAccess, e: gameElements, hasStarted: () => session.hasStarted(),
@@ -785,7 +782,6 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
       session.start(markIntro, restoreServerPosition);
       recordGameplayReady();
       finishStartup();
-      mailbox.refresh();
       giftsAndMail.refresh();
       applyGameplayPauseState();
     };
@@ -817,7 +813,6 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     }
     mapAssets.cancelPreload();
     session.end();
-    mailbox.refresh();
     giftsAndMail.refresh();
   }
 
@@ -889,7 +884,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     windows: { playerSafety, profileWindow, inventory: inventoryController, smith, cardSeller, gearSellers }, leaderboard, runtimeHud, slotUpgrades,
     inTutorial, isRunning: session.isRunning, moveSpeed: () => playerStats.moveSpeed(), playerInput,
     reconcileMap: () => { if (!inTutorial()) mapController.reconcileMapFromServer(); },
-    syncLifetimeKills: progress.syncLifetimeKills, refreshGemCounter, refreshMailbox: mailbox.refresh, refreshGiftsAndMail: giftsAndMail.refresh,
+    syncLifetimeKills: progress.syncLifetimeKills, refreshGemCounter, refreshGiftsAndMail: giftsAndMail.refresh,
     refreshDevPanel: devPanel.refresh, loadProgress, resetMovementSync: playerController.resetMovementSync,
     syncBossState: () => bossController.forMap(currentMapId)?.sync(), finishStartup, updateProtocolGate, refreshChat: chatRuntime.requestRefresh,
     updateDuelControls, refreshAppStatus: appShell.refreshStatus, refreshReconnectOverlay: reconnectOverlay.refresh,

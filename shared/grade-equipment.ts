@@ -4,6 +4,7 @@ import {
   armorBonusPercent, bootBonusPercent, isArmorClass, isBootStyle, isGearGrade, type ArmorClass, type BootStyle, type GearGrade,
 } from "./gear-grades";
 import type { ItemDefinition } from "./items";
+import { itemStatLine } from "./item-stat-line";
 
 /**
  * The graded gear: a bow, sword and staff per grade, a helmet and armor per class and grade, and boots per style
@@ -109,7 +110,7 @@ function gradeWeapon(grade: GearGrade, kind: GradeWeaponKind): ItemDefinition {
     return {
       id, name, slot: "HAND", acquisition: "TOWN_DROP",
       description: "A sword that increases damage. It strikes up close.",
-      stats: [`DAMAGE +${percent}%`], weapon: { mode: "MELEE", range: SWORD_REACH, damageMultiplierBonus: percent / 100, tier },
+      stats: [itemStatLine("DAMAGE", percent)], weapon: { mode: "MELEE", range: SWORD_REACH, damageMultiplierBonus: percent / 100, tier },
     };
   }
   if (kind === "dagger") {
@@ -124,7 +125,7 @@ function gradeWeapon(grade: GearGrade, kind: GradeWeaponKind): ItemDefinition {
   return {
     id, name, slot: "HAND", acquisition: "TOWN_DROP",
     description: kind === "staff" ? "A staff that increases damage. Its bolts burst on whatever they hit." : "A bow that increases damage.",
-    stats: [`DAMAGE +${percent}%`],
+    stats: [itemStatLine("DAMAGE", percent)],
     weapon: { mode: "RANGED", projectile: kind === "staff" ? "BOLT" : "ARROW", damageMultiplierBonus: percent / 100, tier },
   };
 }
@@ -133,8 +134,8 @@ function gradeArmor(grade: GearGrade, armorClass: ArmorClass, kind: GradeArmorKi
   const percent = percentText(armorBonusPercent(grade, armorClass)), className = ARMOR_CLASS_NAMES[armorClass].toLowerCase();
   const base = { id: gradeItemId(kind, grade, armorClass), name: gradeName(grade, ARMOR_NAMES[armorClass][kind]), acquisition: "TOWN_DROP" as const };
   return kind === "helmet"
-    ? { ...base, slot: "HEAD", description: `A ${className} helmet that increases regeneration.`, stats: [`REGEN +${percent}%`], modifiers: { regenerationMultiplierBonus: percent / 100 } }
-    : { ...base, slot: "CHEST", description: `${ARMOR_CLASS_NAMES[armorClass]} armor that increases maximum health.`, stats: [`MAX HEALTH +${percent}%`], modifiers: { maxHealthMultiplierBonus: percent / 100 } };
+    ? { ...base, slot: "HEAD", description: `A ${className} helmet that increases regeneration.`, stats: [itemStatLine("REGEN", percent)], modifiers: { regenerationMultiplierBonus: percent / 100 } }
+    : { ...base, slot: "CHEST", description: `${ARMOR_CLASS_NAMES[armorClass]} armor that increases maximum health.`, stats: [itemStatLine("MAX HEALTH", percent)], modifiers: { maxHealthMultiplierBonus: percent / 100 } };
 }
 
 const BOOT_STAT_TEXT = { moveSpeed: "MOVE SPEED", armor: "ARMOR", skillChance: "SKILL CHANCE" } as const;
@@ -146,7 +147,7 @@ function gradeBoots(grade: GearGrade, style: BootStyle): ItemDefinition {
   return {
     id: gradeItemId("boots", grade, style), name: gradeName(grade, BOOT_NAMES[style]), slot: "FEET", acquisition: "TOWN_DROP",
     description: `${BOOT_STYLE_NAMES[style]} boots that increase ${BOOT_DESCRIPTION[stat]}.`,
-    stats: [`${BOOT_STAT_TEXT[stat]} +${percent}%`], modifiers: { [BOOT_MODIFIER[stat]]: percent / 100 },
+    stats: [itemStatLine(BOOT_STAT_TEXT[stat], percent)], modifiers: { [BOOT_MODIFIER[stat]]: percent / 100 },
   };
 }
 

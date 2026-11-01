@@ -395,12 +395,19 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
     setHidden(elements.duelCountdown, !countdown);
   }
 
+  /**
+   * At most every 100 ms unless forced. In a hidden tab only the parts that move
+   * the game on run (vitality, research finishing, a duel's end), not the drawing.
+   * True when it drew, so callers can share the gate.
+   */
   function updateHud(force = false) {
     const now = performance.now();
-    if (!force && now < nextHudUpdateAt) return;
+    if (!force && now < nextHudUpdateAt) return false;
     nextHudUpdateAt = now + 100;
     dependencies.applyVitalityResearch();
     dependencies.updateTechNotice();
+    updateDuelControls();
+    if (document.hidden) return false;
     // Global presence belongs to the account connection and remains valid
     // while a portal replaces the regional connection. Full disconnect clears it.
     if (force || now >= nextOnlineCountUpdateAt) {
@@ -427,9 +434,9 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       identity,
       dependencies.isGuest(identity),
     );
-    updateDuelControls();
     dependencies.refreshAppStatus();
     dependencies.tickTechTree(now);
+    return true;
   }
 
   return {

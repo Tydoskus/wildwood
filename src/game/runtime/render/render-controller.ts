@@ -166,7 +166,7 @@ export function createRenderController(options: {
   // In the canvas it would be a full-screen copy every frame, and a full-screen canvas reallocated and repainted
   // whenever the player moved on screen (camera held at a map edge), over half a millisecond in Firefox's software canvas.
   let vignetteFrame: HTMLDivElement | null = null, vignetteSky: HTMLDivElement | null = null;
-  let vignetteLook = "", vignetteAt = "", vignetteWanted = false, vignetteShown = false;
+  let vignetteLook = "", vignetteX = NaN, vignetteY = NaN, vignetteWanted = false, vignetteShown = false;
   function vignetteElement() {
     if (vignetteSky || typeof document === "undefined" || !ctx.canvas?.isConnected) return vignetteSky;
     const frame = document.createElement("div");
@@ -206,14 +206,17 @@ export function createRenderController(options: {
     const look = `${width}x${height}:${innerRadius}`;
     if (look !== vignetteLook) {
       vignetteLook = look;
+      vignetteX = NaN;
       vignetteFrame.style.width = `${width}px`;
       vignetteFrame.style.height = `${height}px`;
       sky.style.width = `${width * 2}px`;
       sky.style.height = `${height * 2}px`;
       sky.style.background = `radial-gradient(circle ${outerRadius}px at ${width}px ${height}px, rgba(0,0,0,0) ${innerRadius}px, rgba(0,0,0,.33) ${outerRadius}px)`;
     }
-    const at = `${x - width}px,${y - height}px`;
-    if (at !== vignetteAt) { vignetteAt = at; sky.style.transform = `translate3d(${at},0)`; }
+    // Its edge is hundreds of pixels soft, so a 1px follow cannot be seen; each move restyles a layer twice the view.
+    if (Math.abs(x - vignetteX) < 2 && Math.abs(y - vignetteY) < 2) return;
+    vignetteX = x; vignetteY = y;
+    sky.style.transform = `translate3d(${x - width}px,${y - height}px,0)`;
   }
 
   function drawNightMask() {
@@ -348,7 +351,14 @@ export function createRenderController(options: {
         if (!sprites.abort(error)) throw error;
         drawWorld();
       }
-      if (recorded && !sprites.commit()) drawWorld();
+      if (recorded && !sprites.commit()) {
+        // The layer may just have turned itself off and hidden the ground it drew: the canvas draws the ground first.
+        ctx.save();
+        ctx.scale(camera.zoom, camera.zoom);
+        drawStaticWorld(projectileBatch.complete ? projectileBatch.frames : [], particleBatch.complete ? particleBatch.frames : []);
+        ctx.restore();
+        drawWorld();
+      }
     } else drawWorld();
     drawVignette();
     if (cutscene) {
@@ -364,6 +374,15 @@ export function createRenderController(options: {
   function render() {
     vignetteWanted = false;
     const drawsBefore = options.canvasDraws?.() ?? -1;
+    // The camera drawn from sits on a whole device pixel, so every object rounds the same way against the ground and
+    // none shifts a pixel against it. It is placed from the player's own rounded pixel, so the player stays as steady
+    // on screen as the smooth camera kept them. Its own smooth position comes back after the frame.
+    const { dpr } = viewport(), cameraX = camera.x, cameraY = camera.y, scale = camera.zoom * dpr;
+    if (Number.isFinite(scale) && scale > 0) {
+      const onPixel = (at: number, from: number) => (Math.round(at * scale) - Math.round((at - from) * scale)) / scale;
+      camera.x = onPixel(player.x, cameraX);
+      camera.y = onPixel(player.y, cameraY);
+    }
     try {
       renderFrame();
       showVignette(vignetteWanted);
@@ -375,10 +394,13 @@ export function createRenderController(options: {
       // Assigning the backing width resets the existing context without changing layout.
       ctx.canvas.width = ctx.canvas.width;
       canvasHasPixels = true;
-      const { dpr } = viewport();
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
       throw error;
+    }
+    finally {
+      // A duel's camera is placed by its scene; anywhere else the glide carries on from where it was.
+      if (!isDueling() && !isReplayActive() && !duelResultHeld()) { camera.x = cameraX; camera.y = cameraY; }
     }
   }
   return { render, drawBootPickup };

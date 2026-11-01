@@ -8,8 +8,68 @@ import { SpriteRecorderUnsupported } from "./sprite-recorder";
 /** Calls that put pixels on the canvas they are made on. */
 const DRAWING_METHODS = new Set(["drawImage", "fillRect", "strokeRect", "fill", "stroke", "fillText", "strokeText", "putImageData"]);
 
-export function createSwitchableContext(real: CanvasRenderingContext2D) {
+type Methods = Record<string, (...args: unknown[]) => unknown>;
+
+/**
+ * Keeps the real context's font as it was last set instead of reading it back: a read builds the font's string
+ * anew every time, and WebKit reads one back without its weight ("900 15px Arial" comes back "15px Arial"), so
+ * text cached by its font would be drawn thin. save() and restore() keep it in step; whatever resets the context
+ * (a new canvas size, reset(), a lost context) makes it read the real font again.
+ */
+function rememberFont(context: Record<string, unknown>, real: CanvasRenderingContext2D, onReal: () => boolean, other: () => CanvasRenderingContext2D) {
+  const native = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, "font");
+  if (!native?.get || !native.set) return;
+  let font: string | null = null;
+  const saved: (string | null)[] = [];
+  const forget = () => { font = null; saved.length = 0; };
+  const { save, restore, reset } = context as Methods;
+  context.save = function () {
+    if (onReal()) saved.push(font);
+    return save.call(context);
+  };
+  context.restore = function () {
+    if (onReal() && saved.length) font = saved.pop()!;
+    return restore.call(context);
+  };
+  if (typeof reset === "function") context.reset = function () {
+    if (onReal()) forget();
+    return reset.call(context);
+  };
+  Object.defineProperty(context, "font", {
+    get: () => (onReal() ? font ??= native.get!.call(real) : other().font),
+    set: (value: string) => {
+      if (!onReal()) { other().font = value; return; }
+      const next = String(value);
+      if (next === font) return;
+      native.set!.call(real, next);
+      font = next;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+  const canvas = real.canvas;
+  if (typeof HTMLCanvasElement === "undefined" || !(canvas instanceof HTMLCanvasElement)) return;
+  canvas.addEventListener("contextlost", forget);
+  canvas.addEventListener("contextrestored", forget);
+  // Setting either size, even to the same value, resets the context.
+  for (const name of ["width", "height"] as const) {
+    const size = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, name);
+    if (!size?.get || !size.set) continue;
+    Object.defineProperty(canvas, name, {
+      get() { return size.get!.call(this); },
+      set(value: number) { size.set!.call(this, value); forget(); },
+      configurable: true,
+    });
+  }
+}
+
+/** `switchable` false (the world is never recorded as sprites here) hands out the real context itself. */
+export function createSwitchableContext(real: CanvasRenderingContext2D, switchable = true) {
   if (typeof CanvasRenderingContext2D === "undefined" || !(real instanceof CanvasRenderingContext2D)) {
+    return { context: real, real, canSwitch: false, use(_next: CanvasRenderingContext2D) {}, reset() {}, realDraws: () => -1 };
+  }
+  if (!switchable) {
+    rememberFont(real as unknown as Record<string, unknown>, real, () => true, () => real);
     return { context: real, real, canSwitch: false, use(_next: CanvasRenderingContext2D) {}, reset() {}, realDraws: () => -1 };
   }
   let realDraws = 0;
@@ -30,29 +90,17 @@ export function createSwitchableContext(real: CanvasRenderingContext2D) {
           // eslint-disable-next-line prefer-rest-params
           return method.apply(target, arguments as unknown as unknown[]);
         };
-      } else if (descriptor.get && name === "font") {
-        // WebKit reads a font back without its weight ("900 15px Arial" comes back "15px Arial"), and text
-        // cached by its font would then be drawn thin: each font is read back as it was set.
-        const asSet = new Map<string, string>();
-        Object.defineProperty(facade, name, {
-          get: () => (target === real ? asSet.get(real.font) : undefined) ?? target.font,
-          set: (value: string) => {
-            target.font = value;
-            if (target !== real) return;
-            if (asSet.size > 64) asSet.clear();
-            asSet.set(real.font, String(value));
-          },
-          enumerable: true,
-        });
       } else if (descriptor.get) {
         Object.defineProperty(facade, name, {
           get: () => (target as unknown as Record<string, unknown>)[name],
           set: descriptor.set ? (value: unknown) => { (target as unknown as Record<string, unknown>)[name] = value; } : undefined,
           enumerable: true,
+          configurable: true,
         });
       }
     }
   }
+  rememberFont(facade, real, () => target === real, () => target);
   return {
     context: facade as unknown as CanvasRenderingContext2D,
     real,

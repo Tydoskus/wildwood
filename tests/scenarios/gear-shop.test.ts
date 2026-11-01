@@ -232,7 +232,8 @@ describe("the gear sellers and the Smith", () => {
     await playUntil(tab, () => Boolean(smithWindow(tab)), "the Smith opens");
     press(tab, smithWindow(tab)!.querySelector("button[data-view=refine]"));
     const focus = () => smithWindow(tab)!.querySelector<HTMLElement>("[data-view=refine] [aria-live=polite]")!;
-    const refineButton = () => [...focus().querySelectorAll("button")].at(-1)!;
+    // The manual Refine leads the action row; Auto Refine sits beside it.
+    const refineButton = () => focus().querySelector<HTMLButtonElement>(".smith-refine-actions button")!;
     const shownChance = () => focus().querySelector("dd")!.textContent!;
     const power = () => world.db.player.identity.find(ann.identity)!.powerLevel;
 

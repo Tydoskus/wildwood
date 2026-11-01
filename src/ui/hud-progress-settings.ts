@@ -1,6 +1,6 @@
 import { renderBooleanSetting } from "./settings";
 
-export type HudTimerKind = "research" | "slotOne" | "slotTwo" | "slotThree" | "adTimer";
+export type HudTimerKind = "research" | "slotOne" | "slotTwo" | "slotThree" | "adTimer" | "run";
 const SETTINGS: readonly { kind: HudTimerKind; label: string; key: string; shownByDefault?: false }[] = [
   { kind: "research", label: "Tech Timer", key: "wildstat-hud-tech-timer-visible" },
   { kind: "slotOne", label: "Upgrade Queue 1 Timer", key: "wildstat-hud-slot-one-timer-visible" },
@@ -9,6 +9,8 @@ const SETTINGS: readonly { kind: HudTimerKind; label: string; key: string; shown
   // The ad's wait until the next one. Hidden unless asked for; the ad button
   // itself still appears whenever an ad is ready.
   { kind: "adTimer", label: "Ad Timer", key: "wildstat-hud-ad-timer-visible", shownByDefault: false },
+  // The prestige run's time and split against the best (prestige-runs-tab.ts). Hidden unless asked for.
+  { kind: "run", label: "Run Timer", key: "wildstat-hud-run-timer-visible", shownByDefault: false },
 ];
 
 /** Each countdown has its own saved visibility switch in Settings. */

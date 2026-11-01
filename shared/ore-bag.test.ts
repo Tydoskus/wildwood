@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ARROW_IDS, isArrowId } from "./arrows";
 import { ORE_ORDER, REFINE_ORE_ORDER, bagFullForOres, bagSlotsWithOres, oreDescription, oreKindsHeld, rockOreKinds, roomForOres } from "./ore-bag";
 import { gearClaimSpace } from "./mailbox-equipment";
 import { IRON_BOW, ITEM_DEFINITIONS, SAMURAI_HAT } from "./items";
@@ -15,8 +16,8 @@ describe("ores in the bag", () => {
     // The hat is one slot (the bow is worn), a kept copy one, and two kinds of ore two.
     expect(bagSlotsWithOres(bag(1, { copper_ore: 900, starshard: 1 }))).toBe(4);
     expect(REFINE_ORE_ORDER).toEqual(["copper_ore", "iron_ore", "mithril_ore", "adamant_ore", "starshard"]);
-    // The crafting wood and crystal stack after the ores, one slot a kind as well.
-    expect(ORE_ORDER).toEqual([...REFINE_ORE_ORDER, "pine_log", "oak_log", "yew_log", "elder_log", "arcane_crystal"]);
+    // The crafting wood and crystal stack after the ores, then crafted arrows, one slot a kind as well.
+    expect(ORE_ORDER).toEqual([...REFINE_ORE_ORDER, "pine_log", "oak_log", "yew_log", "elder_log", "arcane_crystal", ...ARROW_IDS]);
     expect(oreKindsHeld({ arcane_crystal: 2, pine_log: 5, copper_ore: 1 })).toEqual(["copper_ore", "pine_log", "arcane_crystal"]);
     expect(bagSlotsWithOres(bag(0, { pine_log: 40, oak_log: 3, arcane_crystal: 1 }))).toBe(4);
   });
@@ -56,7 +57,8 @@ describe("ores in the bag", () => {
 
 describe("the crafting materials", () => {
   it("are named as crafting names them, and never cost a refine or a card", () => {
-    for (const id of ORE_ORDER) expect(REFINE_ORES[id].name).toBe(MATERIAL_NAMES[id]);
+    // Arrows are made, not crafted with: they have no material name.
+    for (const id of ORE_ORDER.filter(id => !isArrowId(id))) expect(REFINE_ORES[id].name).toBe(MATERIAL_NAMES[id]);
     for (const id of [...WOOD_IDS, ARCANE_CRYSTAL]) expect(REFINE_ORES[id].grade).toBeNull();
     for (const itemId of Object.keys(ITEM_DEFINITIONS)) {
       for (const level of [1, 11, 20]) {

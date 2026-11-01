@@ -4,6 +4,7 @@ import { createGuildEmblem } from './guild-emblems';
 import { guildMemberPresence } from './guild-presence';
 import { GUILD_MEMBER_LIMIT, type GuildPreview } from '../../shared/guilds';
 import { applyProfileIcon } from '../app/profile-icons';
+import { syncGuildOverlayOpen } from './guild-overlay-open';
 
 /** A separate overlay keeps the fullscreen guild page and its scroll position intact. */
 export function createGuildPreview(options: {
@@ -20,7 +21,13 @@ export function createGuildPreview(options: {
   function node(tag: string, text: string, className = '') {
     const el = doc.createElement(tag); el.textContent = text; el.className = className; return el;
   }
-  function close() { revision++; if (root.hidden) return; root.hidden = true; previous?.focus(); }
+  function close() {
+    revision++;
+    if (root.hidden) return;
+    root.hidden = true;
+    syncGuildOverlayOpen(doc);
+    previous?.focus();
+  }
   function show(title: string, content: HTMLElement) {
     panel.replaceChildren();
     const heading = node('h2', '', 'window-banner'); heading.id = 'guildPreviewTitle'; heading.append(node('span', title));
@@ -43,6 +50,7 @@ export function createGuildPreview(options: {
   }
   async function open(id: string) {
     const request = ++revision; previous = doc.activeElement as HTMLElement | null; root.hidden = false;
+    syncGuildOverlayOpen(doc);
     const body = node('div', 'Loading guild…', 'guild-content'); body.setAttribute('role', 'status');
     show('Guild', body); panel.focus();
     try {

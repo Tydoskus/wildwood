@@ -8,6 +8,7 @@ const later = (f: any, micros: bigint) => { f.ctx.timestamp = new Timestamp(f.ct
 
 it("pauses research with its time left, frees the slot, and resumes from there", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   f.seed("playerResearch", { identity: f.ctx.sender, frontierMastery: 0, ...createEmptyResearchRanks() });
   f.run(server.startResearch, { researchId: "foraging" });
   const started = f.db.activeResearch.identity.find(f.ctx.sender);

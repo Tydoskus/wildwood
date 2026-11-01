@@ -5,6 +5,7 @@ import { clamp, rand, randi } from "../math";
 import { formatCompactNumber } from "../../../shared/compact-number";
 import { damageNumbersEnabled } from "../../ui/damage-number-setting";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render/render-space";
+import { outlinedGlyphs } from "./render/outlined-glyphs";
 
 export type Particle = {
   x: number;
@@ -49,6 +50,8 @@ export type SkillEffect = {
 };
 
 const DAMAGE_NUMBER_START_HEIGHT = 62;
+const DAMAGE_FONT = '900 16px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
+const CRITICAL_DAMAGE_FONT = '900 17.6px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
 
 type CameraPosition = { x: number; y: number; zoom: number };
 type OutlinedText = (text: string, x: number, y: number, color: string, strokeWidth?: number) => void;
@@ -356,6 +359,10 @@ export function createCombatEffects() {
 
   function drawDamageNumbers(ctx: CanvasRenderingContext2D, camera: CameraPosition, outlinedText: OutlinedText, devicePixelRatio = 1) {
     drawSkillEffects(ctx, camera);
+    if (!damageNumbers.length) return;
+    // Pre-drawn glyphs where the numbers are at their sprites' own scale, else a text sprite each.
+    const glyphs = outlinedGlyphs();
+    glyphs?.startFrame();
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
@@ -364,16 +371,11 @@ export function createCombatEffects() {
       const y = snapWorldRenderCoordinate(number.y - camera.y, camera.zoom, devicePixelRatio);
       drawScreenSpaceAt(ctx, camera.zoom, x, y, () => {
         ctx.globalAlpha = number.opacity;
-        ctx.font = number.critical
-          ? '900 17.6px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif'
-          : '900 16px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-        outlinedText(
-          number.text,
-          0,
-          0,
-          number.damageTaken ? "#ff5a5a" : number.reflected ? "#6fc8ff" : number.critical ? "#ffe36b" : "#ffffff",
-          3,
-        );
+        const font = number.critical ? CRITICAL_DAMAGE_FONT : DAMAGE_FONT;
+        const color = number.damageTaken ? "#ff5a5a" : number.reflected ? "#6fc8ff" : number.critical ? "#ffe36b" : "#ffffff";
+        if (glyphs?.draw(ctx, number.text, 0, 0, font, color, 3)) return;
+        ctx.font = font;
+        outlinedText(number.text, 0, 0, color, 3);
       });
     }
     ctx.restore();

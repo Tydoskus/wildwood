@@ -5,6 +5,14 @@ import type { TrackerBuild, TrackerValues } from "./stat-tracker-model";
 import { attackCapInterval, attackSpeedLabel, attackSpeedRatingForInterval, critDamageLabel, type AttackCapArg } from "../../shared/stat-rating";
 import { criticalDamage, type CriticalDamageParts } from "../../shared/critical-damage";
 import { formatArmorReduction } from "../game/combat";
+import { weaponAttackInterval } from "../../shared/staff-skills";
+
+/** Attacks a second as fired, " Max" at the cap: a bow at the cap reads its own faster speed, still marked Max. */
+function attackSpeedDetail(attackRate: number, cap: AttackCapArg, weapon: unknown) {
+  const interval = Math.max(attackRate, attackCapInterval(cap)), fired = weaponAttackInterval(weapon, interval);
+  const label = attackSpeedLabel(1 / interval, 1 / attackCapInterval(cap)).replace(" (Max)", " Max");
+  return fired < interval ? `${(1 / fired).toFixed(2)}/s${label.endsWith(" Max") ? " Max" : ""}` : label;
+}
 
 /**
  * Reading the tracker's figures needs the connection, the session, the loaded
@@ -52,7 +60,7 @@ export function createStatTrackerSource(deps: {
     return { identity, prestigeLevel: coop.prestige?.()?.level ?? 0, values: { power: playerPowerForStats({ ...stats, critChance: deps.criticalChance?.() ?? 0, critMultiplier: crit.multiplier }), hp: stats.maxHp,
       damage: stats.damage, armor: stats.armor, regen: stats.regen, attackSpeed: attackSpeedRatingForInterval(deps.player.attackRate, cap),
       critDamage: crit.rating + crit.soul, kills: deps.kills() },
-      details: { attackSpeed: attackSpeedLabel(1 / Math.max(deps.player.attackRate, attackCapInterval(cap)), 1 / attackCapInterval(cap)).replace(" (Max)", " Max"),
+      details: { attackSpeed: attackSpeedDetail(deps.player.attackRate, cap, progress.equippedRightHand || progress.equippedLeftHand),
         critDamage: critDamageLabel(crit.multiplier, crit.cap).replace(" (Max)", " Max"),
         // Armor's block, as the profile shows it: the same armor combat uses.
         armor: `${formatArmorReduction(stats.armor)} Block` },

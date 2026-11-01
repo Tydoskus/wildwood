@@ -49,7 +49,7 @@ export const inTownGrove = (x: number, y: number, margin = 0) =>
 /**
  * The Town is laid out as a 3×3 grid of areas: Timberwood, the village and the Copper Hills across the middle row.
  * The Trade Chrysanthemum's cell is the bottom row's middle one: as wide as the village, right under it. Countryside
- * fills it round the market square; the other cells are countryside for now, walled off.
+ * fills it round the market square, and the other cells; all nine are open, walled only round the grid's outside.
  */
 export const TOWN_EXCHANGE = Object.freeze({
   left: TOWN_CENTER.x + TOWN_VILLAGE_BOUNDS.left, right: TOWN_CENTER.x + TOWN_VILLAGE_BOUNDS.right,
@@ -89,26 +89,32 @@ export function onTownExchangeGround(x: number, y: number, margin = 0) {
 }
 /** The village's own stone bridge west of the square: the woodcutters' road leaves the village over it. Its middle. */
 export const TOWN_WEST_BRIDGE = Object.freeze({ x: TOWN_CENTER.x - 1_912, y: TOWN_CENTER.y + 226 });
-/** How far past the village's ground anyone may walk: the countryside's edge, walled. */
+/** How far past an area's own ground its countryside reaches, and how far past the grid's outer cells the walls stand. */
 export const TOWN_WALK_MARGIN = 320;
-/** The village and the countryside round it, as walled before the hills: what the minimap shows from the village. */
+/** The village and the countryside round it: what the minimap shows from the village. */
 export const TOWN_VILLAGE_WALK_AREA = Object.freeze({
   left: TOWN_CENTER.x + TOWN_VILLAGE_BOUNDS.left - TOWN_WALK_MARGIN, right: TOWN_CENTER.x + TOWN_VILLAGE_BOUNDS.right + TOWN_WALK_MARGIN,
   top: TOWN_CENTER.y + TOWN_VILLAGE_BOUNDS.top - TOWN_WALK_MARGIN, bottom: TOWN_CENTER.y + TOWN_VILLAGE_BOUNDS.bottom + TOWN_WALK_MARGIN,
 });
-/** Timberwood and the countryside round it, walled: it meets the village's walls west of the village. */
+/** Timberwood and the countryside round it, west of the village. */
 export const TOWN_GROVE_WALK_AREA = Object.freeze({
   left: TOWN_GROVE.left - TOWN_WALK_MARGIN, right: TOWN_GROVE.right + TOWN_WALK_MARGIN, top: TOWN_GROVE.top - TOWN_WALK_MARGIN, bottom: TOWN_GROVE.bottom + TOWN_WALK_MARGIN,
 });
-/** The Trade Chrysanthemum's cell and the countryside round it, walled: it meets the village's walls south of the village. */
+/** The Trade Chrysanthemum's cell and the countryside round it, south of the village. */
 export const TOWN_EXCHANGE_WALK_AREA = Object.freeze({
   left: TOWN_EXCHANGE.left - TOWN_WALK_MARGIN, right: TOWN_EXCHANGE.right + TOWN_WALK_MARGIN, top: TOWN_EXCHANGE.top - TOWN_WALK_MARGIN, bottom: TOWN_EXCHANGE.bottom + TOWN_WALK_MARGIN,
 });
-/** Where anyone may walk, walled: the village's countryside and east of it as far as the hills reach, Timberwood west of it, the market south. */
+/** The grid's top row, as far above the village as the market's row is below it: countryside. */
+const TOWN_TOP_ROW = TOWN_CENTER.y + TOWN_VILLAGE_BOUNDS.top - (TOWN_EXCHANGE.bottom - TOWN_CENTER.y - TOWN_VILLAGE_BOUNDS.bottom);
+/**
+ * Where anyone may walk: the whole 3×3 grid, walled only round its outside. Timberwood's, the village's and the
+ * hills' columns, from the top row's countryside down to the market's row.
+ */
 export const TOWN_WALK_AREAS = Object.freeze([
-  Object.freeze({ ...TOWN_VILLAGE_WALK_AREA, right: Math.max(TOWN_VILLAGE_WALK_AREA.right, TOWN_HILLS.right + TOWN_WALK_MARGIN) }),
-  TOWN_GROVE_WALK_AREA,
-  TOWN_EXCHANGE_WALK_AREA,
+  Object.freeze({
+    left: TOWN_GROVE_WALK_AREA.left, right: TOWN_HILLS.right + TOWN_WALK_MARGIN,
+    top: TOWN_TOP_ROW - TOWN_WALK_MARGIN, bottom: TOWN_EXCHANGE_WALK_AREA.bottom,
+  }),
 ]);
 /** All the walls hold, in one rectangle (for grids and the minimap); inTownWalkArea says where inside it is open. */
 export const TOWN_WALK_AREA = Object.freeze({
@@ -332,14 +338,10 @@ export const TOWN_CHUNK_SIZE = 1_600;
 /** Chunks loaded around the player each way: a 5×5 window, 8,000 units across. */
 export const TOWN_CHUNK_RADIUS = 2;
 export const townChunkOf = (value: number) => Math.floor(value / TOWN_CHUNK_SIZE);
-/**
- * Only chunks a screen could see from inside the walls hold anything; and the grid's top row, as far above the
- * village as the market's row is below it, so it is countryside too.
- */
-const TOWN_TOP_ROW = TOWN_CENTER.y + TOWN_VILLAGE_BOUNDS.top - (TOWN_EXCHANGE.bottom - TOWN_CENTER.y - TOWN_VILLAGE_BOUNDS.bottom);
+/** Only chunks a screen could see from inside the walls hold anything. */
 const TOWN_PROP_AREA = Object.freeze({
   left: TOWN_WALK_AREA.left - 2_000, right: TOWN_WALK_AREA.right + 2_000,
-  top: Math.max(0, Math.min(TOWN_WALK_AREA.top - 2_000, TOWN_TOP_ROW)), bottom: TOWN_WALK_AREA.bottom + 2_000,
+  top: Math.max(0, TOWN_WALK_AREA.top - 2_000), bottom: TOWN_WALK_AREA.bottom + 2_000,
 });
 export const townChunkInWorld = (cx: number, cy: number) =>
   (cx + 1) * TOWN_CHUNK_SIZE > TOWN_PROP_AREA.left && cx * TOWN_CHUNK_SIZE < TOWN_PROP_AREA.right

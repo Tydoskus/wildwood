@@ -1,4 +1,5 @@
 import { clamp } from "../math";
+import { createDpsMeter } from "./dps-meter";
 
 export type PlayerHealthState = {
   hp: number;
@@ -33,4 +34,23 @@ export function addPlayerBaseMaxHealth(player: PlayerHealthState, amount: number
   player.baseMaxHp += amount;
   applyPlayerMaxHealthMultiplierBonus(player, multiplierBonus, false);
   player.hp = Math.min(player.maxHp, player.hp + Math.max(0, player.maxHp - previousMaxHp));
+}
+
+/** Where a heal came from, and the name a healing breakdown shows for it. */
+export const HEAL_SOURCE_NAMES = {
+  regen: "Regen", lifesteal: "Lifesteal", "second-wind": "Second Wind", bloodlust: "Bloodlust", "panic-heal": "Panic Heal",
+} as const;
+export type HealSource = keyof typeof HEAL_SOURCE_NAMES;
+
+/** The local player's healing a second by source, as playerDps counts damage. */
+export const playerHealing = createDpsMeter<HealSource>();
+
+/** Heals a living player up to max health; records and returns what it restored, nothing past full. */
+export function healPlayer(player: { hp: number; maxHp: number }, amount: number, source: HealSource) {
+  if (!(player.hp > 0) || !(amount > 0)) return 0;
+  const before = player.hp;
+  player.hp = Math.min(player.maxHp, before + amount);
+  const healed = Math.max(0, player.hp - before);
+  playerHealing.record(healed, source);
+  return healed;
 }

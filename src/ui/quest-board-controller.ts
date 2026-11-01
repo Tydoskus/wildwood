@@ -1,6 +1,8 @@
 import { renderBooleanSetting } from "./settings";
+import { MAP_IDS } from "../../shared/rules";
+import { formatMultiplierChange } from "./number-format";
 import { ENEMY_TYPES, rewardStatLabel, type EnemyKind, type RewardType } from "../game/enemies";
-import { GUILD_QUEST_BONUS_PER_POINT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, activeQuestIndices, ownQuest, questCounts, questDay, questTarget, questDone, questOpen, questWeek, questWeekEndsAtMs, type WeeklyQuest } from "../../shared/weekly-quests";
+import { GUILD_QUEST_BONUS_PER_POINT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, activeQuestIndices, applyQuestKills, ownQuest, questDay, questTarget, questDone, questOpen, questWeek, questWeekEndsAtMs, type WeeklyQuest } from "../../shared/weekly-quests";
 
 type QuestState = { day: number; quests: WeeklyQuest[]; bonus: number; guildPoints: number; guildName: string };
 type RankingRow = { guildId: string; guildName: string; points: number };
@@ -15,10 +17,13 @@ export type QuestBoardSource = {
   markQuestBoardSeen?: () => void;
   isConnected?: () => boolean;
   serverNowMs?: () => number;
+  /** Kills on a map the server has not taken yet (the kill report queue). */
+  pendingQuestKills?: (mapId: string) => readonly { enemy: string; count: number }[];
 } | null | undefined;
 
 const RANKING_ROWS = 8;
-const percent = (fraction: number) => `${Math.round(fraction * 1000) / 10}%`;
+/** A stat gain bonus as the multiplier it pays: 3.7% → ×1.04. */
+const bonusMultiplier = (fraction: number) => formatMultiplierChange(1 + fraction);
 
 export function formatQuestReset(msLeft: number) {
   const minutes = Math.max(1, Math.ceil(msLeft / 60_000));
@@ -35,12 +40,12 @@ export function guildQuestStanding(state: QuestState | null, ranking: RankingRow
   const quests = Math.min(WEEKLY_QUEST_COUNT, state?.guildPoints ?? 0);
   return {
     guild: state?.guildName
-      ? { name: state.guildName, points: state.guildPoints, bonusNow: percent(Math.max(0, state.bonus - 1)),
-        bonusNext: percent(state.guildPoints * GUILD_QUEST_BONUS_PER_POINT) }
+      ? { name: state.guildName, points: state.guildPoints, bonusNow: bonusMultiplier(Math.max(0, state.bonus - 1)),
+        bonusNext: bonusMultiplier(state.guildPoints * GUILD_QUEST_BONUS_PER_POINT) }
       : null,
     solo: state && !state.guildName
-      ? { quests, bonusNow: percent(Math.max(0, state.bonus - 1)), bonusNext: percent(quests * SOLO_QUEST_BONUS_PER_QUEST),
-        bonusMax: percent(WEEKLY_QUEST_COUNT * SOLO_QUEST_BONUS_PER_QUEST) }
+      ? { quests, bonusNow: bonusMultiplier(Math.max(0, state.bonus - 1)), bonusNext: bonusMultiplier(quests * SOLO_QUEST_BONUS_PER_QUEST),
+        bonusMax: bonusMultiplier(WEEKLY_QUEST_COUNT * SOLO_QUEST_BONUS_PER_QUEST) }
       : null,
     ranking: ranking.slice(0, RANKING_ROWS).map((row, index) => ({ place: index + 1, name: row.guildName, points: row.points, mine: row.guildName === state?.guildName })),
   };
@@ -81,23 +86,22 @@ export function questBoardView(state: QuestState | null, nowMs: number, mapName:
  * whether it is on the map the player is on, and the week's count for the
  * header. Null when there is nothing to track: no quests yet, or all done.
  */
-export function questTrackerView(state: QuestState | null, mapId: string, mapName: (mapId: string) => string, shownCount: (key: string) => number | undefined = () => undefined) {
+export function questTrackerView(state: QuestState | null, mapId: string, mapName: (mapId: string) => string) {
   if (!state?.quests.length) return null;
   const active = activeQuestIndices(state.quests);
   if (!active.length) return null;
   return {
     ...weekCount(state.quests),
-    items: active.map(index => {
+    // Later campaign areas first; stable ties keep quests in their original order.
+    items: [...active].sort((a, b) => MAP_IDS.indexOf(state.quests[b].mapId) - MAP_IDS.indexOf(state.quests[a].mapId)).map(index => {
       const quest = state.quests[index];
-      const count = Math.min(quest.target, Math.max(quest.progress, shownCount(`${quest.mapId}:${questTarget(quest)}:${index}`) ?? 0));
+      const count = Math.min(quest.target, quest.progress);
       // The stat a kill pays, so the tracker says what the quest is farming.
       // A stat quest names its stat alone; an older one, its enemy and the stat that enemy gives.
       const stat: RewardType | null = quest.stat ?? ENEMY_TYPES[quest.enemy as EnemyKind]?.reward.type ?? null;
       return { key: `${index}:${quest.mapId}:${questTarget(quest)}`, enemy: quest.enemy ?? "", stat, where: mapName(quest.mapId), from: quest.from ?? "",
         onMap: quest.mapId === mapId, count, target: quest.target, share: quest.target > 0 ? count / quest.target : 0 };
-    })
-      // Quests on this map first: they are the ones the player is working on now.
-      .sort((a, b) => Number(b.onMap) - Number(a.onMap)),
+    }),
   };
 }
 export type QuestTrackerView = NonNullable<ReturnType<typeof questTrackerView>>;
@@ -166,7 +170,7 @@ export function createQuestBoardController(deps: {
     const solo = guildQuestStanding(state, []).solo;
     hint.textContent = solo
       // Without a guild, the board says what the week is worth so far and what the bonus is now.
-      ? `On your own: +${solo.bonusNext} stat gains next week (+${Math.round(SOLO_QUEST_BONUS_PER_QUEST * 100)}% a quest, up to +${solo.bonusMax}). Bonus now: +${solo.bonusNow}.`
+      ? `On your own: ${solo.bonusNext} stat gains next week (+${Math.round(SOLO_QUEST_BONUS_PER_QUEST * 100)}% a quest, up to ${solo.bonusMax}). Bonus now: ${solo.bonusNow}.`
       : view.finished ? "All done this week. New quests on Monday."
       : "Each quest you finish is a point for your guild. See Guild → Quests.";
     list.replaceChildren(...view.quests.map(quest => {
@@ -233,41 +237,36 @@ export function createQuestBoardRuntime(deps: Parameters<typeof createQuestBoard
     refreshAt = performance.now() + 60_000;
     void source.refreshWeeklyQuests?.()?.catch?.(() => {});
   }
-  // Each quest's count as last shown, never below the server's. A kill report goes up within a minute, so two
-  // minutes after the last kill the server's count stands: kills it did not pay never leave the tracker ahead.
-  const SHOWN_FOR_MS = 120_000;
-  const counted = new Map<string, { count: number; atMs: number }>();
-  const shown = { get: (key: string) => { const entry = counted.get(key); return entry && performance.now() - entry.atMs < SHOWN_FOR_MS ? entry.count : undefined; },
-    set: (key: string, count: number) => { counted.set(key, { count, atMs: performance.now() }); }, clear: () => counted.clear() };
-  let shownDay = -1;
+  // The server's counts with the kills it has not taken yet, counted as it will count them. Kills it refused are in
+  // neither, so the tracker and the board never show more than the server will pay.
+  const pendingOn = (mapId: string) => [...(deps.source()?.pendingQuestKills?.(mapId) ?? [])];
+  const withPending = (quests: WeeklyQuest[], mapId: string, pending: { enemy: string; count: number }[]) =>
+    pending.length ? applyQuestKills(quests, mapId, pending).quests : quests;
   return {
-    /** A regular enemy died: count it against the quests in play at once, ahead of the server's report. */
+    /** A regular enemy died (already queued for the server): pop up the quest it counts for, ahead of the report. */
     noteKill(mapId: string, enemy: string) {
       const state = deps.source()?.weeklyQuests?.();
       if (!state) return;
-      if (state.day !== shownDay) { shown.clear(); shownDay = state.day; }
-      // Kills fill the first quest in play they count for, the same order the server counts them.
-      for (const index of activeQuestIndices(state.quests)) {
-        const quest = state.quests[index];
-        if (!questCounts(quest, mapId, enemy)) continue;
-        const key = `${mapId}:${questTarget(quest)}:${index}`, before = Math.max(shown.get(key) ?? 0, quest.progress);
-        if (before >= quest.target) continue;
-        shown.set(key, before + 1);
-        deps.showProgress?.(quest.stat ? rewardStatLabel({ type: quest.stat, amount: 0 }) : enemy, before + 1, quest.target);
-        return;
-      }
+      const queued = pendingOn(mapId);
+      if (!queued.some(kill => kill.enemy === enemy && kill.count > 0)) queued.push({ enemy, count: 1 });
+      const at = queued.findIndex(kill => kill.enemy === enemy && kill.count > 0);
+      const before = withPending(state.quests, mapId, queued.map((kill, index) => index === at ? { ...kill, count: kill.count - 1 } : kill));
+      const after = withPending(state.quests, mapId, queued);
+      const index = after.findIndex((quest, at) => quest.progress > before[at].progress);
+      if (index < 0) return;
+      const quest = after[index];
+      deps.showProgress?.(quest.stat ? rewardStatLabel({ type: quest.stat, amount: 0 }) : enemy, Math.min(quest.progress, quest.target), quest.target);
     },
     board,
     /**
-     * The quests in play for the HUD tracker, counted as far as the kill
-     * pop-ups have shown, so the two never disagree.
+     * The quests in play for the HUD tracker: the server's counts and this map's kills it has not taken yet, the
+     * same as the kill pop-ups.
      */
     trackerView(mapId: string) {
       // Nothing on the HUD until the player has found the board in Town.
       if (deps.source()?.questBoardSeen?.() !== true) return null;
       const state = deps.source()?.weeklyQuests?.() ?? null;
-      if (state && state.day !== shownDay) { shown.clear(); shownDay = state.day; }
-      return questTrackerView(state, mapId, deps.mapName, (key) => shown.get(key));
+      return questTrackerView(state && { ...state, quests: withPending(state.quests, mapId, pendingOn(mapId)) }, mapId, deps.mapName);
     },
     worldStatus: () => questBoardWorldStatus(deps.source()?.weeklyQuests?.() ?? null),
     refreshAtHome() { if (deps.atHome()) refresh(); },

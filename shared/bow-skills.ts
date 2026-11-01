@@ -27,6 +27,12 @@ export const BOW_SKILL_LABELS: Record<BowSkillId, string> = {
 
 /** Chance each skill independently appears on a bow. */
 export const BOW_SKILL_APPEAR_CHANCE = 1 / 3;
+/** A bow's edge over the sword and staff: more of its arrows crit, and it looses them faster. Bows only, not the starter stone. */
+export const BOW_CRIT_CHANCE_BONUS = .1;
+export const BOW_ATTACK_SPEED_BONUS = .15;
+export const isBow = (itemId: unknown) => itemDefinition(itemId)?.weapon?.projectile === "ARROW";
+export const bowCritChanceBonus = (itemId: unknown) => isBow(itemId) ? BOW_CRIT_CHANCE_BONUS : 0;
+
 /** Trigger-chance range, in percent, at the first and the last bow tier. */
 export const BOW_SKILL_MIN_TIER = 1;
 export const BOW_SKILL_MAX_TIER = 15;

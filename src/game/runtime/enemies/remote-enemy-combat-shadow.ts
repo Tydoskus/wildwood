@@ -2,7 +2,7 @@ import {
   deterministicRemoteCritical,
   REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE,
   regularEnemyAggroRetainRadius,
-  regularEnemyAmbientPose,
+  regularEnemyAmbientPhase,
   REGULAR_ENEMY_TICK_MS,
   selectRegularEnemyAggroTarget,
   type RegularEnemyAggroCandidate,
@@ -177,6 +177,11 @@ export function createRemoteEnemyCombatShadows(options: {
   let targets: RemotePlayer[] = [];
   let targetById = new Map<string, RemotePlayer>();
   const targetStats = new Map<string, RemoteCombatStats | null | undefined>();
+  // The frame's aggro candidates, built on first use and shared by every enemy; each enemy sets its own acquire radius.
+  const frameCandidates: RegularEnemyAggroCandidate[] = [];
+  const candidatePool: RegularEnemyAggroCandidate[] = [];
+  const candidateAttackEdges: number[] = [];
+  let frameCandidatesBuilt = false;
 
   function clearState() {
     shadows.clear();
@@ -188,6 +193,7 @@ export function createRemoteEnemyCombatShadows(options: {
     ghostBuffer.length = 0;
     activeGhostCrowd.length = 0;
     targetStats.clear();
+    frameCandidatesBuilt = false;
   }
 
   function combatStatsFor(
@@ -407,7 +413,7 @@ export function createRemoteEnemyCombatShadows(options: {
     const ghost = shadow.ghost;
     ghost.hurt = Math.max(0, ghost.hurt - frameDt);
     if (ghost.attackAnimationElapsed !== undefined) ghost.attackAnimationElapsed += frameDt;
-    ghost.phase = regularEnemyAmbientPose(currentMapId, ghost.siteId, ghost.homeX, ghost.homeY, serverNowMs).phase;
+    ghost.phase = regularEnemyAmbientPhase(currentMapId, ghost.siteId, ghost.homeX, ghost.homeY, serverNowMs);
 
     if (shadow.defeatedAtMs) {
       const progress = (serverNowMs - shadow.defeatedAtMs) / REMOTE_GHOST_DEATH_ANIMATION_MS;
@@ -503,6 +509,7 @@ export function createRemoteEnemyCombatShadows(options: {
     targets = [...remotePlayers];
     targetById = new Map(targets.map((target) => [target.id, target]));
     targetStats.clear();
+    frameCandidatesBuilt = false;
     visuals.clear();
     updateFighters();
     selectPlayerAttackTargets();
@@ -510,6 +517,32 @@ export function createRemoteEnemyCombatShadows(options: {
     for (const [siteId, untilMs] of suppressedUntilMs) {
       if (untilMs <= serverNowMs) suppressedUntilMs.delete(siteId);
     }
+  }
+
+  function aggroCandidates(acquireRadius: number, statsFor: (identity: string) => RemoteCombatStats | null | undefined) {
+    if (!frameCandidatesBuilt) {
+      frameCandidatesBuilt = true;
+      frameCandidates.length = 0;
+      for (const target of targets) {
+        if (!target.id || !Number.isFinite(target.simulationX ?? target.x) || !Number.isFinite(target.simulationY ?? target.y)) continue;
+        const index = frameCandidates.length;
+        const candidate = candidatePool[index] ??= { id: "", x: 0, y: 0, radius: 17, local: false, acquireRadius: 0 };
+        candidate.id = target.id;
+        candidate.x = target.simulationX ?? target.x;
+        candidate.y = target.simulationY ?? target.y;
+        const stats = combatStatsFor(target.id, statsFor);
+        // A real player auto-attacks at this edge, even before the enemy's
+        // smaller proximity aggro triggers. The grid tolerance prevents a
+        // true edge hit from rounding outward on another client.
+        candidateAttackEdges[index] = stats ? stats.attackRange + REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE : Number.NEGATIVE_INFINITY;
+        frameCandidates.push(candidate);
+      }
+    }
+    // Math.max with -Infinity leaves the enemy's own radius exactly as it was.
+    for (let index = 0; index < frameCandidates.length; index += 1) {
+      frameCandidates[index].acquireRadius = Math.max(acquireRadius, candidateAttackEdges[index]);
+    }
+    return frameCandidates;
   }
 
   function observeEnemySite(options: {
@@ -523,24 +556,7 @@ export function createRemoteEnemyCombatShadows(options: {
     const { enemy, base, ambient } = options;
     const perFight = ghostsPerFight();
     if (!perFight || shadows.has(enemy.siteId) || (suppressedUntilMs.get(enemy.siteId) ?? 0) > serverNowMs) return;
-    const candidates: RegularEnemyAggroCandidate[] = targets
-      .filter((target) => target.id && Number.isFinite(target.simulationX ?? target.x) && Number.isFinite(target.simulationY ?? target.y))
-      .map((target) => {
-        const stats = combatStatsFor(target.id, options.statsFor);
-        return {
-          id: target.id,
-          x: target.simulationX ?? target.x,
-          y: target.simulationY ?? target.y,
-          radius: 17,
-          local: false,
-          // A real player auto-attacks at this edge, even before the enemy's
-          // smaller proximity aggro triggers. The grid tolerance prevents a
-          // true edge hit from rounding outward on another client.
-          acquireRadius: stats
-            ? Math.max(options.acquireRadius, stats.attackRange + REGULAR_ENEMY_AGGRO_EDGE_TOLERANCE)
-            : options.acquireRadius,
-        };
-      });
+    const candidates = aggroCandidates(options.acquireRadius, options.statsFor);
     const target = selectRegularEnemyAggroTarget({
       enemyX: ambient.x,
       enemyY: ambient.y,

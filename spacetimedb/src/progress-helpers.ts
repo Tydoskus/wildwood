@@ -170,12 +170,32 @@ export function forestItemCountForProgress(progress: any, itemId: string, field:
   return Math.max(0, Math.min(MAX_FOREST_ITEM_COUNT, Math.max(storedCount, legacyCount)));
 }
 
+// Each player's last bag, by identity: kill reports decode the same one again and again. The list
+// is a pure function of the four fields compared, and callers get a copy, so a hit is exact.
+type InventoryMemo = { json: string; developer: boolean; bowCount: unknown; woodenArmorCount: unknown; items: ReturnType<typeof decodeInventory> };
+const inventoryMemo = new Map<string, InventoryMemo>();
+const INVENTORY_MEMO_PLAYERS = 512;
+
 export function inventoryForProgress(progress: any) {
+  const json = progress.inventoryJson ?? "[]", developer = isDeveloperIdentity(progress.identity);
+  const key = typeof json === "string" ? progress.identity?.toHexString?.() : undefined;
+  const hit = key === undefined ? undefined : inventoryMemo.get(key);
+  if (hit && hit.json === json && hit.developer === developer
+    && Object.is(hit.bowCount, progress.bowCount) && Object.is(hit.woodenArmorCount, progress.woodenArmorCount)) return hit.items.slice();
+  const items = decodeInventory(progress, json, developer);
+  if (key !== undefined) {
+    inventoryMemo.delete(key);
+    inventoryMemo.set(key, { json, developer, bowCount: progress.bowCount, woodenArmorCount: progress.woodenArmorCount, items });
+    if (inventoryMemo.size > INVENTORY_MEMO_PLAYERS) inventoryMemo.delete(inventoryMemo.keys().next().value!);
+  }
+  return items.slice();
+}
+
+function decodeInventory(progress: any, json: unknown, developer: boolean) {
   // Decode once. Previously every catalog item reparsed the same JSON payload.
   let saved: unknown[] = [];
-  try { const value = JSON.parse(progress.inventoryJson ?? "[]"); if (Array.isArray(value)) saved = value; } catch {}
+  try { const value = JSON.parse(json as string); if (Array.isArray(value)) saved = value; } catch {}
   const owned = new Set(saved.map(canonicalItemId).filter(Boolean));
-  const developer = isDeveloperIdentity(progress.identity);
   const forestCount = (itemId: string, field: string) => Math.max(0, Math.min(MAX_FOREST_ITEM_COUNT,
     Math.max(Number.isInteger(progress[field]) ? progress[field] : 0, saved.filter(id => id === itemId).length)));
   return [

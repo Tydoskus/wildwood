@@ -4,7 +4,7 @@ import {
   isProceduralMap,
 } from "../../../../shared/procedural-maps";
 import { ENEMY_TYPES } from "../../enemies";
-import { generatedBossArt } from "../../procedural-maps";
+import { GENERATED_BOSS_SIZE, generatedBossArt, generatedEnemyRadius } from "../../procedural-maps";
 import type { EnemyState, PlayerState } from "../types";
 import type { SpawnSite } from "../../world";
 
@@ -135,7 +135,7 @@ export function createProceduralBossController(options: {
         definition: {
           ...ENEMY_TYPES[kind],
           ...stats,
-          r: 95,
+          r: generatedEnemyRadius(kind) * GENERATED_BOSS_SIZE,
           speed: 0,
           elite: true,
           reward: { type: "damage", amount: 0 },

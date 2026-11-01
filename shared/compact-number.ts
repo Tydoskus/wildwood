@@ -67,3 +67,18 @@ export function formatSuffixNumber(value: number): string {
 export function compactNumberChanged(previous: number, next: number) {
   return formatSuffixNumber(previous) !== formatSuffixNumber(next);
 }
+
+/** A multiplier as players read it, up to two decimals: ×1.23, ×1.5, ×2. */
+export function formatMultiplier(factor: number, decimals = 2): string {
+  if (!Number.isFinite(factor)) return "×1";
+  return Math.abs(factor) >= 1_000 ? `×${formatCompactNumber(factor)}` : `×${Number(factor.toFixed(decimals))}`;
+}
+
+/** A percent bonus as the multiplier it comes to: 23.2 → ×1.23, -15 → ×0.85. */
+export const formatPercentMultiplier = (percent: number, decimals = 2) => formatMultiplier(1 + percent / 100, decimals);
+
+/** A multiplier that should not read as no change: a third decimal when two would show ×1 (×1.004). */
+export function formatMultiplierChange(factor: number): string {
+  const shown = formatMultiplier(factor);
+  return shown === "×1" && factor !== 1 ? formatMultiplier(factor, 3) : shown;
+}

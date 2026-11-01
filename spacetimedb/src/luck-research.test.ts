@@ -30,6 +30,7 @@ const always = (f: Fixture, value: number, integer = 1) => {
 describe("luck research on the server", () => {
   it("starts and completes a luck research into player_luck_research, leaving player_research's columns alone", () => {
     const f = crystalFixture();
+    f.standAtResearch();
     research(f, { inventorySlots: 1 });
     f.run(server.startResearch, { researchId: "gearLuck" });
     const active = f.db.activeResearch.identity.find(f.ctx.sender);
@@ -43,6 +44,7 @@ describe("luck research on the server", () => {
 
   it("refuses a luck research whose prerequisites are not met", () => {
     const f = crystalFixture();
+    f.standAtResearch();
     research(f, { inventorySlots: 1 });
     expect(() => f.run(server.startResearch, { researchId: "refineLuck" })).toThrow("Research prerequisites not met.");
   });

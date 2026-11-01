@@ -20,8 +20,10 @@ import { drawPortalMapMarker } from "../game/portal-presentation";
 import { liveRewardText, type RewardLabelContext } from "../game/runtime/reward-labels";
 import { recommendedMapPower } from "../game/runtime/auto-farm/auto-farm-power";
 import { prestigeRequirementHint } from "../../shared/prestige";
-import { formatCompactNumber } from "../../shared/compact-number";
+import { formatCompactNumber, formatMultiplier } from "../../shared/compact-number";
 import { baseName, unlockedBy } from "./travel-controller";
+import { isTownMap, TOWN_WALK_AREA } from "../../shared/town";
+import { drawTownWorldMap, TOWN_MAP_ASPECT, TOWN_MAP_PLACES, townMapFraction } from "./town-world-map";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
@@ -60,6 +62,8 @@ type MapGuideDependencies = {
   player: MapGuidePoint;
   boss: () => MapGuideBoss;
   portals: () => MapGuidePortal[];
+  /** The village's baked ground, for the Town's own page. */
+  villageGround?: () => HTMLImageElement | undefined;
   beforeOpen: () => void;
   clearPlayerInput: () => void;
   /** Whether the player has ever had this item, for the Gear Collection marks on the drops. */
@@ -222,14 +226,14 @@ export function mapGuideDropChance(denominator: number, numerator = 1) {
 }
 
 function bonusLabel(value: number) {
-  return `+${Math.round(value * 10000) / 100}%`;
+  return formatMultiplier(1 + value);
 }
 
 export function mapGuideItemStats(itemId: ItemId) {
   const item: ItemDefinition = ITEM_DEFINITIONS[itemId];
   const stats: string[] = [];
   const damageBonus = item.weapon?.damageMultiplierBonus ?? item.modifiers?.damageMultiplierBonus;
-  if (damageBonus !== undefined) stats.push(`Damage +${Math.round(damageBonus * 10000) / 100}%`);
+  if (damageBonus !== undefined) stats.push(`Damage ${bonusLabel(damageBonus)}`);
   if (item.modifiers?.maxHealthMultiplierBonus !== undefined) stats.push(`Max Health ${bonusLabel(item.modifiers.maxHealthMultiplierBonus)}`);
   if (item.modifiers?.regenerationMultiplierBonus !== undefined) stats.push(`Regen ${bonusLabel(item.modifiers.regenerationMultiplierBonus)}`);
   return stats;
@@ -251,6 +255,13 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
   let viewed: MapId | null = null;
   const shown = () => viewed ?? dependencies.currentMapId();
   const live = () => shown() === dependencies.currentMapId();
+  /** The maps the arrows step through; from the Town, its own page comes first. */
+  function browseRange() {
+    const range = mapGuideBrowseRange(unlocked);
+    return isTownMap(dependencies.currentMapId()) ? { maps: ["town" as MapId, ...range.maps], last: range.last + 1 } : range;
+  }
+  const mapFrame = canvas.parentElement;
+  const enemySection = enemyRows?.closest("section"), dropSection = dropItems.closest("section");
   // Another map's layout, built once: its paths and camps never change while it is not loaded.
   const layouts = new Map<MapId, { paths: WorldPath[]; sites: SpawnSite[] }>();
   function layoutOf(mapId: MapId) {
@@ -347,6 +358,21 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     zoneLabels.replaceChildren(...labels);
   }
 
+  function renderTownLabels() {
+    zoneLabels.replaceChildren(...TOWN_MAP_PLACES.map(place => {
+      const label = document.createElement("div");
+      label.className = "map-guide-zone-label is-place";
+      const at = townMapFraction(place.x, place.y);
+      label.style.setProperty("--map-x", String(at.x));
+      label.style.setProperty("--map-y", String(at.y));
+      label.setAttribute("role", "listitem");
+      const name = document.createElement("strong");
+      name.textContent = place.name;
+      label.append(name);
+      return label;
+    }));
+  }
+
   // The Gear Collection: how many of this map's drops the player has ever had, beside the drops' heading.
   const dropsHeader = dropItems.parentElement?.querySelector("header");
   const collectedCount = document.createElement("span");
@@ -433,6 +459,13 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.imageSmoothingEnabled = false;
     context.clearRect(0, 0, width, height);
+    if (isTownMap(mapId)) {
+      const { x, y } = dependencies.player, outside = x >= TOWN_WALK_AREA.left && x <= TOWN_WALK_AREA.right && y >= TOWN_WALK_AREA.top && y <= TOWN_WALK_AREA.bottom;
+      drawTownWorldMap(context, width, height, { ground: theme.ground, path: theme.path, paths: layout.paths, villageGround: dependencies.villageGround?.(),
+        portals: portalsOf(mapId), player: outside ? dependencies.player : null });
+      renderTownLabels();
+      return;
+    }
     context.fillStyle = theme.ground;
     context.fillRect(0, 0, width, height);
 
@@ -495,16 +528,21 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
 
   function render() {
     const mapId = shown();
-    const { maps, last } = mapGuideBrowseRange(unlocked);
+    const { maps, last } = browseRange();
     const index = maps.indexOf(mapId);
+    const town = isTownMap(mapId);
     title.textContent = dependencies.mapName(mapId);
-    const place = isProceduralMap(mapId) ? `Endless ${proceduralMapNumber(mapId)}` : `Map ${CAMPAIGN_MAP_IDS.indexOf(mapId as never) + 1} of ${CAMPAIGN_MAP_IDS.length}`;
+    const place = town ? "Town" : isProceduralMap(mapId) ? `Endless ${proceduralMapNumber(mapId)}` : `Map ${CAMPAIGN_MAP_IDS.indexOf(mapId as never) + 1} of ${CAMPAIGN_MAP_IDS.length}`;
     if (kicker) kicker.textContent = index > 0 && !unlocked(mapId) ? `${place} · Locked` : live() ? `${place} · You are here` : place;
     if (prev) prev.disabled = index <= 0;
     if (next) next.disabled = index < 0 || index >= last;
     renderGoal(mapId);
-    if (enemyRows) renderEnemyRows(mapId);
-    renderDrops(mapId);
+    // The Town has no enemies or drops: its page is the map alone, in the Town's own shape.
+    if (mapFrame) mapFrame.style.aspectRatio = town ? TOWN_MAP_ASPECT : "";
+    if (enemySection) enemySection.hidden = town;
+    if (dropSection) dropSection.hidden = town;
+    if (enemyRows && !town) renderEnemyRows(mapId);
+    if (!town) renderDrops(mapId);
     drawMap();
   }
 
@@ -531,7 +569,7 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
 
   /** Shows the map `step` along: back to any map, forward to one past the furthest open. */
   function browse(step: number) {
-    const { maps, last } = mapGuideBrowseRange(unlocked);
+    const { maps, last } = browseRange();
     const index = maps.indexOf(shown());
     const target = index < 0 ? 0 : Math.max(0, Math.min(last, index + step));
     if (target === index) return;
@@ -543,8 +581,8 @@ export function createMapGuideController(elements: MapGuideElements, dependencie
     if (!overlay.hidden) return;
     dependencies.beforeOpen();
     dependencies.clearPlayerInput();
-    // Always opens on the player's own map; Home has no map of its own, so the furthest open one.
-    const { maps } = mapGuideBrowseRange(unlocked);
+    // Always opens on the player's own map (the Town has its own page); Home has none, so the furthest open one.
+    const { maps } = browseRange();
     viewed = maps.includes(dependencies.currentMapId()) ? null : maps.filter((mapId, index) => index === 0 || unlocked(mapId)).pop() ?? null;
     overlay.hidden = false;
     trigger.setAttribute("aria-expanded", "true");

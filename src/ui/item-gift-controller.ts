@@ -1,6 +1,7 @@
 import { ITEM_DEFINITIONS, type ItemId } from "../../shared/items";
 import type { PendingItemGift } from "../../shared/item-gifts";
 import { itemArtImage, itemHasGalaxyFinish, itemPresentation } from "../game/item-presentation";
+import { setAttr, setDisabled, setHidden, setText } from "./dom-write";
 
 type Hooks = {
   canShow: () => boolean;
@@ -45,18 +46,18 @@ export function createItemGiftController(hooks: Hooks) {
     }
     if (!pending && !celebrating) displayed = hooks.gift();
     const show = hooks.canShow() && Boolean(displayed && (!completed.has(displayed.key) || celebrating));
-    overlay.hidden = !show;
+    setHidden(overlay, !show);
     overlay.classList.toggle("is-claimed", celebrating);
-    overlay.setAttribute("aria-busy", String(pending));
-    button.disabled = pending || celebrating;
-    button.textContent = celebrating ? "CLAIMED!" : pending ? "CLAIMING…" : "CLAIM";
+    setAttr(overlay, "aria-busy", String(pending));
+    setDisabled(button, pending || celebrating);
+    setText(button, celebrating ? "CLAIMED!" : pending ? "CLAIMING…" : "CLAIM");
     if (displayed) {
-      title.textContent = ITEM_DEFINITIONS[displayed.itemId as ItemId]?.name ?? "GIFT";
+      setText(title, ITEM_DEFINITIONS[displayed.itemId as ItemId]?.name ?? "GIFT");
       const source = itemPresentation(displayed.itemId)?.inventory.source ?? "";
       if (art.getAttribute("src") !== source) art.src = source;
       // A galaxy piece's sky moves: a masked span stands in for the picture.
       const galaxy = itemHasGalaxyFinish(displayed.itemId);
-      art.hidden = galaxy;
+      setHidden(art, galaxy);
       const shown = artBox.querySelector<HTMLElement>(":scope > .item-art-image");
       if (shown?.dataset.itemId !== (galaxy ? displayed.itemId : undefined)) {
         shown?.remove();

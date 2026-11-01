@@ -5,6 +5,7 @@ import {
 } from "../../../shared/mastery-techniques";
 import type { MasteryInPlay } from "../../../shared/weapon-mastery";
 import { isSkillSecondaryTarget } from "./bow-skill-procs";
+import { healPlayer } from "./player-health";
 import type { BossTarget, EnemyState, PlayerState } from "./types";
 
 /**
@@ -50,7 +51,7 @@ export function createMasteryTechniqueRuntime(options: {
     cleaveShare: CLEAVE_DAMAGE_SHARE,
     /** A swing that landed: Bloodlust heals and Momentum's run grows. */
     swingLanded() {
-      if (has("bloodlust") && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * BLOODLUST_HEAL_SHARE);
+      if (has("bloodlust")) healPlayer(player, player.maxHp * BLOODLUST_HEAL_SHARE, "bloodlust");
       streak = has("momentum") ? streak + 1 : 0;
     },
     /** A swing that hit nothing ends Momentum's run. */

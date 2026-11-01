@@ -1,5 +1,6 @@
 import type { OreId } from "../../shared/refine";
 import type { WoodId } from "../../shared/crafting";
+import { isArrowId } from "../../shared/arrows";
 import { LOG_COLORS } from "../game/runtime/town/wood-tree-renderer";
 import { ORE_COLORS } from "../game/runtime/town/ore-rock-renderer";
 
@@ -96,9 +97,10 @@ export function paintOreIcon(c: CanvasRenderingContext2D, oreId: OreId) {
 const icons = new Map<OreId, string>();
 /**
  * An ore's bag icon as an image source (a PNG data URL), painted once at twice its 64-unit design so it stays crisp
- * at the item window's size; "" where there is no canvas (tests).
+ * at the item window's size; "" where there is no canvas (tests). A crafted arrow has drawn art instead.
  */
 export function oreIconSource(oreId: OreId) {
+  if (isArrowId(oreId)) return `assets/wildstat/arrows/${oreId}.webp`;
   const cached = icons.get(oreId);
   if (cached !== undefined) return cached;
   let source = "";

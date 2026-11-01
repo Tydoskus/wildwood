@@ -8,6 +8,11 @@ const gameScripts = (tab: GameTab) => tab.document.querySelectorAll("#wildstatGa
 const disabled = (tab: GameTab, id: string) => (tab.element(id) as HTMLButtonElement).disabled;
 /** The last address the page sent the browser to. */
 const lastNavigation = (tab: GameTab) => tab.navigations[tab.navigations.length - 1]?.url ?? "";
+/** Taps Sign In and waits for the page to leave for the provider: a slow machine can take longer than a fixed wait. */
+const tapSignIn = async (tab: GameTab) => {
+  tab.tap("signInFromStartBtn");
+  expect(await tab.until(() => lastNavigation(tab) !== "", 5_000)).toBe(true);
+};
 /** The server's session row for this tab's connection says it has entered the world. */
 const enteredWorld = (tab: GameTab) => {
   const id = tab.connection()?.connectionId;
@@ -206,8 +211,7 @@ describe("startup and accounts", () => {
     expect(await tab.until(() => tab.shown("signInFromStartBtn") && !disabled(tab, "signInFromStartBtn"), 10_000)).toBe(true);
     await tab.play(2_000);
     expect(gameScripts(tab)).toBe(0);
-    tab.tap("signInFromStartBtn");
-    await tab.play(500);
+    await tapSignIn(tab);
     expect(lastNavigation(tab)).toMatch(/^https:\/\/auth\.spacetimedb\.com\/oidc\/auth\?/);
     expect(disabled(tab, "signInFromStartBtn")).toBe(true);
     expect(disabled(tab, "continueGuestBtn")).toBe(true);
@@ -221,8 +225,7 @@ describe("startup and accounts", () => {
     expect(disabled(tab, "continueGuestBtn")).toBe(false);
 
     // The provider sends the player back cancelled: the choice again, the address cleaned.
-    tab.tap("signInFromStartBtn");
-    await tab.play(500);
+    await tapSignIn(tab);
     tab = await tab.reload({ url: auth.cancelled(lastNavigation(tab)) });
     expect(await tab.until(() => tab.shown("signInFromStartBtn") && !disabled(tab, "signInFromStartBtn"), 10_000)).toBe(true);
     expect(tab.location.search).toBe("");
@@ -262,8 +265,7 @@ describe("startup and accounts", () => {
     storage.setItem(storageKeys.knownAccountKey, "true");
     let tab = await bootGame(world, { localStorage: storage, route: auth.route });
     expect(await tab.until(() => tab.shown("signInFromStartBtn") && !disabled(tab, "signInFromStartBtn"), 10_000)).toBe(true);
-    tab.tap("signInFromStartBtn");
-    await tab.play(500);
+    await tapSignIn(tab);
 
     // The provider is slow to confirm the code: the page waits on loading, game.js not yet asked for.
     auth.holdExchanges();
@@ -294,8 +296,7 @@ describe("startup and accounts", () => {
     storage.setItem(storageKeys.knownAccountKey, "true");
     let tab = await bootGame(world, { localStorage: storage, route: auth.route });
     expect(await tab.until(() => tab.shown("signInFromStartBtn") && !disabled(tab, "signInFromStartBtn"), 10_000)).toBe(true);
-    tab.tap("signInFromStartBtn");
-    await tab.play(500);
+    await tapSignIn(tab);
 
     auth.refuseCodeExchange("invalid_grant");
     tab = await tab.reload({ url: auth.signInAs(lastNavigation(tab), "dee-account") });
@@ -447,8 +448,7 @@ describe("startup and accounts", () => {
     remembered.setItem(storageKeys.knownAccountCharacterKey, "Bo");
     let other = await bootGame(world, { localStorage: remembered, route: auth.route });
     expect(await other.until(() => other.shown("signInFromStartBtn") && !disabled(other, "signInFromStartBtn"), 10_000)).toBe(true);
-    other.tap("signInFromStartBtn");
-    await other.play(500);
+    await tapSignIn(other);
     other = await other.reload({ url: auth.signInAs(lastNavigation(other), "cy-account") });
     expect(await other.until(other.playing, 20_000)).toBe(true);
     expect(await other.until(() => other.shown("signedInAsNotice"), 10_000)).toBe(true);

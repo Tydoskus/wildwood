@@ -1,4 +1,4 @@
-import { GUILD_HALL_PARTS, GUILD_HALL_TABLE_SEATS, guildHallUpgradeCost, type GuildHallLevels, type GuildHallPart } from "../../shared/guild-hall";
+import { GUILD_HALL_BONUSES, GUILD_HALL_PARTS, GUILD_HALL_TABLE_SEATS, guildHallUpgradeCost, type GuildHallLevels, type GuildHallPart } from "../../shared/guild-hall";
 import { createGuildEmblem } from "./guild-emblems";
 
 export type GuildHallWindowState = {
@@ -57,14 +57,22 @@ export function createGuildHallWindow(deps: {
     const progress = document.createElement("strong");
     progress.textContent = `Level ${level + 1} of ${part.levels.length}`;
     now.append(label, progress);
-    block.append(heading, now);
+    // What it gives every member now; the upgrade's button says what the next level would.
+    const { values, text } = GUILD_HALL_BONUSES[part.id];
+    const bonus = document.createElement("p");
+    bonus.className = "soul-note guild-hall-bonus";
+    bonus.textContent = values[level] ? text(values[level]) : "No Bonus Yet";
+    block.append(heading, now, bonus);
     if (cost === null) {
       now.classList.add("is-done");
     } else {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "farm-enemy soul-toggle guild-hall-upgrade";
-      button.textContent = `${part.levels[level + 1]}: ${cost} Quest Points`;
+      button.append(`${part.levels[level + 1]}: ${cost} Quest Points`);
+      const next = document.createElement("small");
+      next.textContent = text(values[level + 1]);
+      button.append(next);
       button.disabled = pending || !state.guild?.canUpgrade || state.fund < cost;
       button.addEventListener("click", async () => {
         if (pending) return;
@@ -101,8 +109,8 @@ export function createGuildHallWindow(deps: {
     const note = document.createElement("p");
     note.className = "soul-note";
     note.textContent = state.guild.canUpgrade
-      ? "Guild quests fill the fund as they are finished. Upgrades change how the hall looks, never anyone's stats."
-      : "Guild quests fill the fund as they are finished. The President and Vice Presidents choose the upgrades.";
+      ? "Guild quests fill the fund as they are finished. Each upgrade changes the hall and gives every member a small bonus."
+      : "Guild quests fill the fund as they are finished. The President and Vice Presidents choose the upgrades; every member gets their bonuses.";
     body.append(note);
     for (const part of GUILD_HALL_PARTS) partRow(part, state);
     enter.hidden = state.inHall;

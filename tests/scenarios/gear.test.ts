@@ -561,6 +561,27 @@ describe("builds", () => {
     expect(world.db.playerBuildName.key.find(`${account.hex}:2`)?.name).toBe("x".repeat(20));
     expect([...world.db.playerBuildName.identity.filter(ann.identity)]).toEqual([]);
   });
+
+  it("GEAR-03 a build keeps the arrow nocked when saved, plain arrows included; a build from before arrows leaves the nock alone", () => {
+    const world = scenarioWorld();
+    const ann = world.join("Ann");
+    const nocked = () => world.db.playerNockedArrow.identity.find(ann.identity)?.arrowId ?? null;
+    ann.call("nockArrow", { arrowId: "fire_arrow" });
+    ann.call("saveBuild", { slot: 0 });
+    ann.call("nockArrow", { arrowId: "" });
+    ann.call("saveBuild", { slot: 1 });
+    ann.call("nockArrow", { arrowId: "star_arrow" });
+    ann.call("applyBuildCards", { slot: 0 });
+    expect(nocked()).toBe("fire_arrow");
+    ann.call("applyBuildCards", { slot: 1 });
+    expect(nocked()).toBeNull();
+    // Saved before arrows: no arrow in it, so whatever is nocked stays.
+    world.setup(ctx => ctx.db.playerBuild.insert({ key: `${ann.hex}:2`, identity: ann.identity, slot: 2,
+      gearJson: JSON.stringify({ HAND: "", HEAD: "", CHEST: "", FEET: "" }), cardsJson: "{}", savedAt: ctx.timestamp }));
+    ann.call("nockArrow", { arrowId: "venom_arrow" });
+    ann.call("applyBuildCards", { slot: 2 });
+    expect(nocked()).toBe("venom_arrow");
+  });
 });
 
 describe("what gear does in play", () => {
@@ -705,9 +726,8 @@ describe("slot upgrades", () => {
     const pick = async (queue: string, slotIndex: number) => {
       tab.tap(queue);
       await playUntil(tab, () => tab.shown("slotUpgradesPickerItems"), "the slot picker opens");
+      // Picking the slot starts its upgrade; there is no second button to press.
       press(tab, tab.element("slotUpgradesPickerItems").querySelectorAll("button")[slotIndex]);
-      await playUntil(tab, () => tab.shown("slotUpgradesAction") && !(tab.element("slotUpgradesAction") as HTMLButtonElement).disabled, "Upgrade is ready");
-      tab.tap("slotUpgradesAction");
     };
     const buyQueue = async (queue: string) => {
       const cost = shownNumber(tab.element(queue).textContent), gems = gemsOf(world, ann);

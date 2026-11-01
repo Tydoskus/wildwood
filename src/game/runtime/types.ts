@@ -1,4 +1,5 @@
 import type { DuelCombatModifiers } from "../../../shared/duel-combat";
+import type { ArrowId } from "../../../shared/arrows";
 import type { EnemyDefinition, EnemyKind, RewardType } from "../enemies";
 import type { PlayerGender } from "../../../shared/player-gender";
 import type { ArrowSkillProcs } from "../../../shared/bow-skills";
@@ -57,6 +58,8 @@ export type Projectile = Circle & {
   bolt?: BoltSkillProcs | null;
   /** Enemies a Piercing Shot arrow has already passed through. */
   pierced?: Set<object> | null;
+  /** The crafted arrow it was fired as (arrows.ts), or null for a plain one. */
+  ammo?: ArrowId | null;
   /** Where the arrow left the bow, so a Piercing Shot beam can be drawn from it. */
   originX?: number;
   originY?: number;

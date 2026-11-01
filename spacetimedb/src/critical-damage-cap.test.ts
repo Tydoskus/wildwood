@@ -66,6 +66,7 @@ it("deals the capped critical in duels, the run's crit rating included", () => {
 
 it("raises the cap when Crit Cap research completes", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   research(f, { utilityAttackRange: 1 });
   f.run(server.startResearch, { researchId: "critCap" });
   const active = f.db.activeResearch.identity.find(f.ctx.sender);
@@ -77,6 +78,7 @@ it("raises the cap when Crit Cap research completes", () => {
 
 it("refuses Crit Cap before Attack Range", () => {
   const f = crystalFixture();
+  f.standAtResearch();
   research(f, { offlineWindow: 1 });
   expect(() => f.run(server.startResearch, { researchId: "critCap" })).toThrow("Research prerequisites not met.");
 });

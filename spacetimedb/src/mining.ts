@@ -1,6 +1,7 @@
 import { SenderError, table, t } from "spacetimedb/server";
 import { Timestamp, type Identity } from "spacetimedb";
 import { cardStatFactors } from "../../shared/card-effects";
+import { withCourtyardFind } from "./guild-hall-bonus";
 import { activeCardTotalsFor } from "./active-cards";
 import type spacetimedbType from "./index";
 import {
@@ -180,7 +181,7 @@ export function mineNodeFor(ctx: Ctx, args: { nodeId: number }, deps: MiningDeps
   pruneMinedNodes(ctx, ctx.sender);
   if (nodeBareFor(ctx, ctx.sender, node)) throw new SenderError("That rock is still growing back.");
   // Mining Speed, Ore Find and Starshard cards in the worn gear.
-  const cards = cardStatFactors(activeCardTotalsFor(ctx, ctx.sender)), pickaxe = toolLevelFor(ctx, ctx.sender, "pickaxe");
+  const cards = withCourtyardFind(ctx, ctx.sender, cardStatFactors(activeCardTotalsFor(ctx, ctx.sender))), pickaxe = toolLevelFor(ctx, ctx.sender, "pickaxe");
   if (mining && microsSince(ctx, mining.lastBreakAt) < miningBreakSeconds(node, skill, cards.miningSpeed, pickaxe) * MINING_RATE_SLACK * 1_000_000) {
     throw new SenderError("Still mining.");
   }
@@ -220,7 +221,7 @@ export function reportMiningFor(ctx: Ctx, args: { breaks: readonly { nodeId: num
   const mining = ctx.db.playerMining.identity.find(ctx.sender), skill = normalizeMining(mining?.mining);
   const rows = new Map<number, any>();
   for (const row of ctx.db.playerMinedNode.identity.filter(ctx.sender) as Iterable<any>) rows.set(row.nodeId, row);
-  const cards = cardStatFactors(activeCardTotalsFor(ctx, ctx.sender)), pickaxe = toolLevelFor(ctx, ctx.sender, "pickaxe");
+  const cards = withCourtyardFind(ctx, ctx.sender, cardStatFactors(activeCardTotalsFor(ctx, ctx.sender))), pickaxe = toolLevelFor(ctx, ctx.sender, "pickaxe");
   const ores = oreCountsFor(ctx, ctx.sender), progress = progressOnce(ctx, ctx.sender), rank = respawnRankFor(ctx, ctx.sender);
   const { accepted, rejected, skill: reached } = judgeGatherBatch(claims, {
     node: miningNode, canWork: canMineRock, gain: miningGain, slack: MINING_RATE_SLACK, reach: MINING_SERVER_REACH,

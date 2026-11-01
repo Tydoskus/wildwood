@@ -45,7 +45,7 @@ describe("Slot Upgrades touch latch", () => {
       name: "Weapon \u00b7 +0 \u2192 +1",
       equippedItemId: FROST_BOW,
       changes: [
-        { label: "DAMAGE", current: "+11.43%", next: "+11.89%" },
+        { label: "DAMAGE", current: "×1.11", next: "×1.12" },
       ],
     });
     // An empty slot still shows the tier; there is nothing to measure.
@@ -55,7 +55,7 @@ describe("Slot Upgrades touch latch", () => {
     // A refined bow: both numbers stand on its refine, as the item window's do.
     const refined = upgradePickerPreview("HAND", 3, FROST_BOW, 5).changes[0];
     expect(refined).toEqual(itemUpgradeStatChanges(FROST_BOW, { tier: 3, refine: 5 })[0]);
-    expect(parseFloat(refined.current)).toBeGreaterThan(parseFloat(upgradePickerPreview("HAND", 3, FROST_BOW).changes[0].current));
+    expect(parseFloat(refined.current.slice(1))).toBeGreaterThan(parseFloat(upgradePickerPreview("HAND", 3, FROST_BOW).changes[0].current.slice(1)));
   });
 
   it("restores a slotted item's actions when item choices are dismissed", () => {

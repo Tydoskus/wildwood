@@ -71,7 +71,7 @@ describe("prestige unlock popup", () => {
     expect(s.pick("#prestigeUnlockTitle").textContent).toBe("Prestige 1");
     expect(s.pick("#prestigeUnlockKicker").textContent).toBe("UNLOCKED");
     expect(s.pick(".prestige-unlock-badge").textContent).toBe("1");
-    expect(s.pick(".prestige-unlock-reward").textContent).toBe("You would earn +10% stat gain and 1 perk point.");
+    expect(s.pick(".prestige-unlock-reward").textContent).toBe("You would earn ×1.1 stat gain and 1 perk point.");
     expect(s.pick(".prestige-cost").textContent).toContain("resets your stats and map unlocks");
   });
 
@@ -184,7 +184,7 @@ describe("prestige unlock popup", () => {
     s.state.endless = 1;
     s.settle();
     expect(s.pick("#prestigeUnlockTitle").textContent).toBe("Prestige 2");
-    expect(s.pick(".prestige-unlock-reward").textContent).toBe("You would earn +10% stat gain (+20% total) and 1 perk point.");
+    expect(s.pick(".prestige-unlock-reward").textContent).toBe("You would earn ×1.2 stat gain (now ×1.1) and 1 perk point.");
   });
 });
 

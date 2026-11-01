@@ -1,13 +1,14 @@
-import type { GuildHallLevels, GuildHallPart } from "../../shared/guild-hall";
+import { GUILD_HALL_WORLD, type GuildHallLevels, type GuildHallPart } from "../../shared/guild-hall";
 import scene from "./guild-hall-scene.json";
 import type { SoulSolid } from "./town-village";
 import type { WorldDecor } from "./world";
 
 /**
  * A guild hall's art, baked by scripts/art/bake-guild-hall.mjs: the courtyard's
- * ground, the great hall's room pictures (one per size), every prop with the
- * upgrade levels it shows at, the crest points the guild's badge is drawn on,
- * the table's seats, the upgrade board and what nobody walks through.
+ * ground, the great hall's room pictures
+ * (one per size), every prop with the upgrade levels it shows at, the crest
+ * points the guild's badge is drawn on, the table's seats, the upgrade board
+ * and what nobody walks through.
  */
 export const GUILD_HALL_PROPS_SOURCE = "assets/wildstat/guild-hall/hall-props.webp";
 export const GUILD_HALL_GROUND_SOURCE = "assets/wildstat/guild-hall/hall-ground.webp";
@@ -29,13 +30,27 @@ export const guildHallFrame = (name: string) => frames.get(name) ?? null;
 
 /** The courtyard's ground image's rectangle in world units. */
 export const GUILD_HALL_GROUND = Object.freeze({ ...scene.ground });
-/** Everything east of this is the dark around the great hall's room. */
+/** Everything east of this is the dark around the great hall's room; west of it is the courtyard. */
 export const GUILD_HALL_INTERIOR_LEFT = scene.interiorLeft;
+/**
+ * The part of the hall's world the camera keeps to, by where the player is, and zooms out no further than (camera.ts):
+ * the outdoors, the courtyard in its middle and grass beyond its picture, or the great hall's side.
+ */
+export function guildHallCameraRegion(x: number) {
+  return x < GUILD_HALL_INTERIOR_LEFT
+    ? { left: 0, top: 0, right: GUILD_HALL_INTERIOR_LEFT, bottom: GUILD_HALL_WORLD.height }
+    : { left: GUILD_HALL_INTERIOR_LEFT, top: 0, right: GUILD_HALL_WORLD.width, bottom: GUILD_HALL_WORLD.height };
+}
 
 /** Whether the hall's front door stands open: the runtime opens it as someone walks up, the renderer draws it so. */
 export const guildHallDoorState = { open: false };
-/** The hall's badge (its index in GUILD_EMBLEMS, -1 until the guild is known) and seats now: set by the runtime, drawn by the renderer. */
-export const guildHallShown: { emblem: number; size: number; seats: readonly GuildHallSeat[] } = { emblem: -1, size: 0, seats: [] };
+/**
+ * The hall's badge (its index in GUILD_EMBLEMS, -1 until the guild is known), seats, and whether the player is
+ * indoors now: set by the runtime, drawn by the renderer.
+ */
+export const guildHallShown: { emblem: number; size: number; seats: readonly GuildHallSeat[]; indoors: boolean } = {
+  emblem: -1, size: 0, seats: [], indoors: false,
+};
 /**
  * How close a standing player's feet must be to a seat to be sitting in it. Sitting is drawn, never moved: every
  * client draws everyone from the positions it already has, so a sitter needs no packet the server would weigh.
@@ -55,11 +70,15 @@ type Prop = (typeof scene.props)[number] & { open?: number; door?: number; groun
   anim?: { frames: number[]; times: number[]; length: number }; when?: Condition };
 type Crest = (typeof scene.crests)[number] & { when?: Condition };
 
-/** The hall's props and crests at these levels, as world decor that sorts by depth like the Town village's. */
-export function guildHallDecor(levels: GuildHallLevels): WorldDecor[] {
+/**
+ * The hall's props and crests at these levels, as world decor that sorts by depth like the Town village's: only
+ * the player's side of the door (the courtyard, or the great hall), so the other is never drawn into a wide view.
+ */
+export function guildHallDecor(levels: GuildHallLevels, indoors = false): WorldDecor[] {
   const decor: WorldDecor[] = [];
+  const side = (x: number) => (x >= GUILD_HALL_INTERIOR_LEFT) === indoors;
   for (const prop of scene.props as Prop[]) {
-    if (!shownAt(levels, prop.when)) continue;
+    if (!shownAt(levels, prop.when) || !side(prop.x)) continue;
     decor.push({
       type: "soulProp", sheet: "hall", frame: String(prop.f), s: 1, x: prop.x, y: prop.d, dy: prop.y - prop.d,
       ...(prop.ground ? { ground: true } : {}), ...(prop.shadow ? { shadow: true } : {}),
@@ -68,7 +87,7 @@ export function guildHallDecor(levels: GuildHallLevels): WorldDecor[] {
     });
   }
   for (const crest of scene.crests as Crest[]) {
-    if (!shownAt(levels, crest.when)) continue;
+    if (!shownAt(levels, crest.when) || !side(crest.x)) continue;
     // Just in front of its banner, so the badge is never under the cloth.
     decor.push({ type: "soulProp", sheet: "hall", frame: "", crest: crest.size, s: 1, x: crest.x, y: crest.d + .01, dy: crest.dy });
   }

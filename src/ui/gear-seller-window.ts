@@ -1,8 +1,8 @@
 import { itemDisplayName } from "../../shared/items";
-import { gradeIndex, type GearGrade } from "../../shared/gear-grades";
+import { GEAR_GRADES, gradeIndex, type GearGrade } from "../../shared/gear-grades";
 import { gradeOf, isGradeItemId, type GradeItemId } from "../../shared/grade-equipment";
 import {
-  GRADE_SHOP_LINES, gearSellerOf, gearSellerOfLine, gradeShopItemId, gradeShopLineKey, gradeShopNeed, gradeShopOffer, gradeShopOpen, gradeShopPrice,
+  GRADE_SHOP_LINES, bestHeldGradeIndex, gearSellerOf, gearSellerOfLine, gradeShopItemId, gradeShopLineKey, gradeShopNeed, gradeShopOffer, gradeShopOpen, gradeShopPrice,
   gradeShopSalePrice, masteryLevels, type GearSeller, type GradeShopLine, type MasteryLevels,
 } from "../../shared/grade-shop";
 import { weaponSchool as schoolOfWeapon, type WeaponSchool } from "../../shared/weapon-mastery";
@@ -22,6 +22,12 @@ type Result = { ok: boolean; error?: string } | undefined;
 /** One copy of a piece in the bag: copy id 0 is the first copy, the one a slot holds. */
 export type SellerItem = { itemId: string; copyId: bigint; equipped: boolean; roll?: WeaponSkillRoll | null };
 type SellerView = "buy" | "sell";
+type LineStatus = "open" | "owned" | "better" | "locked";
+/** The word a Buy button shows when the piece cannot be bought. */
+const STATUS_WORDS: Readonly<Record<LineStatus, string | undefined>> = { open: undefined, owned: "Owned", better: "Have Better", locked: "Locked" };
+/** Why a Buy tile cannot be bought, said when it is tapped. */
+const statusWhy = (status: LineStatus, itemId: GradeItemId) => status === "locked" ? `Needs ${gradeShopNeed(itemId)}`
+  : status === "owned" ? "You Already Have This" : status === "better" ? "You Have A Better One" : undefined;
 
 const nameOf = (itemId: string) => itemInspectionButtonLabel(itemDisplayName(itemId));
 const key = (item: { itemId: string; copyId: bigint }) => `${item.itemId}:${item.copyId}`;
@@ -111,8 +117,8 @@ export function createGearSellerController(seller: GearSeller, deps: GearSellerD
   /** The piece being bought, and the ones bought here before the server's row arrives. */
   let buyingGear: string | null = null;
   const justBought = new Set<string>();
-  /** The grade picked to buy on each line; the best the gold covers until the player steps. */
-  const picked = new Map<string, GearGrade>();
+  /** The grade picked for every line at once; each line's best the gold covers until the player steps. */
+  let picked: GearGrade | null = null;
   /** The copy being sold, and the one asked once already: a sale takes a second tap. */
   let selling: string | null = null, confirming: string | null = null;
   let confirmTimer: ReturnType<typeof setTimeout> | null = null;
@@ -150,7 +156,7 @@ export function createGearSellerController(seller: GearSeller, deps: GearSellerD
 
   function state() {
     return JSON.stringify([view, selected, String(deps.gold()), deps.masteryLevels(), [...heldGear()].filter(gradeShopPrice), deps.bagFull(), deps.worn(),
-      buyingGear, [...picked], selling, confirming,
+      buyingGear, picked, selling, confirming,
       [...new Set(lines.map(line => deps.slotTier(gradeShopItemId(line, "crude"))))],
       forSale().map(item => [key(item), item.roll, deps.refineLevel(item.itemId, item.copyId), deps.locked(item.itemId, item.copyId)])]);
   }
@@ -166,12 +172,22 @@ export function createGearSellerController(seller: GearSeller, deps: GearSellerD
     else renderSell();
   }
 
-  /** A line's offer: the grade picked (or the best the gold covers), and whether its Buy can act. */
+  /** Every grade some line here can be bought at now: what the one stepper picks from. */
+  const buyableGrades = (held: ReadonlySet<string>, levels: MasteryLevels) =>
+    GEAR_GRADES.filter(grade => lines.some(line => gradeShopOffer(line, held, levels).grades.includes(grade)));
+
+  /**
+   * A line's piece at the grade picked (or the best the gold covers), whether it is for sale (open), held or bettered
+   * (owned, better) or waits on Mastery (locked), and whether its Buy can act.
+   */
   function lineOffer(line: GradeShopLine, held: ReadonlySet<string>, levels: MasteryLevels) {
-    const offer = gradeShopOffer(line, held, levels, Number(deps.gold())), choice = picked.get(gradeShopLineKey(line));
-    const grade = choice && offer.grades.includes(choice) ? choice : offer.grade, itemId = gradeShopItemId(line, grade);
-    const ready = !offer.owned && gradeShopOpen(itemId, levels) && deps.gold() >= BigInt(gradeShopPrice(itemId)!) && !deps.bagFull();
-    return { offer, grade, itemId, ready };
+    const offer = gradeShopOffer(line, held, levels, Number(deps.gold()));
+    const choice = picked && buyableGrades(held, levels).includes(picked) ? picked : null;
+    const grade = choice ?? offer.grade, itemId = gradeShopItemId(line, grade);
+    const status: LineStatus = offer.grades.includes(grade) ? "open" : held.has(itemId) ? "owned"
+      : gradeIndex(grade) <= bestHeldGradeIndex(line, held) ? "better" : "locked";
+    const ready = status === "open" && deps.gold() >= BigInt(gradeShopPrice(itemId)!) && !deps.bagFull();
+    return { grade, itemId, status, ready };
   }
 
   /**
@@ -182,29 +198,35 @@ export function createGearSellerController(seller: GearSeller, deps: GearSellerD
   function renderBuy() {
     const worn = deps.worn(), held = heldGear(), levels = deps.masteryLevels();
     const tiles: StationTile[] = lines.map(line => {
-      const { offer, itemId, ready } = lineOffer(line, held, levels);
-      return { key: gradeShopLineKey(line), itemId, tier: deps.slotTier(itemId), badge: offer.owned ? "Owned" : !offer.open ? "Locked" : undefined, waits: !ready };
+      const { itemId, status, ready } = lineOffer(line, held, levels);
+      return { key: gradeShopLineKey(line), itemId, tier: deps.slotTier(itemId), waits: !ready, why: statusWhy(status, itemId) };
     });
     selected.buy = stationPick(tiles, selected.buy);
-    renderStationGrid(viewPart("buy", ".station-grid"), tiles, selected.buy, pick => { selected.buy = pick; render(); });
+    renderStationGrid(viewPart("buy", ".station-grid"), tiles, selected.buy, pick => {
+      selected.buy = pick;
+      render();
+      const why = tiles.find(tile => tile.key === pick)?.why;
+      if (why) deps.showMessage(why, "#ff9b91");
+    });
     const line = lines.find(each => gradeShopLineKey(each) === selected.buy);
     viewPart("buy", ".station-detail").replaceChildren(...(line ? [asDetail(buyDetail(line, worn, held, levels))] : []));
   }
 
   function buyDetail(line: GradeShopLine, worn: WornLoadout, held: ReadonlySet<string>, levels: MasteryLevels) {
-    const { offer, grade, itemId } = lineOffer(line, held, levels);
-    if (offer.owned) return ownedRow(itemId).row;
+    const { grade, itemId, status } = lineOffer(line, held, levels), grades = buyableGrades(held, levels);
+    // With nothing left to step to, the top grade held says Owned.
+    if (status === "owned" && !grades.includes(grade)) return ownedRow(itemId).row;
     // Only a locked line names what it waits for.
-    const { row, deal } = gradeItemRow(itemId, 0, offer.open ? [] : [{ text: `Needs ${gradeShopNeed(itemId)}`, met: false }]);
+    const { row, deal } = gradeItemRow(itemId, 0, status === "locked" ? [{ text: `Needs ${gradeShopNeed(itemId)}`, met: false }] : []);
     row.querySelector(".smith-shop-stat")!.after(comparisonTag(itemId, worn));
-    const stepper = offer.open ? gradeStepperElement(offer.grades, grade, {
-      label: "Grade to buy", busy: buyingGear !== null, onPick: to => { picked.set(gradeShopLineKey(line), to); render(); },
+    const stepper = grades.includes(grade) ? gradeStepperElement(grades, grade, {
+      label: "Grade to buy", busy: buyingGear !== null, onPick: to => { picked = to; render(); },
     }) : null;
-    deal.append(buyLine(itemId, levels, stepper));
+    deal.append(buyLine(itemId, levels, stepper, status));
     return row;
   }
 
-  /** "+12% Damage vs Now": what the piece changes against what is worn in its slot. */
+  /** "×1.14 Damage vs Now": what the piece changes against what is worn in its slot. */
   function comparisonTag(itemId: GradeItemId, worn: WornLoadout) {
     const { delta, text } = compare(itemId, worn);
     const tag = document.createElement("span");
@@ -214,9 +236,9 @@ export function createGearSellerController(seller: GearSeller, deps: GearSellerD
   }
 
   /** The grade, its price in gold and a Buy button that says why it waits: Mastery, then gold, then the bag. */
-  function buyLine(itemId: GradeItemId, levels: MasteryLevels, stepper: HTMLElement | null) {
+  function buyLine(itemId: GradeItemId, levels: MasteryLevels, stepper: HTMLElement | null, status: LineStatus) {
     const price = gradeShopPrice(itemId)!, gold = deps.gold();
-    const text = buyingGear === itemId ? "Buying…" : !gradeShopOpen(itemId, levels) ? "Locked"
+    const text = buyingGear === itemId ? "Buying…" : status === "owned" || status === "better" ? STATUS_WORDS[status]! : !gradeShopOpen(itemId, levels) ? "Locked"
       : gold < BigInt(price) ? "Need Gold" : deps.bagFull() ? "Bag Full" : "Buy";
     const cost = goldPrice(price);
     const line = offerLine(stepper ? [stepper, cost] : [cost], offerButton(text, text === "Buy" && buyingGear === null, () => { void buyGear(itemId, price); }));
@@ -305,7 +327,7 @@ export function createGearSellerController(seller: GearSeller, deps: GearSellerD
     if (!deps.inTown() || dialog.open) return;
     // Each visit goes by the server's word on the bag.
     justBought.clear();
-    picked.clear();
+    picked = null;
     confirming = null;
     rendered = "";
     render();

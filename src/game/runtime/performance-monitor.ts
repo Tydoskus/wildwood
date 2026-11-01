@@ -2,6 +2,8 @@ export type PerformanceSnapshot = {
   fps: number;
   onePercentLowFps: number;
   workFps: number;
+  /** The game's own work a frame on average (update and draw, without waiting for the screen), in milliseconds. */
+  workMs: number;
   frameP50Ms: number;
   frameP95Ms: number;
   worstFrameMs: number;
@@ -64,6 +66,7 @@ export function createPerformanceMonitor() {
       fps: average > 0 ? Math.round(1_000 / average) : 0,
       onePercentLowFps: lowFrameAverageMs > 0 ? Math.round(1_000 / lowFrameAverageMs) : 0,
       workFps: averageWork > 0 ? Math.round(1_000 / averageWork) : 0,
+      workMs: averageWork,
       frameP50Ms: p50,
       frameP95Ms: p95,
       worstFrameMs: sorted[sorted.length - 1] ?? 0,

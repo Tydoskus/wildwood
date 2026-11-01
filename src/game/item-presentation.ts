@@ -349,7 +349,7 @@ export function itemArtMarkup(itemId: string, hidden = true, refineLevel: unknow
       presentation.equippedWidth ? `--equipped-art-width: ${presentation.equippedWidth}px` : "",
       presentation.equippedHeight ? `--equipped-art-height: ${presentation.equippedHeight}px` : "",
     ].filter(Boolean).join("; ");
-    return `<span class="inventory-item-art has-galaxy-finish" style="${style}"${aria}></span>`;
+    return `<span class="inventory-item-art has-galaxy-finish" style="${style}"${aria}>${GALAXY_SKY_MARKUP}</span>`;
   }
   if (presentation?.source) {
     const style = [
@@ -363,22 +363,26 @@ export function itemArtMarkup(itemId: string, hidden = true, refineLevel: unknow
   return `<span class="boot-pixel-icon"${itemId === BLACK_BOOTS ? ' style="filter: grayscale(1) brightness(.45)"' : ""} aria-hidden="true"><i></i><i></i></span>`;
 }
 
+/** The sky layer a galaxy icon masks; it drifts by transform, so the compositor moves it, not a restyle each frame. */
+export const GALAXY_SKY_MARKUP = '<span class="galaxy-sky"></span>';
+
 /**
  * The inline half of a galaxy icon: the art masks the shared sky and is
  * blended back over it (`.has-galaxy-finish` in game.css draws the rest). The
  * url stays inline: one inside a custom property would resolve against the
- * stylesheet's folder instead of the page.
+ * stylesheet's folder instead of the page. The sky tile is a data URL, so it
+ * can go through a property to the .galaxy-sky layer.
  */
 export function galaxyArtStyle(source: string, finish: SkyFinish = "GALAXY") {
   applyGalaxyArtTexture(finish);
   // Absolute, because a url in a custom property resolves against the stylesheet that uses it (assets/h/).
   const absolute = typeof document === "undefined" ? source : new URL(source, document.baseURI).href;
   return [
-    // The sky here; game.css .has-galaxy-finish lays the art over it in grey from --galaxy-art,
+    // The sky for .galaxy-sky; game.css .has-galaxy-finish lays the art over it in grey from --galaxy-art,
     // and the solid outline from --galaxy-outline (made once per art; none until it loads).
     `--galaxy-art: url(${absolute})`,
     `--galaxy-outline: var(${galaxyIconOutlineVariable(source)}, none)`,
-    `background-image: var(${skyFinishCssVariable(finish)}, ${skyFinishCssFallback(finish)})`,
+    `--galaxy-sky: var(${skyFinishCssVariable(finish)}, ${skyFinishCssFallback(finish)})`,
     `-webkit-mask-image: url(${source})`,
     `mask-image: url(${source})`,
   ].join("; ");
@@ -395,6 +399,7 @@ export function itemArtImage(itemId: string, className = "", refineLevel: unknow
     const span = document.createElement("span");
     span.className = `${className} item-art-image has-galaxy-finish`.trim();
     span.setAttribute("style", galaxyArtStyle(source, itemFinish(itemId)));
+    span.innerHTML = GALAXY_SKY_MARKUP;
     span.setAttribute("aria-hidden", "true");
     return span;
   }

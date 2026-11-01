@@ -3,6 +3,8 @@ import type { GuildSnapshot } from "../../../../shared/guilds";
 import { guildEmblemFor } from "../../../ui/guild-emblems";
 import { createGuildHallWindow } from "../../../ui/guild-hall-window";
 import type { MapId } from "../../world";
+import { guildHallCameraRegion } from "../../guild-hall";
+import type { Camera } from "../render/camera";
 import { createGuildHallRuntime, type GuildHallSource } from "./guild-hall-runtime";
 
 export type GuildHallCoop = GuildHallSource & {
@@ -19,7 +21,10 @@ export type GuildHallCoop = GuildHallSource & {
 export function createGuildHall(deps: Omit<Parameters<typeof createGuildHallRuntime>[0], "source" | "openBoard" | "loadEmblem"> & {
   source: () => GuildHallCoop | null | undefined;
   travel: (mapId: MapId) => Promise<boolean>;
+  camera: Camera;
 }) {
+  // In a hall the camera keeps to the player's side of its door: the wood outdoors, the great hall's dark indoors.
+  deps.camera.keepTo = x => isGuildHallMap(deps.currentMapId()) ? guildHallCameraRegion(x) : null;
   let guild: { name: string; emblem?: number; canUpgrade: boolean } | null = null;
   async function loadGuild() {
     const snapshot = await deps.source()?.guild?.loadGuild();

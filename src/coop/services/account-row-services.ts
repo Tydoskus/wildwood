@@ -3,6 +3,8 @@ import { createOfflineProgressPreference } from "./offline-progress-watch";
 import { createBowSkills } from "./bow-skills";
 import { createAdGemReward } from "./ad-gem-reward";
 import { createChatMute } from "./chat-mute";
+import { createRunTimingRows } from "./run-timing-service";
+import { createArrowRows } from "./arrow-service";
 import { createSoulDimensionRows } from "./soul-dimension-service";
 import { createGuildHallRows } from "./guild-hall-service";
 import { createItemRefineRows } from "./item-refine-service";
@@ -75,9 +77,11 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
   const bowSkills = createBowSkills(notify);
   const adGemReward = createAdGemReward(notify);
   const chatMute = createChatMute(notify);
+  const runTiming = createRunTimingRows(notify);
   const soulDimension = createSoulDimensionRows(connection, notify);
   const guildHall = createGuildHallRows(connection, notify);
   const itemRefine = createItemRefineRows(notify, slotTierFor);
+  const arrows = createArrowRows(connection, notify, () => itemRefine.api.ores());
   // The Server Boost doubles wood and ore, so the gathering rows read it for what a break shows.
   const serverBoost = createServerBoostRows(notify, () => gatherClock?.serverNowMs() ?? wallClockNowMs());
   const mining = createMiningRows(notify, gatherClock, serverBoost.gatherMultiplierAt);
@@ -108,7 +112,7 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
     return active;
   };
   // Breaks made here go out ahead of any call whose server check reads ores or bag room, so it counts them.
-  const flushGathering = () => { mining.api.flushMining(); woodcutting.api.flushWoodcutting(); };
+  const flushGathering = () => { mining.api.flushMining(); woodcutting.api.flushWoodcutting(); arrows.flush(); };
   const afterGathering = <A extends unknown[], R>(call: (...args: A) => R) => (...args: A): R => { flushGathering(); return call(...args); };
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     window.addEventListener("pagehide", flushGathering);
@@ -116,8 +120,8 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
   }
   let oreParts: Ores[] = [], ores: Ores = {};
   const oresHeld = () => {
-    const parts = [itemRefine.api.ores(), mining.pendingOres(), woodcutting.pendingOres()];
-    if (parts.some((part, index) => part !== oreParts[index])) { oreParts = parts; ores = oresWithPending(parts[0], parts[1], parts[2]); }
+    const parts = [itemRefine.api.ores(), mining.pendingOres(), woodcutting.pendingOres(), arrows.pendingOres()];
+    if (parts.some((part, index) => part !== oreParts[index])) { oreParts = parts; ores = oresWithPending(parts[0], parts[1], parts[2], parts[3]); }
     return ores;
   };
   return {
@@ -126,9 +130,11 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
       bowSkills.watch(current, isCurrent);
       adGemReward.watch(current, isCurrent);
       chatMute.watch(current, isCurrent);
+      runTiming.watch(current, isCurrent);
       soulDimension.watch(current, isCurrent);
       guildHall.watch(current, isCurrent);
       itemRefine.watch(current, isCurrent);
+      arrows.watch(current, isCurrent);
       mining.watch(current, isCurrent);
       woodcutting.watch(current, isCurrent);
       cards.watch(current, isCurrent);
@@ -149,9 +155,11 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
       ...bowSkills.api,
       ...adGemReward.api,
       ...chatMute.api,
+      ...runTiming.api,
       ...soulDimension.api,
       ...guildHall.api,
       ...itemRefine.api,
+      ...arrows.api,
       ...mining.api,
       ...woodcutting.api,
       ...cards.api,

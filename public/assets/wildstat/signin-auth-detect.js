@@ -6,3 +6,19 @@ if (/[?&](?:code|error)=/.test(location.search)) {
 if (location.hostname.toLowerCase() === "tydoskus.github.io") {
   document.documentElement.classList.add("wildstat-legacy-host");
 }
+
+// game.js starts downloading from the head; the coop bundle reuses this link
+// (preloadDeferredGameBundle). Skipped under Data Saver, where it loads after Play.
+(function () {
+  var meta = document.querySelector('meta[name="wildstat-game-src"]');
+  var connection = navigator.connection;
+  if (!meta || !meta.content || (connection && connection.saveData)) return;
+  var link = document.createElement("link");
+  link.id = "wildstatGamePreload";
+  link.rel = "preload";
+  link.as = "script";
+  link.href = meta.content;
+  link.addEventListener("load", function () { link.setAttribute("data-state", "loaded"); }, { once: true });
+  link.addEventListener("error", function () { link.setAttribute("data-state", "failed"); }, { once: true });
+  document.head.appendChild(link);
+})();

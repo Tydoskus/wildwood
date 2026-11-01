@@ -32,6 +32,21 @@ export type PlayerPowerLabelStyle = {
   iconBox?: { top: number; size: number };
 };
 
+// Widths per context, font and text: a power changes rarely, so each is measured once, not every frame.
+const WIDTH_CACHE_LIMIT = 256;
+const widths = new WeakMap<object, Map<string, number>>();
+function measuredWidth(ctx: CanvasRenderingContext2D, value: string) {
+  let known = widths.get(ctx);
+  if (!known) widths.set(ctx, known = new Map());
+  const key = `${ctx.font}\u0000${value}`;
+  let width = known.get(key);
+  if (width === undefined) {
+    if (known.size >= WIDTH_CACHE_LIMIT) known.clear();
+    known.set(key, width = ctx.measureText(value).width);
+  }
+  return width;
+}
+
 /** One rendering path for overhead power in the world and character previews. */
 export function drawPlayerPowerLabel(
   ctx: CanvasRenderingContext2D,
@@ -50,7 +65,7 @@ export function drawPlayerPowerLabel(
   ctx.textAlign = "left";
   const iconBox = icon ? style.iconBox ?? playerPowerIconBox(scale) : null;
   const iconGap = icon ? 3 * scale : 0;
-  const textWidth = ctx.measureText(value).width;
+  const textWidth = measuredWidth(ctx, value);
   const left = centerX - (textWidth + (iconBox?.size ?? 0) + iconGap) / 2;
   outlinedText(value, left, y, "#ffffff", style.strokeWidth ?? 4 * scale);
   if (icon && iconBox) {

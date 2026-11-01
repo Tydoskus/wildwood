@@ -18,7 +18,7 @@ describe("what a refine does to an item", () => {
     // A bare number is still the slot tier alone, as every caller passed before refining.
     expect(itemDamageMultiplierBonus("ion_bow", 10)).toBeCloseTo(.8 * 1.4, 9);
     expect(itemMaxHealthMultiplierBonus("ion_armor", { refine: 4 })).toBeCloseTo(itemMaxHealthMultiplierBonus("ion_armor") * 1.2, 9);
-    expect(itemStats("ion_bow", { refine: 10 })).toEqual(["DAMAGE +120%"]);
+    expect(itemStats("ion_bow", { refine: 10 })).toEqual(["DAMAGE ×2.2"]);
   });
 
   it("lets Equip best prefer a refined bow over a stronger one left plain", () => {

@@ -7,6 +7,8 @@ import { residentDrawable } from "../../src/game/runtime/render/resident-image";
 import { actorShadowDimensions } from "../../src/game/runtime/render/actor-shadow-geometry";
 import { createGameBootstrap, createGameBootstrapAssets } from "../../src/game/runtime/game-bootstrap";
 import { createWorldRendering } from "../../src/game/runtime/render/world-render-wiring";
+import { createCanvasRuntime } from "../../src/game/runtime/render/canvas-runtime";
+import { createWebGLStaticWorldLayer } from "../../src/game/runtime/render/webgl-static-world-layer";
 import { snapCameraToPlayer, type Camera } from "../../src/game/runtime/render/camera";
 import { resetCameraZoomPreference, stepCameraZoom } from "../../src/game/runtime/render/camera-zoom-preference";
 import { createMapController } from "../../src/game/runtime/map-controller";
@@ -71,6 +73,8 @@ export type MapViewOptions = {
   parent?: HTMLElement;
   /** The minimap's box in canvas pixels; the HUD's corner when left out, none when null. */
   minimap?: { left: number; top: number; width: number; height: number } | null;
+  /** Draw as the game does, on a full-window canvas with its WebGL world layer, instead of the plain 2D canvas. */
+  gameRuntime?: boolean;
 };
 
 const LOCAL: FakePlayer = { id: "me", name: "Rymel", power: 12_345, hp: 900, maxHp: 1_200, headItem: "heroic_medium_helmet", chestItem: "heroic_medium_armor", feetItem: "heroic_warrior_boots", rightHandItem: "heroic_bow" };
@@ -92,9 +96,14 @@ export async function mapView(options: MapViewOptions) {
   stage.className = "vc-stage";
   stage.append(canvas);
   host.append(stage);
-  const ctx = requiredCanvasContext(canvas, { alpha: false });
-  const primitives = createCanvasPrimitives(ctx);
   const bootstrapAssets = sharedAssets();
+  const staticWorldLayer = options.gameRuntime ? createWebGLStaticWorldLayer(canvas) : null;
+  staticWorldLayer?.prepare();
+  const gameCanvas = options.gameRuntime ? createCanvasRuntime({
+    canvas, transparent: Boolean(staticWorldLayer), getActorShadowSprite: () => bootstrapAssets.actorShadowSprite,
+  }) : null;
+  const ctx = gameCanvas?.ctx ?? requiredCanvasContext(canvas, { alpha: false });
+  const primitives = createCanvasPrimitives(ctx);
   await mapArtReady(mapId);
 
   const state = createGameBootstrap();
@@ -122,9 +131,9 @@ export async function mapView(options: MapViewOptions) {
     localIdentity: () => LOCAL.id, localDisplayName: () => LOCAL.name, remotePlayers: () => remotes, remotePlayerDeath: () => null,
   } as never);
   const camera: Camera = { x: 0, y: 0, zoom: 1 };
-  const viewport = { width, height };
+  const viewport = gameCanvas?.viewport() ?? { width, height };
   const shadowSprite = bootstrapAssets.actorShadowSprite;
-  const canvasRuntime = {
+  const canvasRuntime = gameCanvas ?? {
     ctx, ...primitives, resize: noop, dpr: () => dpr, viewport: () => viewport, renderViewport: () => ({ width, height, dpr }),
     // As canvas-runtime.ts draws it.
     drawActorShadow(x: number, y: number, shadowWidth: number, alpha = .38) {
@@ -147,7 +156,7 @@ export async function mapView(options: MapViewOptions) {
   });
   const identityRenderer = createIdentity(ctx, camera, viewport, [LOCAL, ...others]);
   const rendering = createWorldRendering({
-    coop, canvasRuntime: canvasRuntime as never, staticWorldLayer: null, camera,
+    coop, canvasRuntime: canvasRuntime as never, staticWorldLayer, camera,
     minimapBounds: () => options.minimap === undefined ? { left: width - 134, top: 8, width: 126, height: 126 } : options.minimap,
     world: state, currentMapId: () => mapId, gameTime: () => gameTime, localDeath: () => null, localCorpses: createLocalCorpses(),
     isArenaScene: () => false, remoteEnemies: () => [], mapController, proceduralBoss: { draw: noop } as never, bootstrapAssets,
@@ -189,5 +198,13 @@ export async function mapView(options: MapViewOptions) {
       }
     },
     setGameTime(seconds: number) { gameTime = seconds; },
+    /** One frame as the game draws it, the camera on the player wherever they now stand. */
+    renderFrame() {
+      useWorld();
+      snapCameraToPlayer(camera, player, viewport);
+      frame.render();
+    },
+    renderer: () => staticWorldLayer?.active() ? "webgl" : "canvas2d",
+    dispose() { canvas.remove(); document.getElementById("gameGpu")?.remove(); host.remove(); },
   };
 }

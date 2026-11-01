@@ -250,7 +250,7 @@ describe("Blade Storm and Parry", () => {
     const shot = { source: f.enemy, damage: 500, life: 1 } as unknown as EnemyShot;
     expect(f.runtime.deflect(shot)).toBe(true);
     f.at(1);
-    expect(f.hit).toHaveBeenCalledWith(f.enemy, 120, false, expect.any(Number), true);
+    expect(f.hit).toHaveBeenCalledWith(f.enemy, 120, false, expect.any(Number), "sword-deflect", true);
   });
 
   it("are wired from Swordplay 20 and 50 through the combat controller", () => {

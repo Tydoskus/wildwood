@@ -9,6 +9,7 @@ import { createGuildHall } from "./guild-hall/guild-hall";
 import type { createMapController } from "./map-controller";
 import type { PlayerCombatController } from "./player-combat-controller";
 import type { createPlayerInputController } from "./player-input-controller";
+import type { Camera } from "./render/camera";
 import type { createResearchController } from "./research-controller";
 import { createSoulDimension } from "./soul/soul-dimension";
 
@@ -29,6 +30,7 @@ export type WorldPlacesDeps = {
   logPickup: (text: string, color: string, value?: number) => void;
   showMessage: (text: string, color?: string) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
+  camera: Camera;
   /** Systems created after these places, read once the player is in one. */
   later: {
     invalidateDepthOrder: () => void;
@@ -74,7 +76,7 @@ export function createWorldPlaces(deps: WorldPlacesDeps) {
   });
   const guildHall = createGuildHall({
     source, player, decor: world.decor, currentMapId, invalidateDepthOrder: later.invalidateDepthOrder, clearInput,
-    fadeToWorld: later.fadeToWorld,
+    fadeToWorld: later.fadeToWorld, camera: deps.camera,
     travel: mapId => {
       deps.autoFarm.stop("Autofarm stopped for the Guild Hall");
       return mapController.teleportToMap(mapId, async () => Boolean(await coop.client?.changeMap?.(mapId, player.x, player.y)));

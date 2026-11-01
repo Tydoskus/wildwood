@@ -101,7 +101,9 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
     }
   }
 
+  /** Stores a presentation; true when anything stored for that player changed. */
   function rememberPresentation(presentation: ProfilePresentation) {
+    const before = presentationKey(presentation.identity);
     identities.delete(presentation.identity);
     identities.set(presentation.identity, presentation.identityValue);
     names.set(presentation.identity, presentation.displayName);
@@ -121,13 +123,19 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
     }
     if (presentation.gender !== undefined) genders.set(presentation.identity, normalizePlayerGender(presentation.gender));
     if (presentation.isGuest !== undefined) guests.set(presentation.identity, presentation.isGuest);
+    const changed = presentationKey(presentation.identity) !== before;
     trimPresentations();
+    return changed;
+  }
+
+  function presentationKey(identity: string) {
+    return `${names.get(identity)}|${icons.get(identity)}|${chatPortraits.icon(identity)}|${sprites.get(identity)}|${skinTones.get(identity)}|${genders.get(identity)}|${guests.get(identity)}`;
   }
 
   function upsertProfile(row: ProfileRow) {
     const identity = row.identity.toHexString();
     const gender = normalizePlayerGender(row.gender);
-    rememberPresentation({
+    const changed = rememberPresentation({
       identity,
       identityValue: row.identity,
       displayName: row.displayName,
@@ -136,7 +144,9 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
       skinTone: row.skinTone,
       gender,
     });
-    if (identity === dependencies.localIdentity()) {
+    const local = identity === dependencies.localIdentity();
+    const localChanged = local && (!localReady || localDisplayName !== row.displayName);
+    if (local) {
       patreon.sync();
       localDisplayName = row.displayName;
       localReady = true;
@@ -144,6 +154,8 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
       dependencies.rememberGender(gender);
       dependencies.completeAccountReturn();
     }
+    // Nothing new for chat or the HUD: an unchanged row stops here.
+    if (!changed && !localChanged) return;
     dependencies.renameRemotePlayer(identity, row.displayName);
     dependencies.markChatPresentationChanged();
     dependencies.notify();
@@ -166,7 +178,9 @@ export function createProfileDirectory(dependencies: ProfileDirectoryDependencie
   }
 
   function upsertAccountStatus(row: { identity: Identity; isGuest: boolean }) {
-    guests.set(row.identity.toHexString(), row.isGuest);
+    const identity = row.identity.toHexString();
+    if (guests.get(identity) === row.isGuest) return;
+    guests.set(identity, row.isGuest);
     dependencies.markChatPresentationChanged();
     dependencies.notify();
   }

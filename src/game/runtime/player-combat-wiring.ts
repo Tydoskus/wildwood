@@ -11,7 +11,7 @@ import { createPlayerCombatController } from "./player-combat-controller";
 import type { createResearchController } from "./research-controller";
 import type { createRewardDisplay } from "./reward-display";
 import type { EnemyState } from "./types";
-import { playerDps } from "./dps-meter";
+import { playerDps, statTrackerDps } from "./dps-meter";
 
 export type PlayerCombatWiringDeps = {
   coop: CoopAccess;
@@ -63,7 +63,13 @@ export function createPlayerCombat(deps: PlayerCombatWiringDeps) {
     effects.spawnDamageNumber(x, y, damage, critical, false, reflected);
 
   return createPlayerCombatController({
-    onDamageDealt: amount => playerDps.record(amount),
+    onDamageDealt: (amount, source, target) => {
+      playerDps.record(amount, source);
+      statTrackerDps.record(amount, source, target.isBoss || target.generatedBoss ? target : undefined);
+    },
+    onCombatTick: statTrackerDps.tickBoss,
+    arrowInPlay: () => client?.arrowInPlay?.() ?? null,
+    onArrowShot: arrowId => client?.recordArrowShot?.(arrowId),
     onEnemyDefeated: enemy => later.soul().defeated(enemy) || (later.onboarding()?.enemyDefeated() ?? false),
     soulStatOf: enemy => later.soul().soulStatOf(enemy),
     onSoulKill: stat => later.soul().soulKill(stat),

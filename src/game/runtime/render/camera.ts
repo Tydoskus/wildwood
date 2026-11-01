@@ -2,7 +2,13 @@ import { ATTACK_RANGE_ZOOM_REFERENCE, BASE_ATTACK_RANGE, MIN_CAMERA_ZOOM, WORLD 
 import { cameraZoomPreference } from "./camera-zoom-preference";
 import { clamp } from "../../math";
 
-export type Camera = { x: number; y: number; zoom: number };
+/** A part of the world the camera keeps to. */
+export type CameraRegion = { left: number; top: number; right: number; bottom: number };
+/**
+ * `keepTo`, when set, names the part of the world the camera stays inside for a player at (x, y) (a guild hall's
+ * outdoors or its great hall), or null for the whole world.
+ */
+export type Camera = { x: number; y: number; zoom: number; keepTo?: (x: number, y: number) => CameraRegion | null };
 
 type CameraPlayer = { x: number; y: number; attackRange: number };
 type Viewport = { width: number; height: number };
@@ -74,16 +80,25 @@ function targetPosition(
       ? MOBILE_CAMERA_VERTICAL_FOCUS_OFFSET
       : 0
   );
+  const region = camera.keepTo?.(player.x, player.y) ?? { left: 0, top: 0, right: WORLD.w, bottom: WORLD.h };
+  const regionW = region.right - region.left, regionH = region.bottom - region.top;
   return {
     x: duelCenter
       ? duelCenter.x - visibleW / 2
-      : visibleW >= WORLD.w ? (WORLD.w - visibleW) / 2
-        : clamp(player.x - visibleW / 2, 0, WORLD.w - visibleW),
+      : visibleW >= regionW ? region.left + (regionW - visibleW) / 2
+        : clamp(player.x - visibleW / 2, region.left, region.right - visibleW),
     y: duelCenter
       ? duelCenter.y - visibleH / 2
-      : visibleH >= WORLD.h ? (WORLD.h - visibleH) / 2
-        : clamp(player.y - visibleH * verticalFocus, 0, WORLD.h - visibleH),
+      : visibleH >= regionH ? region.top + (regionH - visibleH) / 2
+        : clamp(player.y - visibleH * verticalFocus, region.top, region.bottom - visibleH),
   };
+}
+
+/** The zoom that keeps the whole view inside the region the camera keeps to, so nothing past it is ever drawn. */
+function zoomForRegion(camera: Camera, player: CameraPlayer, viewport: Viewport, zoom: number) {
+  const region = camera.keepTo?.(player.x, player.y);
+  if (!region) return zoom;
+  return Math.max(zoom, viewport.width / (region.right - region.left), viewport.height / (region.bottom - region.top));
 }
 
 export function updateCamera(
@@ -94,7 +109,7 @@ export function updateCamera(
   dt: number,
 ) {
   const zoomFollow = 1 - Math.pow(.0008, dt);
-  camera.zoom += (targetCameraZoom(player.attackRange, viewport) - camera.zoom) * zoomFollow;
+  camera.zoom += (zoomForRegion(camera, player, viewport, targetCameraZoom(player.attackRange, viewport)) - camera.zoom) * zoomFollow;
   const target = targetPosition(camera, player, viewport, duelCenter);
   const follow = 1 - Math.pow(.00006, dt);
   camera.x += (target.x - camera.x) * follow;
@@ -102,7 +117,7 @@ export function updateCamera(
 }
 
 export function snapCameraToPlayer(camera: Camera, player: CameraPlayer, viewport: Viewport) {
-  camera.zoom = targetCameraZoom(player.attackRange, viewport);
+  camera.zoom = zoomForRegion(camera, player, viewport, targetCameraZoom(player.attackRange, viewport));
   const target = targetPosition(camera, player, viewport, null);
   camera.x = target.x;
   camera.y = target.y;

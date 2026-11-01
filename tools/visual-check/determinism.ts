@@ -1,3 +1,5 @@
+/** The real clock, kept before it is pinned, for the perf scene's timings. */
+export const realNow = performance.now.bind(performance);
 /** The one moment every scene is drawn at. */
 export const FIXED_NOW_MS = 100_000;
 const FIXED_EPOCH_MS = Date.UTC(2026, 9, 20, 12, 0, 0);

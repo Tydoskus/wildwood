@@ -1,6 +1,7 @@
 import { replaceChildrenIfChanged } from "./replace-children-if-changed";
 import { appendItemTierLabel } from "./item-tier-label";
 import { appendRefineBadge, withRefineStars } from "./refine-badge";
+import { setTileGrade } from "./bag-item-tile";
 import type { PlayerProgress } from "../coop/services/progress";
 import { itemArtMarkup } from "../game/item-presentation";
 import { lookRefine } from "../game/local-item-refines";
@@ -209,6 +210,8 @@ export function renderProfileEquipmentSlot(
   // as its upgrade level. "GEAR" said nothing the artwork had not already.
   state.textContent = cosmetic ? "LOOK" : hidden ? "HIDDEN" : item ? `Lvl: +${level}` : "EMPTY";
   element.classList.toggle("is-filled", Boolean(item && !cosmetic));
+  // Bordered by the worn gear's grade, as the bag is; a look alone has none.
+  setTileGrade(element, wearsGear(presentation) ? presentation.inspectionItemId : undefined);
   replaceChildrenIfChanged(element, target => {
     target.append(label, art, state);
     if (item && !cosmetic) appendItemTierLabel(target, item.id);

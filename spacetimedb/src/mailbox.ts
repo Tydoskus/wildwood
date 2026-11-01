@@ -23,23 +23,34 @@ export const mailboxEntryV2 = t.row("MailboxEntryV2", {
   createdAt: t.timestamp(), read: t.bool(), claimed: t.bool(), itemIds: t.array(t.string()), upgradeLevel: t.u8(),
 });
 export function mailboxForPlayerV2(ctx: ModuleViewCtx) {
-  return mailboxForPlayer(ctx).map(row => {
-    const reward = equipmentForMail(ctx, row.id);
+  const gear = new Map<string, ReturnType<typeof equipmentForMail>>();
+  return mailboxForPlayer(ctx, gear).map(row => {
+    const reward = gear.has(row.id) ? gear.get(row.id) : equipmentForMail(ctx, row.id);
     return { ...row, itemIds: reward ? JSON.parse(reward.itemIdsJson) as string[] : [], upgradeLevel: reward?.upgradeLevel ?? 0 };
   });
 }
 const receiptKey = (id: string, identity: Identity) => `${id}:${identity.toHexString()}`;
 
 function eligible(ctx: ModuleViewCtx | ModuleReducerCtx, before: bigint) {
-  // The lifetime fallback covers only the moments before the backfill runs.
-  const joinedAt = (ctx.db.playerJoinDate.identity.find(ctx.sender) ?? ctx.db.playerLifetime.identity.find(ctx.sender))?.joinedAt;
-  return Boolean(joinedAt && joinedAt.microsSinceUnixEpoch <= before
-    && !ctx.db.virtualPlayer.identity.find(ctx.sender));
+  return eligibleFor(ctx)(before);
 }
 
-export function mailboxForPlayer(ctx: ModuleViewCtx) {
+/** eligible() for every letter of one view, reading the join date and the virtual-player row once. */
+function eligibleFor(ctx: ModuleViewCtx | ModuleReducerCtx) {
+  let joined: { at?: bigint } | undefined, virtual: boolean | undefined;
+  return (before: bigint) => {
+    // The lifetime fallback covers only the moments before the backfill runs.
+    joined ??= { at: (ctx.db.playerJoinDate.identity.find(ctx.sender) ?? ctx.db.playerLifetime.identity.find(ctx.sender))?.joinedAt?.microsSinceUnixEpoch };
+    return joined.at !== undefined && joined.at <= before && !(virtual ??= Boolean(ctx.db.virtualPlayer.identity.find(ctx.sender)));
+  };
+}
+
+/** `gear` keeps the gear letter's reward row when given, so the V2 view does not read it twice. */
+export function mailboxForPlayer(ctx: ModuleViewCtx, gear?: Map<string, ReturnType<typeof equipmentForMail>>) {
   const receipts = new Map([...ctx.db.mailboxReceipt.identity.filter(ctx.sender)].map(row => [row.letterId, row]));
-  return [...ctx.db.mailboxLetter.iter()].filter(row => row.id === GEAR_MAIL_ID ? Boolean(equipmentForMail(ctx, row.id)) : eligible(ctx, row.eligibleBefore.microsSinceUnixEpoch))
+  const eligibleNow = eligibleFor(ctx);
+  const gearFor = (id: string) => { const reward = equipmentForMail(ctx, id); gear?.set(id, reward); return reward; };
+  return [...ctx.db.mailboxLetter.iter()].filter(row => row.id === GEAR_MAIL_ID ? Boolean(gearFor(row.id)) : eligibleNow(row.eligibleBefore.microsSinceUnixEpoch))
     .map(row => ({ id: row.id, title: row.title, body: row.body, gems: row.gems, createdAt: row.createdAt,
       read: receipts.get(row.id)?.read ?? false, claimed: receipts.get(row.id)?.claimed ?? false }))
     .concat(personalMailFor(ctx));

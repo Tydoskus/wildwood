@@ -46,7 +46,7 @@ export function createBowSkills(notify: () => void) {
   let betterRollListener: ((kept: BetterRollKept) => void) | null = null;
 
   function watch(connection: DbConnection, isCurrent: () => boolean) {
-    copies.watch(connection, isCurrent);
+    const copyRows = copies.watch(connection, isCurrent);
     rolls = new Map();
     // A new connection's first reading is the standing rows, not a change.
     let hydrated = false;
@@ -77,7 +77,9 @@ export function createBowSkills(notify: () => void) {
       view.onInsert(read); view.onUpdate(read); view.onDelete(read);
     }
     connection.db.myStaffSkills.onInsert(read); connection.db.myStaffSkills.onUpdate(read); connection.db.myStaffSkills.onDelete(read);
-    connection.subscriptionBuilder().onApplied(() => { read(); hydrated = true; }).subscribe([tables.myBowSkills, tables.mySwordSkills, tables.myStaffSkills]);
+    // One subscription for both: my_staff_skills carries first copies' rolls here and kept copies' and offers' there.
+    connection.subscriptionBuilder().onApplied(() => { copyRows.applied(); read(); hydrated = true; })
+      .subscribe([...copyRows.tables, tables.myBowSkills, tables.mySwordSkills, tables.myStaffSkills]);
   }
 
   /** The roll on the first copy of one of this account's weapons, or null when it has none yet. */

@@ -34,14 +34,15 @@ export const GRADE_BONUS_PERCENT: Readonly<Record<GearGrade, number>> = byGrade(
 export const GRADE_MASTERY_LEVEL: Readonly<Record<GearGrade, number>> = byGrade([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 17, 24, 35, 50]);
 
 /**
- * The Smith's price in gold: Mastery opens a grade, gold buys it, so gold is meant to matter. About 1.25x a grade to
- * Heroic, so each grade is a real step up, then about 1.6-2.3x a grade, so the top grades cost days of gold and
- * crafting them is the cheaper road. Kills drop about 0.2 gold each.
+ * The Smith's price in gold: Mastery opens a grade, gold buys it. About double a grade, to a million for Divine,
+ * so crafting is the cheaper road past the first few grades. Kills drop about 0.2 gold each.
  */
-export const GRADE_GOLD_PRICE: Readonly<Record<GearGrade, number>> = byGrade([120, 150, 190, 240, 300, 380, 480, 600, 750, 1200, 2000, 3500, 6500, 13000, 30000]);
+export const GRADE_GOLD_PRICE: Readonly<Record<GearGrade, number>> = byGrade([
+  120, 250, 500, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 60_000, 125_000, 250_000, 500_000, 1_000_000, 2_000_000,
+]);
 
-/** What the Smith pays for a graded piece: half its price, whatever its refine or however it was made. */
-export const gradeSalePrice = (grade: GearGrade) => Math.floor(GRADE_GOLD_PRICE[grade] / 2);
+/** What the Smith pays for a graded piece: a tenth of its price, whatever its refine or however it was made. */
+export const gradeSalePrice = (grade: GearGrade) => Math.floor(GRADE_GOLD_PRICE[grade] / 10);
 
 /** The old map tier a grade stands in for where tiers still decide things (weapon skill rolls, refine grade). */
 export const GRADE_ITEM_TIER: Readonly<Record<GearGrade, number>> = byGrade(GEAR_GRADES.map((_grade, index) => index + 1));

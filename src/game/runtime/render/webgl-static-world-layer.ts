@@ -207,6 +207,8 @@ export function webGLSpriteBatchVertices(
   return vertices;
 }
 
+/** A sprite texture this big (512 × 512) or bigger is checked for an allocation error once uploaded. */
+const LARGE_UPLOAD_BYTES = 1024 * 1024;
 const COLOR_QUAD_FLOATS_PER_VERTEX = 6;
 const COLOR_QUAD_VERTICES = 6;
 const COLOR_QUAD_FLOATS = COLOR_QUAD_FLOATS_PER_VERTEX * COLOR_QUAD_VERTICES;
@@ -688,16 +690,14 @@ function initializeWebGLStaticWorldLayer(overlayCanvas: HTMLCanvasElement, overl
   }
 
   let renderedFrame: StaticWorldLayerFrame | null = null;
-  let spriteUploadsUnchecked = false, spriteFramesSinceCheck = 0;
   function drawSprites(recording: SpriteRecording) {
     if (!enabled || !spritePass || !renderedFrame || gl.isContextLost()) return false;
     try {
-      const uploaded = spritePass.draw(recording, Math.max(1, Math.round(renderedFrame.width * renderedFrame.dpr)), Math.max(1, Math.round(renderedFrame.height * renderedFrame.dpr)));
-      // Checked at most once a second, and only after an upload: getError waits for the GPU.
-      if (uploaded) spriteUploadsUnchecked = true;
-      if (spriteUploadsUnchecked && ++spriteFramesSinceCheck >= 60) {
-        spriteUploadsUnchecked = false;
-        spriteFramesSinceCheck = 0;
+      const backingWidth = Math.max(1, Math.round(renderedFrame.width * renderedFrame.dpr));
+      const largestUpload = spritePass.draw(recording, backingWidth, Math.max(1, Math.round(renderedFrame.height * renderedFrame.dpr)));
+      // getError waits for the GPU, so only a large upload (an atlas page) is checked; an error from a small one
+      // stays flagged until then, and a context that runs out of memory is lost.
+      if (largestUpload >= LARGE_UPLOAD_BYTES) {
         const error = gl.getError();
         if (error !== gl.NO_ERROR) throw new Error(`World sprites failed (WebGL 0x${error.toString(16)})`);
       }

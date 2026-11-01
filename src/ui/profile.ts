@@ -4,7 +4,7 @@ import { PRESTIGE_PERKS, type PrestigePerkRanks } from "../../shared/prestige-pe
 import { CRITICAL_DAMAGE_BASE } from "../../shared/critical-damage";
 import { computePlayerStats, playerStatPower, type PlayerStatInputs } from "../../shared/player-stats";
 import { itemLevelFor, slotTierFor } from "../../shared/item-level";
-import { formatCompactNumber, formatRate } from "./number-format";
+import { formatCompactNumber, formatMultiplier, formatMultiplierChange, formatPercentMultiplier, formatRate } from "./number-format";
 import { attackSpeedLabel, critDamageLabel, type AttackCapArg } from "../../shared/stat-rating";
 import { cleanSoulStats, withSoulStats, type SoulStats } from "../../shared/soul-dimension";
 import { cardStatFactors, cardTotals } from "../../shared/card-effects";
@@ -147,27 +147,29 @@ export function profileStatDisplayRows(
   });
   const stats = computePlayerStats(inputs);
   const from = stats.sources;
-  // A card source: what the active cards multiply a stat by, as a percent, a cost included.
-  const cardSource = (factor: number): ProfileStatDisplaySource[] => {
-    const percent = Math.round((factor - 1) * 10000) / 100;
-    return percent ? [{ label: "Cards", value: `${percent > 0 ? "+" : ""}${percent}%` }] : [];
-  };
+  // A card source: what the active cards multiply a stat by, a cost included (×0.96).
+  const cardSource = (factor: number): ProfileStatDisplaySource[] =>
+    Math.round((factor - 1) * 10000) ? [{ label: "Cards", value: formatMultiplierChange(factor) }] : [];
   const multiplierValue = (value: number) => value.toFixed(2);
-  const equipmentBonusValue = (value: number) => `+${Math.round(value * 10000) / 100}%`;
   const multiplierSources = (researchPercent?: number, gear?: { equipment: number; slotUpgrade: number; refine: number }): ProfileStatDisplaySource[] => {
     const sources: ProfileStatDisplaySource[] = [];
-    if (researchPercent) sources.push({ label: "Tech", value: `+${researchPercent}%` });
-    if (gear && gear.equipment > 0) sources.push({ label: "Equipment", value: equipmentBonusValue(gear.equipment) });
+    if (researchPercent) sources.push({ label: "Tech", value: formatPercentMultiplier(researchPercent) });
+    if (!gear) return sources;
+    // The gear parts add up to one factor; each line is the step its part takes it, so the lines multiply to the row.
+    const bare = 1 + gear.equipment, tiered = bare + gear.slotUpgrade, refined = tiered + gear.refine;
+    if (gear.equipment > 0) sources.push({ label: "Equipment", value: formatMultiplierChange(bare) });
     // What the bench has paid for, listed on its own so a slot upgrade's
     // effect shows apart from Equipment.
-    if (gear && gear.slotUpgrade > 0) sources.push({ label: "Slot Upgrade", value: equipmentBonusValue(gear.slotUpgrade) });
+    if (gear.slotUpgrade > 0) sources.push({ label: "Slot Upgrade", value: formatMultiplierChange(tiered / bare) });
     // What the Smith's refines added on top, the same way.
-    if (gear && gear.refine > 0) sources.push({ label: "Refine", value: equipmentBonusValue(gear.refine) });
+    if (gear.refine > 0) sources.push({ label: "Refine", value: formatMultiplierChange(refined / tiered) });
     return sources;
   };
   const minAttackInterval = stats.capInterval, baseAttackInterval = stats.attackInterval;
   const baseAttackSpeed = attackSpeedLabel(1 / baseAttackInterval, 1 / minAttackInterval);
-  const attackSpeed = `${stats.attackRate.toFixed(2)}/s`;
+  // A bow shoots faster than the character's own speed (bow-skills.ts): its row shows the shots it fires.
+  const bowSpeed = stats.weaponInterval < stats.attackInterval ? stats.attackInterval / stats.weaponInterval : 1;
+  const attackSpeed = `${(stats.attackRate * bowSpeed).toFixed(2)}/s`;
   // A sword reaches its own range, with the same Tech, Long Shot, cards and Archery on top (weaponAttackRange).
   const reach = stats.range, baseRange = Math.max(1, reach - from.range.tech - from.range.prestige - addedRange.cards - addedRange.mastery);
   const rangeValue = (value: number) => `+${Math.round(value * 10) / 10} range`;
@@ -176,6 +178,8 @@ export function profileStatDisplayRows(
   const armorSource = (factor: number) =>
     factor !== 1 ? [{ label: "Armor" as const, value: `${factor > 1 ? "+" : ""}${Math.round((factor - 1) * 1000) / 10}%` }] : [];
   const bootsSource = (factor: number) => factor !== 1 ? [{ label: "Boots" as const, value: `+${Math.round((factor - 1) * 1000) / 10}%` }] : [];
+  // Warrior Boots multiply armor, so their line reads as one.
+  const armorBootsSource = (factor: number) => factor !== 1 ? [{ label: "Boots" as const, value: formatMultiplierChange(factor) }] : [];
   const rows: ProfileStatDisplayRow[] = [
     {
       kind: "health", label: "Max Hp:",
@@ -191,7 +195,7 @@ export function profileStatDisplayRows(
       equationOperator: "×",
       multiplier: multiplierValue(stats.multipliers.damage), total: statValue(stats.damage),
       sources: [...soulSource(from.damage.soul, statValue), ...multiplierSources(from.damage.techPercent, from.damage),
-        ...(from.damage.classSet > 1 ? [{ label: "Class Set" as const, value: `+${Math.round((from.damage.classSet - 1) * 100)}%` }] : []), ...cardSource(from.damage.cards)],
+        ...(from.damage.classSet > 1 ? [{ label: "Class Set" as const, value: formatMultiplier(from.damage.classSet) }] : []), ...cardSource(from.damage.cards)],
     },
     {
       kind: "armor", label: "Armor:", base: statValue(progress.armor),
@@ -199,18 +203,20 @@ export function profileStatDisplayRows(
       multiplier: multiplierValue(stats.multipliers.armor),
       expandedDetail: `(${armorReduction(stats.armor)} Block)`,
       total: statValue(stats.armor),
-      sources: [...soulSource(from.armor.soul, statValue), ...multiplierSources(from.armor.techPercent), ...bootsSource(from.armor.boots), ...cardSource(from.armor.cards)],
+      sources: [...soulSource(from.armor.soul, statValue), ...multiplierSources(from.armor.techPercent), ...armorBootsSource(from.armor.boots), ...cardSource(from.armor.cards)],
     },
     {
       kind: "attack", label: "Attack Speed:", base: baseAttackSpeed,
       equationOperator: "×",
-      multiplier: multiplierValue(1), total: attackSpeedLabel(stats.attackRate, 1 / minAttackInterval), equationTotal: attackSpeed,
+      // A bow's speed goes past the cap, so its total is never shown as the cap's Max.
+      multiplier: multiplierValue(bowSpeed), total: bowSpeed > 1 ? attackSpeed : attackSpeedLabel(stats.attackRate, 1 / minAttackInterval), equationTotal: attackSpeed,
       // Attacks a second, never the rating behind them; the cap beside it shows how close the player is.
       expandedDetail: `${(1 / minAttackInterval).toFixed(2)}/s Cap${momentum ? ` · ${((1 + momentum) / minAttackInterval).toFixed(2)}/s Momentum` : ""}`,
       // The soul's own share, which adds to the run's and is kept through prestige.
       // The soul adds attacks a second flat (soulAttackSpeedBonus), so its line is that, not a rating.
       sources: [...soulSource(from.attackSpeed.soul, value => Number.isFinite(value) ? `${value.toFixed(3)}/s` : "Max"),
-        ...(momentum ? [{ label: "Momentum" as const, value: `+${Math.round(momentum * 100)}%` }] : [])],
+        ...(momentum ? [{ label: "Momentum" as const, value: `+${Math.round(momentum * 100)}%` }] : []),
+        ...(bowSpeed > 1 ? [{ label: "Equipment" as const, value: `+${Math.round((bowSpeed - 1) * 100)}% (Bow)` }] : [])],
     },
     {
       kind: "range", label: "Attack Range:", base: statValue(baseRange),
@@ -234,7 +240,8 @@ export function profileStatDisplayRows(
       equationOperator: "×",
       multiplier: multiplierValue(stats.multipliers.moveSpeed),
       total: statValue(stats.moveSpeed),
-      sources: [...multiplierSources(speed.techPercent), ...(speed.techFlat > 0 ? [{ label: "Tech" as const, value: `+${speed.techFlat} speed` }] : []),
+      // Move speed stays in percent: small walking bonuses read better that way.
+      sources: [...(speed.techPercent ? [{ label: "Tech" as const, value: `+${speed.techPercent}%` }] : []), ...(speed.techFlat > 0 ? [{ label: "Tech" as const, value: `+${speed.techFlat} speed` }] : []),
         ...(speed.prestige ? [{ label: "Prestige" as const, value: `+${Math.round(speed.prestige * 1000) / 10}%` }] : []),
         ...(speed.cards ? [{ label: "Cards" as const, value: `+${Math.round(speed.cards * 1000) / 10}%` }] : []),
         ...armorSource(speed.armor), ...bootsSource(speed.boots),
@@ -250,16 +257,15 @@ export function profileStatDisplayRows(
   const gainPercent = Math.round(Math.round(techGain * 100) * Math.round(prestigeGain * 100) / 100 * Math.round(guildGain * 100) / 100 * Math.round(cardGain * 100) / 100) - 100;
   rows.push({
     kind: "stat-gain", label: "Stat Gain:", base: techGain.toFixed(2),
-    equationOperator: "×", multiplier: (prestigeGain * guildGain * cardGain).toFixed(2), total: `+${gainPercent}%`,
-    equationTotal: `${((gainPercent + 100) / 100).toFixed(2)}×`,
+    equationOperator: "×", multiplier: (prestigeGain * guildGain * cardGain).toFixed(2), total: formatMultiplier((gainPercent + 100) / 100),
     hideEquation: techGain <= 1 || prestigeGain * guildGain * cardGain <= 1,
     sources: [
-      ...(techGain > 1 ? [{ label: "Tech" as const, value: `${techGain.toFixed(2)}×` }] : []),
-      ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: `${prestigeGain.toFixed(2)}×` }] : []),
-      ...(guildGain > 1 ? [{ label: "Guild" as const, value: `${guildGain.toFixed(2)}×` }] : []),
+      ...(techGain > 1 ? [{ label: "Tech" as const, value: formatMultiplier(techGain) }] : []),
+      ...(prestigeGain > 1 ? [{ label: "Prestige" as const, value: formatMultiplier(prestigeGain) }] : []),
+      ...(guildGain > 1 ? [{ label: "Guild" as const, value: formatMultiplierChange(guildGain) }] : []),
       // Active cards multiply on top: all-stat ones (Gravebloom) every reward, Bounty ones a single stat's.
-      ...(cardGain > 1 ? [{ label: "Cards" as const, value: `${cardGain.toFixed(2)}×` }] : []),
-      ...singleStat.map(([stat, value]) => ({ label: "Cards" as const, value: `+${Math.round(value * 10) / 10}% ${STAT_NAMES[stat as keyof typeof STAT_NAMES]}` })),
+      ...(cardGain > 1 ? [{ label: "Cards" as const, value: formatMultiplierChange(cardGain) }] : []),
+      ...singleStat.map(([stat, value]) => ({ label: "Cards" as const, value: `${formatPercentMultiplier(value)} ${STAT_NAMES[stat as keyof typeof STAT_NAMES]}` })),
     ],
   });
   // Keen Edge pays critical chance and critical damage on top of research, so
@@ -271,6 +277,7 @@ export function profileStatDisplayRows(
       ...(critChance.techPercent ? [{ label: "Tech" as const, value: `+${critChance.techPercent}%` }] : []),
       ...(critChance.prestige ? [{ label: "Prestige" as const, value: `+${percentPoints(critChance.prestige)}` }] : []),
       ...(critChance.cards ? [{ label: "Cards" as const, value: `+${percentPoints(critChance.cards)}` }] : []),
+      ...(critChance.weapon ? [{ label: "Equipment" as const, value: `+${percentPoints(critChance.weapon)} (Bow)` }] : []),
     ],
   });
   // A rating on a curve toward 100× (shared/stat-rating.ts): crit camps' rating, the soul's on top, then

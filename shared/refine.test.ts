@@ -67,12 +67,13 @@ describe("safe limits and odds", () => {
     const tries = [bows.grade1, bows.grade2, bows.grade3, bows.grade4].map(expectedRefineTries);
     expect(tries[0][7]).toBe(7);
     expect(tries[3][4]).toBe(4);
-    expect(tries[0][10]).toBeCloseTo(7 + 1 / .6 + 1 / .4 + 1 / .2, 9);
+    // Fails raise the next try's chance, so a level takes fewer than one over its chance.
+    expect(tries[0][10]).toBeGreaterThan(7 + 3); expect(tries[0][10]).toBeLessThan(7 + 1 / .6 + 1 / .4 + 1 / .2);
     expect(tries[3][10]).toBeGreaterThan(20); expect(tries[3][10]).toBeLessThan(40);
     for (let grade = 1; grade < 4; grade++) expect(tries[grade][10], `grade ${grade + 1}`).toBeGreaterThan(tries[grade - 1][10]);
-    expect(tries[3][20]).toBeGreaterThan(1_500); expect(tries[3][20]).toBeLessThan(2_000);
-    // +30 is a long goal: about 20,000 tries.
-    expect(tries[3][30]).toBeGreaterThan(18_000); expect(tries[3][30]).toBeLessThan(21_000);
+    expect(tries[3][20]).toBeGreaterThan(1_100); expect(tries[3][20]).toBeLessThan(1_500);
+    // +30 is a long goal: about 15,000 tries.
+    expect(tries[3][30]).toBeGreaterThan(13_000); expect(tries[3][30]).toBeLessThan(16_000);
     for (let level = 1; level <= REFINE_MAX; level++) expect(Number.isFinite(tries[3][level]), `+${level}`).toBe(true);
   });
 });
@@ -106,6 +107,19 @@ describe("a try", () => {
     expect(rollRefine(bows.grade4, 4, .6)).toEqual({ succeeded: false, level: 4 });
     // Within the safe limit any roll works.
     expect(rollRefine(bows.grade4, 3, .9999)).toEqual({ succeeded: true, level: 4 });
+  });
+
+  it("gets likelier with each fail in a row: half again after an average run, double after two", () => {
+    // Ion Bow +10 to +11: 2%, an average run of 50 tries.
+    expect(refineSuccessChance(bows.grade4, 11, 0, 0)).toBeCloseTo(.02, 12);
+    expect(refineSuccessChance(bows.grade4, 11, 0, 1)).toBeCloseTo(.0202, 12);
+    expect(refineSuccessChance(bows.grade4, 11, 0, 50)).toBeCloseTo(.03, 12);
+    expect(refineSuccessChance(bows.grade4, 11, 0, 100)).toBeCloseTo(.04, 12);
+    expect(refineSuccessChance(bows.grade4, 11, 0, 1e9)).toBe(1);
+    expect(rollRefine(bows.grade4, 10, .035, 0, 100)).toEqual({ succeeded: true, level: 11 });
+    // Safe tries and items that cannot be refined are not moved.
+    expect(refineSuccessChance(bows.grade4, 3, 0, 40)).toBe(1);
+    expect(refineSuccessChance("not_an_item", 11, 0, 40)).toBe(0);
   });
 });
 

@@ -1,4 +1,5 @@
-import type { AtlasImage, CanvasAtlas } from "../render/canvas-atlas";
+import { drawAtlasImage, type AtlasImage, type CanvasAtlas } from "../render/canvas-atlas";
+import { frozenCopyOf } from "../render/frozen-canvas";
 import { platePixels, plateSize } from "../render/nameplate-scale";
 
 /**
@@ -100,5 +101,49 @@ export function createEnemyStatusPlates(options: {
     return built;
   }
 
-  return { plate, size: () => plates.size };
+  // Fills keyed by colour, then by height and width in device pixels.
+  const pills = new Map<string, Map<number, AtlasImage | null>>();
+  options.atlas?.onReset(() => pills.clear());
+
+  /** A `color` pill `width` × `height` device pixels on the atlas, or null without room for it. */
+  function pill(color: string, width: number, height: number) {
+    let byColor = pills.get(color);
+    if (!byColor) pills.set(color, byColor = new Map());
+    const key = height * 65_536 + width;
+    const cached = byColor.get(key);
+    if (cached !== undefined) return cached;
+    const region = options.atlas?.allocate(width, height);
+    const image = region && options.atlas!.drawInto(region, pillCtx => {
+      pillCtx.fillStyle = color;
+      fillPill(pillCtx, 0, 0, width, height);
+    }) ? { canvas: region.canvas, sx: region.x, sy: region.y, sw: width, sh: height } : null;
+    byColor.set(key, image);
+    return image;
+  }
+
+  return { plate, pill, size: () => plates.size };
+}
+export type EnemyStatusPlates = ReturnType<typeof createEnemyStatusPlates>;
+
+/**
+ * fillPill on whole device pixels from pre-drawn pills, under an untransformed context: a short one whole,
+ * a longer one as the left of a `fullWidth` pill and its right end, which paints the same pixels.
+ * False when the atlas had no room, and nothing was drawn.
+ */
+export function drawPillImage(ctx: Pick<CanvasRenderingContext2D, "drawImage">, plates: EnemyStatusPlates, color: string,
+  x: number, y: number, width: number, height: number, fullWidth: number) {
+  if (!(width > 0) || !(height > 0)) return true;
+  const radius = height / 2, cap = Math.ceil(radius);
+  if (width < cap + radius || width > fullWidth) {
+    const image = plates.pill(color, width, height);
+    if (!image) return false;
+    drawAtlasImage(ctx, image, x, y, width, height);
+    return true;
+  }
+  const strip = plates.pill(color, fullWidth, height);
+  if (!strip || !strip.canvas.width) return Boolean(strip);
+  const source = frozenCopyOf(strip.canvas), sx = strip.sx ?? 0, sy = strip.sy ?? 0;
+  ctx.drawImage(source, sx, sy, width - cap, height, x, y, width - cap, height);
+  ctx.drawImage(source, sx + fullWidth - cap, sy, cap, height, x + width - cap, y, cap, height);
+  return true;
 }

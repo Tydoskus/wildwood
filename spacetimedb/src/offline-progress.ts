@@ -19,6 +19,9 @@ import type { MapBalanceSnapshot } from "../../shared/map-balance-types";
 import { readCritRating, readPlayerProgress } from "./wide-stats";
 import { researchInPlay } from "./bonus-toggles";
 import { awardOfflineGold } from "./gold";
+import { clearOfflineGatherChoice, collectOfflineGathering, storeOfflineGatherChoice } from "./offline-gathering";
+import { guildHallBonusFor } from "./guild-hall-bonus";
+import type { OfflineActivity } from "../../shared/offline-gathering";
 
 export const offlineProgressTables = {
   /**
@@ -110,6 +113,8 @@ export type OfflineGrantDependencies = {
   endless: { completed: number; unlocked: boolean };
   balanceFor?: (mapId: string) => MapBalanceSnapshot | undefined;
   offlineWindowRank?: number;
+  /** The whole window in seconds, when more than the rank gives (the guild hall's Hearth). */
+  offlineWindowSeconds?: number;
   enemyRespawnRank?: number;
   /** What Respawn cards add to how often enemies come back. */
   cardRespawn?: number;
@@ -132,7 +137,8 @@ export function resolveOfflineGrant(
   awaySinceMicros: bigint,
   dependencies: OfflineGrantDependencies,
 ): OfflineGrant | null {
-  const seconds = offlineSecondsEarned(nowMicros, awaySinceMicros, offlineWindowSecondsWithResearch(dependencies.offlineWindowRank ?? 0));
+  const seconds = offlineSecondsEarned(nowMicros, awaySinceMicros,
+    dependencies.offlineWindowSeconds ?? offlineWindowSecondsWithResearch(dependencies.offlineWindowRank ?? 0));
   if (!seconds) return null;
   const maps = offlineFarmableMaps(dependencies.progress as any, dependencies.endless);
   if (!maps.length) return null;
@@ -147,18 +153,19 @@ export function resolveOfflineGrant(
 }
 
 /**
- * Records a resolved grant for the client to show, and reopens the window at
- * `now` so the same absence can never be claimed twice.
+ * Records what the player can collect for this absence, and reopens the window at `now` so the same absence can
+ * never be claimed twice. `grant` is the fight, or null when there is none to offer; nothing is paid here.
  */
 export function storeOfflineGrant(
   ctx: any,
   identity: any,
   grant: OfflineGrant | null,
   gains: { damage: number; health: number; armor: number; regen: number; attackSpeed: number },
+  seconds = grant?.seconds ?? 0,
 ) {
   const existing: OfflineProgressRow | undefined = ctx.db.offlineProgress.identity.find(identity);
   const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
-  if (!grant) {
+  if (!seconds) {
     // Keep an unread summary from an earlier login rather than blanking it for
     // someone who refreshed before the dialog opened.
     writeRow(ctx, { ...(existing ?? emptyOfflineProgressRow(identity)), identity, awaySinceMicros: 0n });
@@ -167,18 +174,18 @@ export function storeOfflineGrant(
   writeRow(ctx, {
     identity,
     awaySinceMicros: 0n,
-    mapId: grant.outcome.mapId,
-    seconds: grant.seconds,
-    kills: grant.outcome.kills,
+    mapId: grant?.outcome.mapId ?? "",
+    seconds,
+    kills: grant?.outcome.kills ?? 0,
     ...gains,
-    blocked: !grant.outcome.survivable,
+    blocked: grant ? !grant.outcome.survivable : false,
     grantedAtMicros: nowMicros,
     pending: true,
   });
 }
 
 /** Marks the waiting summary as seen. The window stays where it is. */
-export function acknowledgeOfflineProgress(ctx: any, identity: any) {
+function acknowledgeOfflineProgress(ctx: any, identity: any) {
   const existing: OfflineProgressRow | undefined = ctx.db.offlineProgress.identity.find(identity);
   if (!existing?.pending) return;
   ctx.db.offlineProgress.identity.update({ ...existing, pending: false });
@@ -191,33 +198,24 @@ export type OfflineGrantPorts = {
   statMultiplier: (ctx: any, identity: any) => StatRewardMultiplier;
   writeProgress: (ctx: any, progress: any) => void;
   endlessClaimBit: number;
+  /** The bag's items from the saved progress, for room for new kinds of ore. */
+  inventoryForProgress?: (progress: any) => string[];
 };
 
+const NO_GAINS = { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 };
+
+/** How long time away can run: the Offline Time research's window and the guild hall's Hearth on top. */
+const offlineWindowFor = (ctx: any, identity: any) =>
+  offlineWindowSecondsWithResearch(ctx.db.playerResearch.identity.find(identity)?.offlineWindow ?? 0) + guildHallBonusFor(ctx, identity, "hearth");
+
 /**
- * Pays out the farming an account missed while it was away.
- *
- * Everything the payout depends on is already on the server: the disconnect
- * stamp, the stored stats, the stored unlocks. The client contributes nothing
- * and cannot ask for this — it runs once, on the way into the world, and
- * closes the window behind it so the same absence is never paid twice.
- *
- * Regular-enemy stat rewards are granted, and gold at half the in-play rate. Loot
- * rolls, kill gems and boss clears stay where they are: things an absent player did not do.
+ * The fight an absence from `awaySinceMicros` to `nowMicros` earns. Offline farming is weapon farming, so a Reflect
+ * Only run earns none, and an Aggro run is about surviving its camps, which offline time skips.
  */
-export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGrantPorts) {
-  const row: OfflineProgressRow | undefined = ctx.db.offlineProgress.identity.find(ctx.sender);
-  if (!row) return progress;
-  // Switched off in settings: close the window without paying it, so turning
-  // the setting back on pays for the time since, not for the months before.
-  // Offline farming is weapon farming, so a Reflect Only run earns none either,
-  // and an Aggro run is about surviving its camps, which offline time skips.
-  if (!offlineProgressEnabled(ctx, ctx.sender) || ctx.db.playerPrestigeChallenge?.identity.find(ctx.sender)?.active
-    || ctx.db.playerAggroChallenge?.identity.find(ctx.sender)?.active) {
-    storeOfflineGrant(ctx, ctx.sender, null, { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 });
-    return progress;
-  }
-  const grant = resolveOfflineGrant(ctx.timestamp.microsSinceUnixEpoch, row.awaySinceMicros, {
-    offlineWindowRank: ctx.db.playerResearch.identity.find(ctx.sender)?.offlineWindow ?? 0,
+function resolveFight(ctx: any, progress: any, ports: OfflineGrantPorts, nowMicros: bigint, awaySinceMicros: bigint) {
+  if (ctx.db.playerPrestigeChallenge?.identity.find(ctx.sender)?.active || ctx.db.playerAggroChallenge?.identity.find(ctx.sender)?.active) return null;
+  return resolveOfflineGrant(nowMicros, awaySinceMicros, {
+    offlineWindowSeconds: offlineWindowFor(ctx, ctx.sender),
     // Respawn research farms faster only while Research is in play (bonus-toggles.ts); the window is a timer and stays.
     enemyRespawnRank: researchInPlay(ctx, ctx.sender)?.enemyRespawn ?? 0,
     cardRespawn: cardStatFactors(activeCardTotalsFor(ctx, ctx.sender)).respawn,
@@ -229,30 +227,89 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
     },
     balanceFor: (mapId: string) => ports.mapBalance(ctx, ctx.sender, mapId) ?? undefined,
   });
-  if (!grant || !grant.outcome.rewards.length) {
-    storeOfflineGrant(ctx, ctx.sender, grant, { damage: 0, health: 0, armor: 0, regen: 0, attackSpeed: 0 });
-    return progress;
-  }
+}
+
+function fightResult(ctx: any, progress: any, grant: OfflineGrant, ports: OfflineGrantPorts) {
   // Crit kills add to the run's rating, which a row read without it would otherwise write over.
   const rated = { ...progress, critRating: progress.critRating ?? readCritRating(ctx, ctx.sender) };
   const next = applyEnemyRewards(rated, grant.outcome.rewards, ports.statMultiplier(ctx, ctx.sender), soulAttackCapFor(ctx, ctx.sender));
-  storeOfflineGrant(ctx, ctx.sender, grant, {
-    damage: next.damage - progress.damage,
-    health: next.maxHp - progress.maxHp,
-    armor: next.armor - progress.armor,
-    regen: next.regen - progress.regen,
-    // Attack speed is stored as an interval, so the gain is the time removed.
-    attackSpeed: progress.attackRate - next.attackRate,
-  });
-  ports.writeProgress(ctx, next);
+  return {
+    next,
+    gains: {
+      damage: next.damage - progress.damage,
+      health: next.maxHp - progress.maxHp,
+      armor: next.armor - progress.armor,
+      regen: next.regen - progress.regen,
+      // Attack speed is stored as an interval, so the gain is the time removed.
+      attackSpeed: progress.attackRate - next.attackRate,
+    },
+  };
+}
+
+/** Seconds of an absence still waiting with its choice; a summary paid when granted (before choices) has none. */
+function uncollectedSeconds(ctx: any, row: OfflineProgressRow) {
+  if (!row.pending) return 0;
+  return ctx.db.offlineGatherChoice.identity.find(ctx.sender)?.grantedAtMicros === row.grantedAtMicros ? row.seconds : 0;
+}
+
+/**
+ * Works out what the account could collect for its time away: the fight, the mining and the chopping
+ * (offline-gathering.ts). Nothing is paid until the player picks one (collectOfflineProgress).
+ *
+ * Everything it depends on is already on the server: the disconnect stamp, the stored stats, the stored unlocks.
+ * It runs once, on the way into the world, and closes the window behind it so the same absence is never offered twice.
+ */
+export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGrantPorts) {
+  const row: OfflineProgressRow | undefined = ctx.db.offlineProgress.identity.find(ctx.sender);
+  if (!row) return progress;
+  // Switched off in settings: close the window without paying it, so turning
+  // the setting back on pays for the time since, not for the months before.
+  const nowMicros = ctx.timestamp.microsSinceUnixEpoch;
+  const windowSeconds = offlineWindowFor(ctx, ctx.sender);
+  const earned = offlineProgressEnabled(ctx, ctx.sender) ? offlineSecondsEarned(nowMicros, row.awaySinceMicros, windowSeconds) : 0;
+  if (!earned) {
+    storeOfflineGrant(ctx, ctx.sender, null, NO_GAINS);
+    return progress;
+  }
+  // Time away offered and never collected adds to this absence, still capped at the window.
+  const seconds = Math.min(windowSeconds, earned + uncollectedSeconds(ctx, row));
+  const grant = resolveFight(ctx, progress, ports, nowMicros, nowMicros - BigInt(seconds) * MICROS_PER_SECOND);
+  storeOfflineGrant(ctx, ctx.sender, grant, grant?.outcome.rewards.length ? fightResult(ctx, progress, grant, ports).gains : NO_GAINS, seconds);
+  storeOfflineGatherChoice(ctx, ctx.sender, seconds, nowMicros);
+  return progress;
+}
+
+/** Pays the fight as it was offered: resolved again over the same stretch, from the stats the player has now. */
+function payFight(ctx: any, row: OfflineProgressRow, ports: OfflineGrantPorts) {
+  const progress = readPlayerProgress(ctx, ctx.sender);
+  if (!progress) return;
+  const grant = resolveFight(ctx, progress, ports, row.grantedAtMicros, row.grantedAtMicros - BigInt(row.seconds) * MICROS_PER_SECOND);
+  if (!grant?.outcome.rewards.length) return;
+  ports.writeProgress(ctx, fightResult(ctx, progress, grant, ports).next);
   // Offline farming is campaign or Endless farming: its kills count towards the Soul Dimension's tiers.
   countRewardKills(ctx, ctx.sender, grant.outcome.rewards);
+  // Gold at half the in-play rate; loot rolls, kill gems and boss clears stay where they are.
   awardOfflineGold(ctx, ctx.sender, grant.outcome.kills);
   const lifetime = ctx.db.playerLifetime.identity.find(ctx.sender);
   if (lifetime) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: lifetime.enemyKills + BigInt(grant.outcome.kills) });
   }
-  return next;
+}
+
+/**
+ * The player's pick for the waiting absence: fight, mine or chop. A summary from before choices existed was paid
+ * when it was granted, so collecting it only marks it seen.
+ */
+export function collectOfflineProgress(ctx: any, activity: OfflineActivity, ports: OfflineGrantPorts) {
+  const row: OfflineProgressRow | undefined = ctx.db.offlineProgress.identity.find(ctx.sender);
+  if (!row?.pending) return;
+  const choice = ctx.db.offlineGatherChoice.identity.find(ctx.sender);
+  if (choice?.grantedAtMicros === row.grantedAtMicros) {
+    if (activity === "fight") payFight(ctx, row, ports);
+    else collectOfflineGathering(ctx, ctx.sender, choice, activity, ports.inventoryForProgress);
+  }
+  clearOfflineGatherChoice(ctx, ctx.sender);
+  acknowledgeOfflineProgress(ctx, ctx.sender);
 }
 
 /**
@@ -263,7 +320,7 @@ export function grantOfflineProgress(ctx: any, progress: any, ports: OfflineGran
  * window at now — which would erase the very backdate being tested.
  */
 export function setSimulatedTimeAway(ctx: any, seconds: number, ports: OfflineGrantPorts) {
-  const bounded = Math.min(offlineWindowSecondsWithResearch(ctx.db.playerResearch.identity.find(ctx.sender)?.offlineWindow ?? 0), Math.max(0, seconds));
+  const bounded = Math.min(offlineWindowFor(ctx, ctx.sender), Math.max(0, seconds));
   // Zero is the "never disconnected" sentinel, so a clock too close to the
   // epoch to subtract from must still land on a real instant.
   const backdated = ctx.timestamp.microsSinceUnixEpoch - BigInt(bounded) * MICROS_PER_SECOND;

@@ -32,6 +32,7 @@ import { parseHexColorOrNull, STATIC_WORLD_LAYER_RESET_EVENT, type StaticWorldCo
 import { nightEnemyOpacity, nightGroundShadowsVisible } from "./night-visibility";
 import { snapWorldRenderCoordinate } from "./render-space";
 import { createSoulGroundRenderer, createSoulPropRenderer } from "../soul/soul-prop-renderer";
+import { createGroveShadowRenderer } from "../town/grove-shadows";
 import { createSoulParticles } from "../soul/soul-particles";
 import { createSoulWater } from "../soul/soul-water";
 import { createSoulWaterGL, routeRiver } from "../soul/soul-water-gl";
@@ -42,7 +43,9 @@ import { isTownMap } from "../../../../shared/town";
 import { drawOxSprite } from "./ox-sprite";
 import { isGuildHallMap } from "../../../../shared/guild-hall";
 import { GUILD_HALL_GROUND } from "../../guild-hall";
-import { createGuildCrestDrawer, createGuildHallRoomsDrawer, drawSeated, GUILD_HALL_SEAT_FACING, seatedAt } from "../guild-hall/guild-hall-render";
+import {
+  createGuildCrestDrawer, createGuildHallRoomsDrawer, createGuildHallUnderDrawer, drawSeated, GUILD_HALL_SEAT_FACING, seatedAt,
+} from "../guild-hall/guild-hall-render";
 import type { TextSegment } from "../../canvas";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -411,10 +414,12 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     };
     const drawSoulProp = createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
       villageProps: () => options.assets.townVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime,
+      drawsOnCanvas: () => !worldSprites?.recording(),
       hallProps: () => options.assets.guildHallProps, drawCrest: createGuildCrestDrawer(() => options.assets.guildEmblemSheets) });
     hallGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.guildHallGround, area: GUILD_HALL_GROUND,
       interiors: () => undefined, drawRooms: createGuildHallRoomsDrawer({ ctx: options.ctx, camera: options.camera, rooms: () => options.assets.guildHallRooms,
         devicePixelRatio: options.devicePixelRatio }),
+      drawUnder: createGuildHallUnderDrawer({ ctx: options.ctx, camera: options.camera }),
       decor: options.decor, drawProp: drawSoulProp, viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isGuildHallMap(options.currentMapId()) });
     // The Town's ground, rooms, flat props and shadows are baked into the static world's tiles: only its water moves.
     // The WebGL world draws the river with its tiles when it can; the canvas draws it otherwise.
@@ -427,6 +432,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       decor: options.decor, drawProp: drawSoulProp, baked: true,
       drawWater: drawRiver,
       viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isTownMap(options.currentMapId()) });
+    const drawGroveShadows = createGroveShadowRenderer({ ctx: options.ctx, camera: options.camera, viewport: options.viewport,
+      drawProp: drawSoulProp, active: () => isTownMap(options.currentMapId()) });
     const depth = createDepthWorldRenderer({
       camera: options.camera,
       viewport: () => options.viewport(),
@@ -500,7 +507,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawStaticWorld: world.drawStaticWorld,
       drawDuelArena: actor.drawDuelArena,
       drawDuelScene: actor.drawDuelScene,
-      drawDecor: () => { world.drawDecor(); soulGround.draw(); hallGround.draw(); },
+      drawDecor: () => { world.drawDecor(); soulGround.draw(); drawGroveShadows(); hallGround.draw(); },
       drawBossTelegraphs: () => {
         const mapBoss = bossForMap(options.currentMapId());
         if (mapBoss) boss.drawBossTelegraphs[mapBoss.kind]();

@@ -70,6 +70,7 @@ it("shortens every running slot timer when Slot Speed research completes", () =>
   f.run(server.startItemUpgrade, { slot: 1, itemId: "HAND" });
   f.run(server.startItemUpgrade, { slot: 2, itemId: "HEAD" });
   const before = f.db.activeItemUpgrade.identity.find(f.ctx.sender);
+  f.standAtResearch();
   f.run(server.startResearch, { researchId: "slotUpgradeSpeed" });
   const research = f.db.activeResearch.identity.find(f.ctx.sender);
   const schedule = [...f.db.researchCompletionSchedule.iter()][0];

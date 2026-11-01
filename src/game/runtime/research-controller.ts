@@ -30,6 +30,8 @@ type ResearchControllerOptions = {
   cards?: () => CardStatFactors | null | undefined;
   /** The worn boots and an item's slot tier and refine: Warrior Boots raise armor (items.ts bootArmorFactor). */
   equippedFeet?: () => string;
+  /** The weapon in hand: a bow adds its own crit chance (bow-skills.ts). */
+  equippedWeapon?: () => string;
   itemLevel?: (itemId: string) => ItemLevel;
 };
 
@@ -52,7 +54,7 @@ export function createResearchController(options: ResearchControllerOptions) {
     rewardMultiplier: () => researchStatRewardMultiplier(ranks()) * prestigeStatMultiplier(options.prestigeLevel?.() ?? 0)
       * Math.max(1, options.guildQuestBonus?.() ?? 1) * Math.max(1, options.serverBoost?.() ?? 1),
     effectiveArmor: () => options.player.armor * bootArmor() * researchStatFactors(ranks()).armor * (cards()?.armor ?? 1),
-    criticalChance: () => critChanceFor(ranks(), options.prestigePerks?.(), cards()?.critChance ?? 0),
+    criticalChance: () => critChanceFor(ranks(), options.prestigePerks?.(), cards()?.critChance ?? 0, options.equippedWeapon?.()),
     /** Everything critical damage adds up from but the soul's share, and the cap's rank. */
     criticalDamageParts: (): CriticalDamageParts => ({ researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), capRank: ranks().critCap,
       card: cards()?.critDamage }),

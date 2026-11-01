@@ -9,7 +9,7 @@ import { requiredElement } from "../game/runtime/dom";
 import { canDestroyEquipment, itemDefinition, itemDisplayName } from "../../shared/items";
 import { COSMETIC_CONVERSION_GEM_COST, canConvertToCosmetic } from "../../shared/cosmetic-conversion";
 import { inventoryMoveActions, inventoryWeaponSlot, renderInventoryView, type InventoryMode } from "./hud";
-import type { ItemInspectionController } from "./item-inspection-controller";
+import type { ItemInspectionAction, ItemInspectionController } from "./item-inspection-controller";
 import {
   MAX_INVENTORY_SLOT_CAPACITY,
   bagSlotCapacity,
@@ -33,6 +33,7 @@ import { itemInspectionButtonLabel } from "./item-inspection-controller";
 import { oreKindsHeld } from "../../shared/ore-bag";
 import { toolArtSource } from "../game/runtime/town/tool-sprites";
 import type { ToolId } from "../../shared/tools";
+import { isArrowId, type ArrowId } from "../../shared/arrows";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
 type SelectableInventory = InventoryState & { selectedItemId: string; selectedItemLocation?: InventoryLocation };
@@ -64,6 +65,9 @@ type InventoryDependencies = {
   /** Saved loadouts for the Builds tab; without them the tab is not shown. */
   builds?: BuildActions;
   destroyOre?: (oreId: OreId, expectedCount: number) => Promise<Result>;
+  /** The arrow kind the bow has nocked (shared/arrows.ts), and nocking one, or none for plain arrows. */
+  nockedArrow?: () => ArrowId | null;
+  nockArrow?: (arrowId: ArrowId | null) => Promise<Result>;
   equipBest?: () => boolean;
   equipmentLocked?: (itemId: string, copyId?: bigint) => boolean;
   setEquipmentLocked?: (itemId: string, locked: boolean, copyId?: bigint) => Promise<Result>;
@@ -253,9 +257,10 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   function inspectOre(oreId: OreId) {
     if (lockMode.active() || deleteMode.active()) return;
     const count = dependencies.ores?.()[oreId] ?? 0;
-    if (!(count > 0)) return;
+    // A nocked arrow kind run out still opens, so it can be unnocked.
+    if (!(count > 0) && dependencies.nockedArrow?.() !== oreId) return;
     clearInventorySelection(dependencies.inventory);
-    dependencies.itemInspection.openOre?.({ oreId, count, actions: dependencies.destroyOre ? [{
+    dependencies.itemInspection.openOre?.({ oreId, count, actions: [...nockActions(oreId), ...dependencies.destroyOre ? [{
       label: "Destroy ore",
       kind: "DESTROY",
       onActivate: async () => {
@@ -272,7 +277,25 @@ export function createInventoryController(dependencies: InventoryDependencies) {
           dependencies.showMessage("ORE DESTROYED", "#ff9b91");
         } else dependencies.showMessage(result?.error ?? "NOT CONNECTED", "#ff9b91");
       },
-    }] : [] });
+    } satisfies ItemInspectionAction] : []] });
+  }
+
+  /** An arrow stack's Nock, or Unnock on the kind nocked; the window then shows the new state. */
+  function nockActions(oreId: OreId): ItemInspectionAction[] {
+    const nockArrow = dependencies.nockArrow;
+    if (!isArrowId(oreId) || !nockArrow) return [];
+    const nocked = dependencies.nockedArrow?.() === oreId;
+    return [{
+      label: nocked ? "Unnock" : "Nock",
+      kind: "PRIMARY",
+      onActivate: async () => {
+        const result = await nockArrow(nocked ? null : oreId);
+        if (result?.ok) dependencies.showMessage(`${nocked ? "Unnocked" : "Nocked"} · ${REFINE_ORES[oreId].name}`, "#ffd75e");
+        else dependencies.showMessage(result?.error ?? "Not Connected", "#ff9b91");
+        render();
+        if (dependencies.itemInspection.isOpen?.()) inspectOre(oreId);
+      },
+    }];
   }
 
   const cardPort = dependencies.cards;
@@ -477,7 +500,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     const inventory = dependencies.inventory;
     const copies = dependencies.equipmentCopies?.() ?? [];
     const held = dependencies.ores?.() ?? {};
-    const nextState = JSON.stringify([cardsShown, buildsShown, mode, filter, inventory, held, inventory.itemIds.map(id => dependencies.equipmentLocked?.(id)), dependencies.inventorySlotsUnlocked(), dependencies.researchBagSlots?.() ?? 0, dependencies.toolLevels?.() ?? {}, unlockingSlot,
+    const nextState = JSON.stringify([cardsShown, buildsShown, mode, filter, inventory, held, dependencies.nockedArrow?.() ?? null, inventory.itemIds.map(id => dependencies.equipmentLocked?.(id)), dependencies.inventorySlotsUnlocked(), dependencies.researchBagSlots?.() ?? 0, dependencies.toolLevels?.() ?? {}, unlockingSlot,
       ["HEAD", "CHEST", "HAND"].map(slot => dependencies.slotTier?.(slot as "HEAD" | "CHEST" | "HAND")), inventory.itemIds.map(itemId => `${dependencies.upgradeLevel(itemId)}:${dependencies.refineLevel?.(itemId, 0n)}`),
       copies.map(copy => `${copy.id}:${copy.itemId}:${dependencies.equipmentLocked?.(copy.itemId, copy.id)}:${dependencies.refineLevel?.(copy.itemId, copy.id)}`),
       (inventory.cosmeticItemIds ?? []).map(itemId => dependencies.lookRefine?.(itemId) ?? 0)]);
@@ -513,6 +536,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         onInspect: inspect,
         onInspectOre: inspectOre,
         ores: held,
+        nockedArrow: dependencies.nockedArrow?.(),
         copies,
         filter: filter === "ALL" ? undefined : filter,
         upgradeLevel: dependencies.upgradeLevel,
@@ -622,5 +646,6 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       clearInventorySelection(dependencies.inventory);
     },
     mode: () => mode,
+    inspectOre,
   };
 }

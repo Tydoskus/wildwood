@@ -10,7 +10,7 @@ import { GUILD_CREATION_MIN_POWER, GUILD_DAY_MICROS, GUILD_EMBLEMS, GUILD_MEMBER
 import { guildEmblemCell, guildEmblemFor } from "../../src/ui/guild-emblems";
 import { migrateGuildTags } from "../../spacetimedb/src/player-name-tags";
 import { EMPTY_GUILD_HALL_LEVELS, GUILD_HALL_ARRIVAL, GUILD_HALL_DOOR, GUILD_HALL_FEET_OFFSET, GUILD_HALL_PARTS, GUILD_HALL_TABLE_SEATS, GUILD_HALL_WORLD,
-  guildHallMapId, guildHallRoom, parseGuildHallLevels, type GuildHallLevels } from "../../shared/guild-hall";
+  GUILD_HALL_YARD, guildHallMapId, guildHallRoom, parseGuildHallLevels, type GuildHallLevels } from "../../shared/guild-hall";
 import { TOWN_MAP_ID } from "../../shared/town";
 import { PLAYER_POSITION_SCALE } from "../../shared/player-motion-frame";
 import { GUILD_HALL_GROUND, GUILD_HALL_INTERIOR_LEFT, guildHallBoard, guildHallDecor, guildHallFrame, guildHallRoomPicture, guildHallSeats, guildHallSolids } from "../../src/game/guild-hall";
@@ -755,6 +755,18 @@ describe("The Guild Hall", () => {
     ann.patch("player", { x: GUILD_HALL_DOOR.outside.x, y: GUILD_HALL_DOOR.outside.y });
     ann.call("useGuildHallDoor");
     expect([me().x, me().y]).toEqual([guildHallRoom(2).inside.x, guildHallRoom(2).inside.y]);
+    // Back after a break: where she stood in the room, she still is; saved where the courtyard stood before it moved, at the arrival.
+    const relog = (x: number, y: number) => {
+      world.setup(ctx => { if (ctx.db.playerMotion.identity.find(ann.identity)) ctx.db.playerMotion.identity.delete(ann.identity); });
+      ann.patch("player", { x, y });
+      ann.disconnect();
+      ann.patch("playerLastLocation", { mapId: hall, x, y });
+      enter(ann);
+      return [me().mapId, me().x, me().y];
+    };
+    const seat = { x: guildHallRoom(2).inside.x + 100, y: guildHallRoom(2).inside.y - 200 };
+    expect(relog(seat.x, seat.y)).toEqual([hall, seat.x, seat.y]);
+    expect(relog(160, 1_200)).toEqual([hall, GUILD_HALL_ARRIVAL.x, GUILD_HALL_ARRIVAL.y]);
     // The last member out takes the hall with the guild.
     for (const member of [cara, bob, ann]) member.call("leaveGuild");
     expect(me().mapId).toBe(TOWN_MAP_ID);
@@ -778,12 +790,21 @@ describe("The Guild Hall", () => {
         expect(shown.filter(seat => seat.side === "north")).toHaveLength(seats / 2);
       }
     }
-    // The courtyard never sees the dark round the rooms.
-    expect(GUILD_HALL_INTERIOR_LEFT - (GUILD_HALL_GROUND.x + GUILD_HALL_GROUND.w)).toBeGreaterThanOrEqual(1_200);
-    const bare = guildHallDecor(EMPTY_GUILD_HALL_LEVELS), grand = guildHallDecor(most);
+    // The courtyard stands in the middle of the outdoors, the same wood all round it, its ground and its arrival in it.
+    const yardMiddle = { x: (GUILD_HALL_YARD.left + GUILD_HALL_YARD.right) / 2, y: (GUILD_HALL_YARD.top + GUILD_HALL_YARD.bottom) / 2 };
+    expect(Math.abs(yardMiddle.x - GUILD_HALL_INTERIOR_LEFT / 2)).toBeLessThanOrEqual(10);
+    expect(Math.abs(yardMiddle.y - GUILD_HALL_WORLD.height / 2)).toBeLessThanOrEqual(30);
+    expect(GUILD_HALL_DOOR.x).toBe(GUILD_HALL_INTERIOR_LEFT / 2);
+    expect(GUILD_HALL_GROUND.x > 0 && GUILD_HALL_GROUND.x + GUILD_HALL_GROUND.w < GUILD_HALL_INTERIOR_LEFT).toBe(true);
+    expect(GUILD_HALL_ARRIVAL.y + GUILD_HALL_FEET_OFFSET).toBeLessThan(GUILD_HALL_YARD.bottom);
+    // Each side of the door draws only its own decor.
+    const both = (levels: GuildHallLevels) => [...guildHallDecor(levels, false), ...guildHallDecor(levels, true)];
+    expect(guildHallDecor(most, false).every(item => item.x < GUILD_HALL_INTERIOR_LEFT)).toBe(true);
+    expect(guildHallDecor(most, true).every(item => item.x >= GUILD_HALL_INTERIOR_LEFT)).toBe(true);
+    const bare = both(EMPTY_GUILD_HALL_LEVELS), grand = both(most);
     expect(grand.length).toBeGreaterThan(bare.length);
     for (const item of grand) if (item.type === "soulProp" && !item.crest) expect(guildHallFrame(item.frame), item.frame).not.toBeNull();
-    for (const part of GUILD_HALL_PARTS) expect(JSON.stringify(guildHallDecor({ ...EMPTY_GUILD_HALL_LEVELS, [part.id]: 1 })), part.id).not.toBe(JSON.stringify(bare));
+    for (const part of GUILD_HALL_PARTS) expect(JSON.stringify(both({ ...EMPTY_GUILD_HALL_LEVELS, [part.id]: 1 })), part.id).not.toBe(JSON.stringify(bare));
     expect(guildHallSolids({ ...EMPTY_GUILD_HALL_LEVELS, size: 2 })).not.toEqual(guildHallSolids(EMPTY_GUILD_HALL_LEVELS));
   });
 });

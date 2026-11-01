@@ -1,6 +1,6 @@
 export const ITEM_DROP_REVEAL_DURATION_MS = 3_400;
 
-import { galaxyArtStyle, itemFinish, itemHasGalaxyFinish } from "../game/item-presentation";
+import { GALAXY_SKY_MARKUP, galaxyArtStyle, itemFinish, itemHasGalaxyFinish } from "../game/item-presentation";
 
 export type ItemDropRevealDetails = {
   artSource: string;
@@ -30,6 +30,7 @@ export function createItemDropReveal(details: ItemDropRevealDetails) {
   if (details.artSource && itemHasGalaxyFinish(details.itemId)) {
     sprite.classList.add("has-galaxy-finish");
     sprite.setAttribute("style", galaxyArtStyle(details.artSource, itemFinish(details.itemId)));
+    sprite.innerHTML = GALAXY_SKY_MARKUP;
   } else if (details.artSource) sprite.style.backgroundImage = `url(${details.artSource})`;
   art.appendChild(sprite);
 

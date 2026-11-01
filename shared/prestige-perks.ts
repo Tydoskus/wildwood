@@ -1,6 +1,7 @@
 import { PRESTIGE_CHALLENGE_LIMIT, challengeMinimumInterval, type PrestigeChallenge } from "./prestige-challenge";
 import type { AttackCap } from "./stat-rating";
 import { QUICK_DRAW_CAP_PER_RANK } from "./rules";
+import { formatMultiplierChange } from "./compact-number";
 /**
  * Prestige perks. One point per prestige and five ranks per perk (Reflect gains one per challenge won), so maxing a
  * line takes five runs and spreading points leaves you mediocre at all of them.
@@ -114,7 +115,7 @@ export function prestigePerkEffectLabel(perk: PrestigePerkId, rank: number) {
   if (perk === "keenEdge") return `+${chance} crit chance, +${percent(prestigeCriticalDamageBonus(ranks))} crit damage`;
   if (perk === "doubleStrike") return `${chance} chance to hit twice`;
   if (perk === "splitShot") return `${chance} chance to hit a 2nd enemy`;
-  if (perk === "bossSlayer") return `+${chance} damage to bosses`;
+  if (perk === "bossSlayer") return `${formatMultiplierChange(1 + prestigePerkValue(ranks, perk))} damage to bosses`;
   if (perk === "secondWind") return `Heal ${chance} max health per kill`;
   if (perk === "longShot") return `+${prestigePerkValue(ranks, perk)} attack range`;
   if (perk === "fleetFoot") return `+${chance} move speed`;

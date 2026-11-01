@@ -166,6 +166,11 @@ type PlayerPresentationRow = RemoteEquipment & {
 };
 
 function samePlayerPresentation(left: PlayerPresentationRow | undefined, right: PlayerPresentationRow) {
+  return sameProfilePresentation(left, right) && left!.speed === right.speed && left!.powerLevel === right.powerLevel;
+}
+
+/** Everything but power and speed, which only the figure shows (each kill changes power). */
+function sameProfilePresentation(left: PlayerPresentationRow | undefined, right: PlayerPresentationRow) {
   if (!left) return false;
   // zoneX/zoneY are physical compatibility columns, not presentation state.
   return left.networkId === right.networkId &&
@@ -177,8 +182,6 @@ function samePlayerPresentation(left: PlayerPresentationRow | undefined, right: 
     left.skinTone === right.skinTone &&
     left.isGuest === right.isGuest &&
     left.gender === right.gender &&
-    left.speed === right.speed &&
-    left.powerLevel === right.powerLevel &&
     left.feetItem === right.feetItem &&
     left.headItem === right.headItem &&
     left.chestItem === right.chestItem &&
@@ -234,6 +237,8 @@ function appendRemoteMotionSample(existing: RemotePlayerTarget, sample: Omit<Rem
 
 /** The longest a tab waits between asks for missing movement detail. */
 const MOTION_DETAIL_RECOVERY_MAX_MS = 30_000;
+/** Swapping one watched player for a nearer one waits this long; a free slot or a departure does not. */
+const MOTION_INTEREST_SWAP_MS = 3_000;
 /** A failed presence subscription's first retry, and the longest wait it backs off to. */
 const SUBSCRIPTION_RETRY_MIN_MS = 1_000, SUBSCRIPTION_RETRY_MAX_MS = 30_000;
 
@@ -266,6 +271,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let submittedMotionNetworkIds: number[] = [];
   let motionInterestInFlight = false;
   let motionInterestNeedsSync = true;
+  let motionInterestChangedAt = Number.NEGATIVE_INFINITY;
   let remotePlayersVisible = false;
   let missingMotionDetailSince: number | null = null;
   let lastMotionDetailRecoveryAt = Number.NEGATIVE_INFINITY;
@@ -476,23 +482,34 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     );
   }
 
+  /** A slot opened or closed, or a watched player left the map, stopped steering or went out of sight. */
+  function motionInterestUrgent(next: readonly number[], available: ReadonlySet<number>) {
+    if (next.length !== desiredMotionNetworkIds.length) return true;
+    const sampled = new Set(latestMapSamples.map(sample => sample.networkId));
+    return desiredMotionNetworkIds.some(networkId => !available.has(networkId) || !sampled.has(networkId));
+  }
+
   function refreshMotionInterest() {
     if (mapPlayerSubscriptionTransitioning) return;
     const now = monotonicNowMs();
     const position = localState;
+    // A farmer playing as a puppet needs no movement stream: the slots go to players who steer.
+    const available = new Set([...motionIdentities].filter(([, identity]) => !puppets.has(identity)).map(([networkId]) => networkId));
     const next = remotePlayersVisible && position
       ? selectPlayerMotionInterest({
         samples: latestMapSamples,
         originX: position.x,
         originY: position.y,
         localNetworkId: localMotionNetworkId,
-        // A farmer playing as a puppet needs no movement stream: the slots go to players who steer.
-        availableNetworkIds: new Set([...motionIdentities].filter(([, identity]) => !puppets.has(identity)).map(([networkId]) => networkId)),
+        availableNetworkIds: available,
         previousNetworkIds: desiredMotionNetworkIds,
       })
       : [];
-    if (!samePlayerMotionInterest(next, desiredMotionNetworkIds)) {
+    if (!samePlayerMotionInterest(next, desiredMotionNetworkIds) && (
+      motionInterestUrgent(next, available) || now - motionInterestChangedAt >= MOTION_INTEREST_SWAP_MS
+    )) {
       desiredMotionNetworkIds = next;
+      motionInterestChangedAt = now;
       missingMotionDetailSince = null;
       motionDetailRecoveryDelayMs = PLAYER_MOTION_DETAIL_RECOVERY_MS;
       for (const networkId of detailedMotionReadyNetworkIds) {
@@ -510,6 +527,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     latestMapFrameReceivedAt = 0;
     desiredMotionNetworkIds = [];
     submittedMotionNetworkIds = [];
+    motionInterestChangedAt = Number.NEGATIVE_INFINITY;
     detailedMotionIdentities.clear();
     detailedMotionReadyNetworkIds.clear();
     motionInterestInFlight = false;
@@ -635,7 +653,9 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   function upsertMotionIdentity(row: PlayerPresentationRow) {
     const identity = row.identity.toHexString();
     if (!remotePlayersVisible && identity !== dependencies.localIdentity()) return;
-    const presentationChanged = !samePlayerPresentation(presentations.get(identity), row);
+    const previous = presentations.get(identity);
+    const presentationChanged = !samePlayerPresentation(previous, row);
+    const profileChanged = !sameProfilePresentation(previous, row);
     if (identity === dependencies.localIdentity()) localMotionNetworkId = row.networkId;
     if (identity !== dependencies.localIdentity() && (!row.isVisible || row.mapId !== currentMapId)) {
       removeMotionIdentity(row);
@@ -652,7 +672,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     if (presentationChanged) {
       const player = players.get(identity);
       if (player) applyPresentation(player, row);
-      dependencies.changes.batch(() => {
+      if (profileChanged) dependencies.changes.batch(() => {
         dependencies.directory.tables.upsertProfile(row);
         dependencies.directory.tables.upsertAccountStatus(row);
         if (row.isVisible && row.mapId === currentMapId) playerMaps.set(identity, row.mapId);
@@ -883,10 +903,12 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   /** Draws the nearest figures toward their targets: placed when first seen or through a door, walked ever after. */
   function drawFigures(targets: Map<string, FigureTarget>, now: number, serverNow: number, out: RemotePlayer[]) {
     const origin = localState;
-    const ordered = [...targets].sort(([, a], [, b]) => origin
-      ? Math.hypot(a.pose.x - origin.x, a.pose.y - origin.y) - Math.hypot(b.pose.x - origin.x, b.pose.y - origin.y) : 0)
-      .slice(0, AUTO_FARM_PUPPET_DRAW_LIMIT);
-    for (const [identity, target] of ordered) {
+    // Nearest first: each distance is measured once, and the stable sort keeps ties in map order.
+    const ordered = [...targets].map(([identity, target]) => ({ identity, target,
+      distance: origin ? Math.hypot(target.pose.x - origin.x, target.pose.y - origin.y) : 0 }));
+    if (origin) ordered.sort((a, b) => a.distance - b.distance);
+    ordered.length = Math.min(ordered.length, AUTO_FARM_PUPPET_DRAW_LIMIT);
+    for (const { identity, target } of ordered) {
       const presentation = presentations.get(identity);
       if (!presentation) continue;
       let shown = figures.get(identity);

@@ -216,6 +216,7 @@ export type MapGuidePanelDeps = {
   power: () => number;
   prestigeExpanded: ReturnType<typeof createPrestigeExpansionRuntime>["unlocked"];
   preferTravel: ReturnType<typeof createTravelController>["prefer"];
+  villageGround: () => HTMLImageElement | undefined;
 };
 
 /** The map guide behind the minimap: the map's zones, drops and Enemy Index, its boss and portals, and travel. */
@@ -255,6 +256,7 @@ export function createMapGuidePanel(deps: MapGuidePanelDeps) {
       return portals.filter((portal): portal is NonNullable<typeof portal> => portal !== null)
         .map(portal => ({ x: portal.x, y: portal.y, destination: portal.destination, unlocked: mapController.portalIsUnlocked(portal) }));
     },
+    villageGround: deps.villageGround,
     beforeOpen: () => {
       deps.profileWindow.close();
       deps.closeCompetingWindows();

@@ -10,11 +10,12 @@ type Rect = { x: number; y: number; w: number; h: number };
  */
 export function createShrunkImages(pixelsPerImage = 6_000_000) {
   const kept = new WeakMap<Source, { canvases: Map<string, FrozenImage>; pixels: number }>();
-  return function shrunk(image: Source, width: number, height: number, smoothing: boolean, frame?: Rect): Source | null {
+  /** `grow` also sizes up a frame drawn larger than its art, for a canvas that draws it itself. */
+  return function shrunk(image: Source, width: number, height: number, smoothing: boolean, frame?: Rect, grow = false): Source | null {
     const sourceWidth = frame ? frame.w : image instanceof HTMLImageElement ? image.naturalWidth : image.width;
     const sourceHeight = frame ? frame.h : image instanceof HTMLImageElement ? image.naturalHeight : image.height;
     const w = Math.round(width), h = Math.round(height);
-    if (typeof document === "undefined" || w <= 0 || h <= 0 || (w === sourceWidth && h === sourceHeight) || w > sourceWidth || h > sourceHeight) return null;
+    if (typeof document === "undefined" || w <= 0 || h <= 0 || (w === sourceWidth && h === sourceHeight) || (!grow && (w > sourceWidth || h > sourceHeight))) return null;
     let entry = kept.get(image);
     if (!entry) kept.set(image, entry = { canvases: new Map(), pixels: 0 });
     const key = `${frame ? `${frame.x},${frame.y},${frame.w},${frame.h}` : ""}|${w}x${h}${smoothing ? "s" : ""}`;
@@ -25,7 +26,8 @@ export function createShrunkImages(pixelsPerImage = 6_000_000) {
     const target = canvas.getContext("2d");
     if (!target) return null;
     target.imageSmoothingEnabled = smoothing;
-    if (smoothing) target.imageSmoothingQuality = "high";
+    // A frame sized up keeps the canvas's own filter, as a live draw would sample it.
+    if (smoothing && w <= sourceWidth && h <= sourceHeight) target.imageSmoothingQuality = "high";
     if (frame) target.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
     else target.drawImage(image, 0, 0, w, h);
     entry.canvases.set(key, canvas);

@@ -4,7 +4,7 @@ import { clamp } from "../math";
 import { createSpawnSites, type MapId, type SpawnSite, type WorldDecor, type WorldPath } from "../world";
 import type { Movement } from "./player-input-controller";
 import type { DragonBossState, EnemyState, PlayerState, DuelScene, RuntimeDuelReplay, RuntimeDuelState } from "./types";
-import { setPlayerBaseMaxHealth } from "./player-health";
+import { healPlayer, setPlayerBaseMaxHealth } from "./player-health";
 
 type LocalState = { x: number; y: number; facing?: number };
 type DuelPresentation = { state: { challengerHp: number; opponentHp: number } };
@@ -202,7 +202,7 @@ export function createPlayerController(options: {
       );
     }
     player.hurtClock = Math.max(0, player.hurtClock - dt);
-    if (player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + regenerationPerSecond() * dt);
+    healPlayer(player, regenerationPerSecond() * dt, "regen");
     if (isAutoAttackEnabled()) autoAttack();
     else player.combatFacing = null;
   }

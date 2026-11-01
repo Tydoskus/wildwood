@@ -1,4 +1,5 @@
 import { renderBooleanSetting } from "./settings";
+import { setDisabled } from "./dom-write";
 
 /**
  * The account's offline-progress opt-out.
@@ -22,7 +23,7 @@ export function installOfflineProgressSetting(doc: Document, session: () => Offl
   let busy = false;
   function refresh() {
     renderBooleanSetting(button!, enabled());
-    button!.disabled = busy || !connected();
+    setDisabled(button!, busy || !connected());
   }
   button.addEventListener("click", async () => {
     if (busy || !connected()) return;

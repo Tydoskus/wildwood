@@ -34,8 +34,9 @@ function exactOverlapDirection(left: EnemyState, right: EnemyState) {
 /** Deterministically restores the soft spacing used by active enemy crowds. */
 export function separateEnemyCrowd(
   enemies: readonly EnemyState[],
-  canSeparate: CanSeparate = () => true,
+  canSeparate?: CanSeparate,
 ) {
+  const worldW = WORLD.w, worldH = WORLD.h;
   for (let pass = 0; pass < CROWD_SEPARATION_PASSES; pass += 1) {
     for (let leftIndex = 0; leftIndex < enemies.length; leftIndex += 1) {
       const left = enemies[leftIndex];
@@ -52,17 +53,24 @@ export function separateEnemyCrowd(
         if (dy >= minimumDistance || dy <= -minimumDistance) continue;
         const distanceSquared = dx * dx + dy * dy;
         if (distanceSquared >= minimumDistance * minimumDistance) continue;
-        if (!canSeparate(left, right)) continue;
+        if (canSeparate && !canSeparate(left, right)) continue;
 
         const distance = Math.sqrt(distanceSquared);
-        const direction = distance > .001
-          ? { x: dx / distance, y: dy / distance }
-          : exactOverlapDirection(left, right);
+        // Plain numbers, not a direction object per pushed pair.
+        let directionX: number, directionY: number;
+        if (distance > .001) {
+          directionX = dx / distance;
+          directionY = dy / distance;
+        } else {
+          const overlap = exactOverlapDirection(left, right);
+          directionX = overlap.x;
+          directionY = overlap.y;
+        }
         const push = (minimumDistance - distance) * .5;
-        left.x = clamp(left.x - direction.x * push, left.r, WORLD.w - left.r);
-        left.y = clamp(left.y - direction.y * push, left.r, WORLD.h - left.r);
-        right.x = clamp(right.x + direction.x * push, right.r, WORLD.w - right.r);
-        right.y = clamp(right.y + direction.y * push, right.r, WORLD.h - right.r);
+        left.x = clamp(left.x - directionX * push, left.r, worldW - left.r);
+        left.y = clamp(left.y - directionY * push, left.r, worldH - left.r);
+        right.x = clamp(right.x + directionX * push, right.r, worldW - right.r);
+        right.y = clamp(right.y + directionY * push, right.r, worldH - right.r);
       }
     }
   }

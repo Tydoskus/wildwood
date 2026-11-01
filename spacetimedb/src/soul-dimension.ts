@@ -6,7 +6,7 @@ import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import { challengeActive } from "./prestige-challenge";
 import { bonusOffFor } from "./bonus-toggles";
 import { soulInPlayFor } from "../../shared/bonus-toggles";
-import { attackCapInPlay } from "./prestige";
+import { attackCapInPlay, type BonusRows } from "./prestige";
 import { cleanRating } from "../../shared/stat-rating";
 import {
   addSoulKills, addSoulXp, cleanSoulLevel, cleanSoulStats, isSoulMap, mergeSoulLevels, soulDimensionAccess, soulRewardMultiplier, soulStatsUnlocked, soulTier,
@@ -85,11 +85,11 @@ export function soulReturnOpenFor(ctx: any, identity: any) {
  * The soul stats combat adds to a run: on top of its base stats in a normal run, and nothing during a
  * challenge (Reflect Only or Aggro), which plays from its own start. Nothing for a player with none.
  */
-export function soulStatsFor(ctx: any, identity: any): SoulStats | null {
-  if (!identity || challengeActive(ctx, identity)) return null;
+export function soulStatsFor(ctx: any, identity: any, read?: BonusRows): SoulStats | null {
+  if (!identity || (read ? Boolean(read.challenge?.active) || read.aggro : challengeActive(ctx, identity))) return null;
   const row = ctx.db.playerSoulStats.identity.find(identity);
   // Each soul stat switched off reads zero (bonus-toggles.ts).
-  return row ? soulInPlayFor(cleanSoulStats(row), bonusOffFor(ctx, identity)) : null;
+  return row ? soulInPlayFor(cleanSoulStats(row), read?.off ?? bonusOffFor(ctx, identity)) : null;
 }
 
 /** The attack speed cap the soul's rating adds under: Reflect Only wins and Quick Draw raise it. Soul is in play only outside a challenge. */

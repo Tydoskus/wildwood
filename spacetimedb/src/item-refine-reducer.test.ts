@@ -69,6 +69,22 @@ describe("a refine try", () => {
     expect(oreCount(f.ctx, f.ctx.sender, "adamant_ore")).toBe(48);
   });
 
+  it("counts fails in a row on that copy, rolls the next try against the raised chance, and starts over on a success", () => {
+    const f = atBench();
+    // Ion Bow +10 to +11: 2%, then 2.02%, 2.04%, ... with each fail in a row.
+    setRefineLevel(f.ctx, f.ctx.sender, "ion_bow", 0n, 10);
+    addOres(f.ctx, f.ctx.sender, "starshard", 50);
+    f.rolls(.0201);
+    f.refine();
+    expect(f.level()).toBe(10);
+    f.refine();
+    expect(f.level()).toBe(11);
+    // The next level starts from none.
+    f.rolls(.999);
+    f.refine();
+    expect(f.db.playerRefinePity.key.find(`${f.ctx.sender.toHexString()}:ion_bow:0`)).toMatchObject({ level: 11, fails: 1 });
+  });
+
   it("takes a Starshard as well from +11, goes past +20, and stops at +30", () => {
     const f = atBench();
     f.rolls(0);

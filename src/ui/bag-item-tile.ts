@@ -4,6 +4,9 @@ import { formatEquipmentAmount } from "./equipment-stat-format";
 import { appendItemTierLabel } from "./item-tier-label";
 import { appendRefineBadge } from "./refine-badge";
 import { itemGradeRank } from "../../shared/item-tier";
+import { REFINE_ORES, type OreId } from "../../shared/refine";
+import { oreIconSource } from "./ore-icon";
+import { formatCompactNumber } from "./number-format";
 
 /** Colors a tile by the piece's grade (game.css [data-grade]); empty or non-gear tiles keep the plain one. */
 export function setTileGrade(tile: HTMLElement, itemId: string | undefined) {
@@ -30,16 +33,38 @@ export function appendBagTileContents(button: HTMLElement, itemId: string,
   appendRefineBadge(button, refine);
 }
 
-/** Damage, Max Health and Regen as short coloured values. */
+/** A material stack's insides: its icon, its short name over it as a tier sits over gear, and the count in the corner. */
+export function appendOreTileContents(button: HTMLElement, oreId: OreId, count: number) {
+  const art = document.createElement("span");
+  art.className = "inventory-item-art-wrap";
+  const source = oreIconSource(oreId);
+  if (source) {
+    const image = document.createElement("span");
+    image.className = "inventory-item-art";
+    image.setAttribute("aria-hidden", "true");
+    image.style.backgroundImage = `url(${source})`;
+    art.append(image);
+  }
+  const label = document.createElement("span");
+  label.className = "item-tier-label is-above";
+  label.textContent = REFINE_ORES[oreId].name.replace(/ (Ore|Arrow)$/, "").replace(/^Arcane /, "");
+  const stack = document.createElement("span");
+  stack.className = "inventory-stack-count";
+  stack.textContent = count < 10_000 ? String(count) : formatCompactNumber(count);
+  button.append(art, label, stack);
+}
+
+/** Damage, Max Health and Regen as short coloured multipliers. */
 function statValues(itemId: string, tier: number, refine: number) {
   const bonuses = document.createElement("span");
   bonuses.className = "inventory-item-bonuses";
   for (const stat of itemStats(itemId, { tier, refine })) {
-    const match = /^(DAMAGE|MAX HEALTH|REGEN) (\+[\d.]+)(%?)$/.exec(stat);
+    // A multiplier ("×1.23") as written; an old flat amount ("+5") shortened.
+    const match = /^(DAMAGE|MAX HEALTH|REGEN) (?:(×\S+)|\+([\d.]+))$/.exec(stat);
     if (!match) continue;
     const value = document.createElement("span");
     value.dataset.statKind = match[1] === "DAMAGE" ? "damage" : match[1] === "MAX HEALTH" ? "health" : "regen";
-    value.textContent = `+${formatEquipmentAmount(Number(match[2]))}${match[3]}`;
+    value.textContent = match[2] ?? `+${formatEquipmentAmount(Number(match[3]))}`;
     value.title = stat;
     value.setAttribute("aria-label", stat);
     bonuses.append(value);

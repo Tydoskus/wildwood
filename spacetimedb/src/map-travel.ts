@@ -6,7 +6,7 @@ import { WORLD_WIDTH, WORLD_HEIGHT, MAP_IDS, INTERMEDIATE_SNOWLANDS_MAP_ID, BOSS
 import { HOME_EXTERIOR_MAP_ID, HOME_TRAVEL_PORTAL } from "../../shared/home";
 import { isProceduralMap, PROCEDURAL_ENTRY_BOSS, generateMap, PROCEDURAL_ENTRY_MAP, proceduralMapId } from "../../shared/procedural-maps";
 import { isSoulMap, soulReturnOpenFor, worldBoundsFor, requireSoulDimensionOpen, SOUL_TOWN_PORTAL, SOUL_ARRIVAL } from "./soul-dimension";
-import { isGuildHallMap, guildHallMember, enterGuildHall } from "./guild-hall";
+import { isGuildHallMap, guildHallMember, enterGuildHall, guildHallReturnPointFor } from "./guild-hall";
 import { isTownMap, TOWN_MAP_ID, TOWN_ARRIVAL, townPortalUsePoints } from "./town";
 import { TOWN_DOORS, TOWN_RESEARCH_POSITION } from "../../shared/town";
 import { CAMPAIGN_GATEWAYS, portalUsePoint, campaignLanding, endlessEntryPortal, exitPortalFor, portalArrival } from "../../shared/map-gateways";
@@ -65,7 +65,8 @@ export function changePlayerMap(ctx: ModuleReducerCtx, { mapId, x, y }: { mapId:
       const destination = permitted && saved && saved.mapId !== HOME_EXTERIOR_MAP_ID && !isTownMap(saved.mapId) && VALID_MAP_IDS.has(saved.mapId)
         && [saved.x, saved.y, saved.facing].every(Number.isFinite)
         ? saved : { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN, facing: 0 };
-      transitionPlayerMap(ctx, current, destination.mapId, destination, destination.facing);
+      const landing = isGuildHallMap(destination.mapId) ? guildHallReturnPointFor(ctx, destination.mapId, destination.x, destination.y) : destination;
+      transitionPlayerMap(ctx, current, destination.mapId, landing, destination.facing);
     } else enterTown(ctx, current, x, y, TOWN_ARRIVAL);
     persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
     return;

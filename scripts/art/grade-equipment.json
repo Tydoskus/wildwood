@@ -150,8 +150,8 @@
       },
       "r10": "HandRight/Sword/FA_WP_Main_Sword_025_Gold.png",
       "r20": {
-        "source": "HandRight/Sword/FA_WP_Main_Sword_025_Gold.png",
-        "hue": 190
+        "source": "HandRight/Sword/FA_WP_Main_Sword_025_Dark.png",
+        "tint": "#3f7fe6"
       }
     },
     "common_sword": {
@@ -160,7 +160,7 @@
         "look": "dark grey cleaver"
       },
       "r10": {
-        "source": "HandRight/Sword/FA_WP_Main_Sword_029_BrownGray.png",
+        "source": "HandRight/Sword/FA_WP_Main_Sword_029_DarkGray.png",
         "tint": "#e3b24a"
       },
       "r20": {
@@ -178,8 +178,8 @@
         "tint": "#e3b24a"
       },
       "r20": {
-        "source": "HandRight/Sword/FA_WP_Main_Sword_027_DarkGray.png",
-        "tint": "#34b874"
+        "source": "HandRight/Sword/FA_WP_Main_Sword_027_BrownGray.png",
+        "tint": "#3f7fe6"
       }
     },
     "fine_sword": {
@@ -192,8 +192,8 @@
         "tint": "#e3b24a"
       },
       "r20": {
-        "source": "HandRight/Sword/FA_WP_Main_Sword_032_PurpleGray.png",
-        "tint": "#a35ee8"
+        "source": "HandRight/Sword/FA_WP_Main_Sword_032_BrownGray.png",
+        "tint": "#3f7fe6"
       }
     },
     "superior_sword": {
@@ -201,10 +201,13 @@
         "source": "HandRight/Sword/FA_WP_Main_Sword_022_DarkGary.png",
         "look": "long grey blade"
       },
-      "r10": "HandRight/Sword/FA_WP_Main_Sword_022_BrownYellow.png",
+      "r10": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_022_DarkGary.png",
+        "tint": "#e3b24a"
+      },
       "r20": {
-        "source": "HandRight/Sword/FA_WP_Main_Sword_022_BrownYellow.png",
-        "hue": 200
+        "source": "HandRight/Sword/FA_WP_Main_Sword_022_DarkGary.png",
+        "tint": "#3f7fe6"
       }
     },
     "rare_sword": {
@@ -212,8 +215,14 @@
         "source": "HandRight/Sword/FA_WP_Main_Sword_028_DarkWood.png",
         "look": "saw-backed blade"
       },
-      "r10": "HandRight/Sword/FA_WP_Main_Sword_028_SteelRed.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_028_DarkGreen.png"
+      "r10": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_028_DarkWood.png",
+        "tint": "#e3b24a"
+      },
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_028_DarkWood.png",
+        "tint": "#3f7fe6"
+      }
     },
     "exquisite_sword": {
       "base": {
@@ -221,7 +230,10 @@
         "look": "dark hooked blade"
       },
       "r10": "HandRight/Sword/FA_WP_Main_Sword_024_Gold.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_024_Purple.png"
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_024_Dark.png",
+        "tint": "#3f7fe6"
+      }
     },
     "epic_sword": {
       "base": {
@@ -230,8 +242,8 @@
       },
       "r10": "HandRight/Sword/FA_WP_Main_Sword_026_Gold.png",
       "r20": {
-        "source": "HandRight/Sword/FA_WP_Main_Sword_026_Gold.png",
-        "hue": 180
+        "source": "HandRight/Sword/FA_WP_Main_Sword_026_Gray.png",
+        "tint": "#3f7fe6"
       }
     },
     "heroic_sword": {
@@ -240,7 +252,10 @@
         "look": "silver twin blade"
       },
       "r10": "HandRight/Sword/FA_WP_Main_Sword_034_Gold.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_034_Blue.png"
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_034_Silver.png",
+        "tint": "#3f7fe6"
+      }
     },
     "legendary_sword": {
       "base": {
@@ -248,23 +263,38 @@
         "look": "serrated silver fangs"
       },
       "r10": "HandRight/Sword/FA_WP_Main_Sword_031_Gold.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_031_Red.png"
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_031_DarkSilver.png",
+        "tint": "#3f7fe6"
+      }
     },
     "mythic_sword": {
       "base": {
         "source": "HandRight/Sword/FA_WP_Main_Sword_023_Green.png",
         "look": "long green crescent"
       },
-      "r10": "HandRight/Sword/FA_WP_Main_Sword_023_Red.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_023_Purple.png"
+      "r10": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_023_Green.png",
+        "tint": "#e3b24a"
+      },
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_023_Green.png",
+        "tint": "#3f7fe6"
+      }
     },
     "ancient_sword": {
       "base": {
         "source": "HandRight/Sword/FA_WP_Main_Sword_033_Green.png",
         "look": "green leaf blade"
       },
-      "r10": "HandRight/Sword/FA_WP_Main_Sword_033_Blue.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_033_Purple.png"
+      "r10": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_033_Green.png",
+        "tint": "#e3b24a"
+      },
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_033_Green.png",
+        "tint": "#3f7fe6"
+      }
     },
     "celestial_sword": {
       "base": {
@@ -272,23 +302,38 @@
         "look": "pale arrowhead blade"
       },
       "r10": "HandRight/Sword/FA_WP_Main_Sword_021_Gold.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_021_Blue.png"
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_021_YellowGray.png",
+        "tint": "#3f7fe6"
+      }
     },
     "divine_sword": {
       "base": {
         "source": "HandRight/Sword/FA_WP_Main_Sword_030_Green.png",
         "look": "green forked blade"
       },
-      "r10": "HandRight/Sword/FA_WP_Main_Sword_030_Yellow.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_030_PurplePink.png"
+      "r10": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_030_Green.png",
+        "tint": "#e3b24a"
+      },
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_030_Green.png",
+        "tint": "#3f7fe6"
+      }
     },
     "eternal_sword": {
       "base": {
-        "source": "HandRight/Sword/FA_WP_Main_Sword_020_Blue.png",
-        "look": "cyan crystal blade"
+        "source": "HandRight/Sword/FA_WP_Main_Sword_020_Black.png",
+        "look": "black and steel greatsword"
       },
-      "r10": "HandRight/Sword/FA_WP_Main_Sword_020_Red.png",
-      "r20": "HandRight/Sword/FA_WP_Main_Sword_020_Black.png"
+      "r10": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_020_Black.png",
+        "tint": "#e3b24a"
+      },
+      "r20": {
+        "source": "HandRight/Sword/FA_WP_Main_Sword_020_Red.png",
+        "tint": "#3f7fe6"
+      }
     },
     "crude_staff": {
       "base": {

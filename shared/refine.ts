@@ -32,6 +32,13 @@ export const REFINE_ORES = {
   yew_log: { name: "Yew Log", grade: null },
   elder_log: { name: "Elder Log", grade: null },
   arcane_crystal: { name: "Arcane Crystal", grade: null },
+  // Crafted arrows (arrows.ts): stacked as materials, spent by the bow.
+  steel_arrow: { name: "Steel Arrow", grade: null },
+  fire_arrow: { name: "Fire Arrow", grade: null },
+  venom_arrow: { name: "Venom Arrow", grade: null },
+  frost_arrow: { name: "Frost Arrow", grade: null },
+  piercing_arrow: { name: "Piercing Arrow", grade: null },
+  star_arrow: { name: "Star Arrow", grade: null },
 } as const;
 export type OreId = keyof typeof REFINE_ORES;
 /** The four ores a grade refines with. */
@@ -49,8 +56,8 @@ export const ARMOR_SAFE_LIMIT = 4;
 
 /**
  * The chance a try past the safe limit works, by the level it is for: Ragnarok's classic table to +10 (rounded),
- * then far lower to +30. A fail costs only the ore, so a level takes one over its chance in tries: a top-grade
- * item about 27 tries to +10, about 1,700 to +20 and about 19,000 to +30, every try from +11 a Starshard as well.
+ * then far lower to +30. A fail costs only the ore and raises the next try's chance (refineChanceAfterFails): a
+ * top-grade item about 26 tries to +10, about 1,300 to +20 and about 14,600 to +30, every try from +11 a Starshard as well.
  */
 const WEAPON_ODDS: Readonly<Record<RefineGrade, Readonly<Record<number, number>>>> = {
   1: { 8: .6, 9: .4, 10: .2 },
@@ -96,16 +103,25 @@ export function refineSafeLimit(itemId: unknown) {
 }
 
 /**
- * The chance a try for `toLevel` works: certain up to the safe limit, then the tables above, raised by
- * Refine Luck up to certainty. Zero when it can't be tried.
+ * Each failed try in a row at a level makes the next likelier: half the chance again after an average run of
+ * tries (one over the chance), double after two. It cuts long dry streaks short; a success starts it over.
  */
-export function refineSuccessChance(itemId: unknown, toLevel: number, refineLuckRank = 0) {
+export function refineChanceAfterFails(chance: number, fails: number) {
+  if (!(chance > 0) || chance >= 1 || !(fails > 0)) return chance;
+  return Math.min(1, chance * (1 + Math.floor(fails) * chance / 2));
+}
+
+/**
+ * The chance a try for `toLevel` works: certain up to the safe limit, then the tables above, raised by
+ * Refine Luck up to certainty, then by the fails in a row before it. Zero when it can't be tried.
+ */
+export function refineSuccessChance(itemId: unknown, toLevel: number, refineLuckRank = 0, fails = 0) {
   const grade = refineGrade(itemId);
   if (!grade || !Number.isInteger(toLevel) || toLevel < 1 || toLevel > REFINE_MAX) return 0;
   if (toLevel <= refineSafeLimit(itemId)) return 1;
   const table = itemDefinition(itemId)?.slot === "HAND" ? WEAPON_ODDS[grade] : ARMOR_ODDS;
   const chance = toLevel > 10 ? HIGH_ODDS[toLevel] ?? 0 : table[toLevel] ?? 0;
-  return chanceWithLuck(chance, "refineLuck", refineLuckRank);
+  return refineChanceAfterFails(chanceWithLuck(chance, "refineLuck", refineLuckRank), fails);
 }
 
 /** What a try for `toLevel` costs, or null when the item can't be refined to it. */
@@ -131,20 +147,29 @@ export function expectedRefineTries(itemId: unknown): number[] {
   const totals = [0];
   let total = 0;
   for (let level = 1; level <= REFINE_MAX; level++) {
-    const chance = refineSuccessChance(itemId, level);
-    // A fail keeps the level, so a level takes one over its chance in tries.
-    total += chance > 0 ? 1 / chance : Number.POSITIVE_INFINITY;
+    total += expectedTriesAt(refineSuccessChance(itemId, level));
     totals.push(total);
   }
   return totals;
+}
+
+/** A level's average tries from its first: a fail keeps the level, and each fail raises the next try's chance. */
+function expectedTriesAt(chance: number) {
+  if (!(chance > 0)) return Number.POSITIVE_INFINITY;
+  let tries = 0, unlucky = 1;
+  for (let fails = 0; unlucky > 1e-12; fails++) {
+    tries += unlucky;
+    unlucky *= 1 - refineChanceAfterFails(chance, fails);
+  }
+  return tries;
 }
 
 /**
  * Rolls one try. `roll` is a number in [0, 1) from the server's random source; a try works when it lands
  * under the chance. Returns the level the item ends on.
  */
-export function rollRefine(itemId: unknown, currentLevel: number, roll: number, refineLuckRank = 0) {
+export function rollRefine(itemId: unknown, currentLevel: number, roll: number, refineLuckRank = 0, fails = 0) {
   const current = normalizeRefineLevel(currentLevel);
-  const succeeded = roll < refineSuccessChance(itemId, current + 1, refineLuckRank);
+  const succeeded = roll < refineSuccessChance(itemId, current + 1, refineLuckRank, fails);
   return { succeeded, level: refineResultLevel(current, succeeded) };
 }

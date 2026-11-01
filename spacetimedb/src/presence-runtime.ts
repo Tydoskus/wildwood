@@ -9,7 +9,7 @@
 // contract test reads its source there. Helpers that still live in index.ts
 // arrive through createPresenceRuntime's deps so the moved code reads exactly
 // as it did.
-import { GUILD_HALL_ARRIVAL, guildHallMember, isGuildHallMap } from "./guild-hall";
+import { GUILD_HALL_ARRIVAL, guildHallMember, guildHallReturnPointFor, isGuildHallMap } from "./guild-hall";
 import { isTownMap, TOWN_ARRIVAL, TOWN_MAP_ID } from "../../shared/town";
 import { ScheduleAt } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
@@ -438,7 +438,8 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     const y = useSavedPosition && Number.isFinite(saved?.y)
       ? Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, saved.y))
       : fallback.y;
-    return { mapId, x, y, facing: useSavedPosition && Number.isFinite(saved?.facing) ? saved.facing : 0 };
+    const at = useSavedPosition && isGuildHallMap(mapId) ? guildHallReturnPointFor(ctx, mapId, x, y) : { x, y };
+    return { mapId, x: at.x, y: at.y, facing: useSavedPosition && Number.isFinite(saved?.facing) ? saved.facing : 0 };
   }
 
   function clearOrphanPresence(ctx: any) {

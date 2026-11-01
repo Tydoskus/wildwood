@@ -36,7 +36,7 @@ export type CoopSessionWiringDeps = {
   playerInput: Pick<ReturnType<typeof createPlayerInputController>, "movement">;
   reconcileMap: () => void;
 } & Pick<CoopSessionHooks,
-  | "syncLifetimeKills" | "refreshGemCounter" | "refreshMailbox" | "refreshGiftsAndMail" | "refreshDevPanel" | "loadProgress"
+  | "syncLifetimeKills" | "refreshGemCounter" | "refreshGiftsAndMail" | "refreshDevPanel" | "loadProgress"
   | "resetMovementSync" | "syncBossState" | "finishStartup" | "updateProtocolGate" | "refreshChat" | "updateDuelControls"
   | "refreshAppStatus" | "refreshReconnectOverlay">;
 
@@ -53,7 +53,6 @@ export function createCoopSessionWiring(deps: CoopSessionWiringDeps) {
     coop: client,
     syncLifetimeKills: deps.syncLifetimeKills,
     refreshGemCounter: deps.refreshGemCounter,
-    refreshMailbox: deps.refreshMailbox,
     refreshGiftsAndMail: deps.refreshGiftsAndMail,
     refreshWindows: createSessionWindowRefresh({ coop: client, ...deps.windows }),
     refreshLeaderboard: () => deps.leaderboard.setUnlocked(leaderboardEligible(coop.savedProgress()?.desertUnlocked, client?.prestige?.()?.level)),
@@ -87,7 +86,7 @@ export function createCoopSessionWiring(deps: CoopSessionWiringDeps) {
     refreshReconnectOverlay: deps.refreshReconnectOverlay,
   });
   const offlineProgressSummary = createOfflineProgressSummary({
-    acknowledge: () => { void client?.acknowledgeOfflineProgress?.(); },
+    acknowledge: activity => client?.acknowledgeOfflineProgress?.(activity),
     pending: () => client?.pendingOfflineProgress?.(),
     readyToShow: () => !deps.inTutorial() && deps.isRunning(),
   });

@@ -22,7 +22,7 @@ describe("graded boots' stats", () => {
     expect([bootMoveSpeedFactor(boots("warrior")), bootArmorFactor(boots("mystic")), bootSkillChanceFactor(boots("ranger"))]).toEqual([1, 1, 1]);
     // ★20 is +150%; feet have no slot tier, so a tier passed in counts for nothing.
     expect(bootMoveSpeedFactor(boots("ranger", "eternal"), { tier: 50, refine: 20 })).toBeCloseTo(1 + 20 * 2.5 / 100);
-    expect(itemStats(boots("warrior", "eternal"), { refine: 10 })).toEqual([`ARMOR +${GRADE_BONUS_PERCENT.eternal * 1.5}%`]);
+    expect(itemStats(boots("warrior", "eternal"), { refine: 10 })).toEqual([`ARMOR ×${Number((1 + GRADE_BONUS_PERCENT.eternal * 1.5 / 100).toFixed(2))}`]);
     expect(itemStats(boots("mystic", "crude"))).toEqual(["SKILL CHANCE +2%"]);
     expect([hasBootStat(boots("ranger")), hasBootStat("black_boots"), hasBootStat("rare_bow")]).toEqual([true, false, false]);
   });

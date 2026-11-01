@@ -4,6 +4,7 @@ import { proceduralMapNumber } from "../../shared/procedural-maps";
 import { readPlayerProgress } from "./wide-stats";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import type { GameReducerContext } from "./index";
+import { recordRunBossClear } from "./run-timing";
 
 /** The caller has checked the owning session, report sequence and current map.
  * Local boss combat reports a gate clear, never a stat, loot or currency reward.
@@ -17,6 +18,7 @@ export function recordBossGateClear(ctx: GameReducerContext, mapId: string) {
     if ((previous?.completed ?? 0) >= number) return null;
     const next = { identity: ctx.sender, completed: number };
     if (previous) ctx.db.proceduralProgress.identity.update(next); else ctx.db.proceduralProgress.insert(next);
+    recordRunBossClear(ctx, ctx.sender, mapId);
     return { changed: true, previousProgress: null };
   }
   const index = CAMPAIGN_MAPS.findIndex(map => map.id === mapId);
@@ -28,5 +30,6 @@ export function recordBossGateClear(ctx: GameReducerContext, mapId: string) {
   const legacyUnlock = (CAMPAIGN_UNLOCK_FIELDS as readonly string[]).includes(unlock) ? unlock : null;
   if (claims === progress.bossRewardClaims && (!legacyUnlock || progress[legacyUnlock])) return null;
   updateSnapshotRow(ctx, "playerProgress", { ...progress, bossRewardClaims: claims, ...(legacyUnlock ? { [legacyUnlock]: true } : {}) });
+  if (claims !== progress.bossRewardClaims) recordRunBossClear(ctx, ctx.sender, mapId);
   return { changed: true, previousProgress: progress };
 }

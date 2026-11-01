@@ -21,9 +21,9 @@ it("no longer drops black boots in Night Forest, and keeps owned ones on the fee
 it("rejects unowned or cosmetic-only speed boosts and accepts the exact equipped bonus", () => {
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: "starter_stone", damage: 1e15 });
-  expect(() => f.run(server.setSpeed, { speed: 205 })).toThrow("Unsupported player speed");
+  expect(() => f.run(server.setSpeed, { speed: PLAYER_SPEED + 5 })).toThrow("Unsupported player speed");
   f.patch("playerProgress", { inventoryJson: JSON.stringify([BLACK_BOOTS]), cosmeticFeet: BLACK_BOOTS });
-  expect(() => f.run(server.setSpeed, { speed: 205 })).toThrow("Unsupported player speed");
+  expect(() => f.run(server.setSpeed, { speed: PLAYER_SPEED + 5 })).toThrow("Unsupported player speed");
   // Worn, they count before Night Forest is reached: gear never locks behind a map.
   f.patch("playerProgress", { equippedFeet: BLACK_BOOTS });
   const shod = PLAYER_SPEED + 25;

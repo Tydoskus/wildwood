@@ -280,7 +280,7 @@
   paint-order: normal;
   text-shadow: none;
 }
-#autoFarmSheet.farm-card[hidden], #hud:has(#chatPanel.is-large) #autoFarmSheet { display: none; }
+#autoFarmSheet.farm-card[hidden], #hud.chat-large #autoFarmSheet { display: none; }
 #chatPanel[hidden] ~ #autoFarmSheet { bottom: calc(var(--toolbar-height) + 12px); }
 #autoFarmSheet.farm-card.is-world-gesture, #autoFarmSheet.farm-card.is-world-gesture * { pointer-events: none; }
 #autoFarmSheet.farm-card .farm-header { display: flex; align-items: center; padding: 0; }
@@ -668,6 +668,8 @@
 .smith-sheet .smith-shop-copy strong { font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
 .smith-sheet .smith-shop-grade, .smith-sheet .smith-shop-stat { max-width: 100%; overflow: hidden; color: var(--muted); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .smith-sheet .smith-shop-stat { color: #fff; font-size: 14px; font-weight: 800; }
+/* An arrow's effect is its whole point: it wraps rather than cut. */
+.smith-sheet .smith-shop-row.is-arrow .smith-shop-stat { white-space: normal; }
 /* What a piece changes against what is worn, as a pill: better white, worse muted. */
 .smith-sheet .smith-compare { margin: 3px 0 1px; padding: 4px 10px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: #1d1d1d; color: #fff; font: 900 13px/16px var(--font-rounded); }
 .smith-sheet .smith-compare.is-better { border-color: rgba(255,255,255,.6); }
@@ -759,16 +761,42 @@
 .station-sheet .station-detail { flex: 0 1 auto; min-height: 0; margin: 0 14px 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .station-sheet .station-detail.smith-focus { margin: 0 14px 8px; }
 .station-sheet .station-detail .smith-empty { margin: 14px 0; }
+.smith-auto-refine { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 10px; }
+.smith-auto-refine label, .smith-auto-mode-field { display: grid; gap: 4px; color: var(--muted); font: 800 13px/1.35 var(--font-rounded); }
+.smith-auto-refine :is(.smith-auto-mode > summary, input) { min-width: 0; width: 100%; box-sizing: border-box; height: 44px; padding: 0 10px; border: 1px solid rgba(255,255,255,.18); border-radius: 8px; background-color: #111214; color: #f4f4f2; color-scheme: dark; font: 800 14px/1.35 var(--font-rounded); box-shadow: inset 0 2px 3px rgba(0,0,0,.3); }
+.smith-auto-mode > summary { display: flex; align-items: center; list-style: none; padding-right: 28px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%23f4f4f2' stroke-width='2'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 12px 8px; cursor: pointer; }
+.smith-auto-refine :is(.smith-auto-mode > summary, input):focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.smith-auto-refine :is(.smith-auto-mode > summary, input):disabled { opacity: .55; cursor: default; }
+.smith-refine-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; grid-column: 1 / -1; }
+.smith-sheet .smith-refine-actions .farm-start { justify-self: stretch; width: 100%; min-width: 0; max-width: 100%; height: auto; min-height: 44px; padding: 4px 8px 6px; font-size: 14px; }
+.smith-sheet .smith-refine-actions .smith-auto-start { border-color: #6b6b6b; background: linear-gradient(#3a3b3f, #232427); box-shadow: 0 3px 0 #111; }
+.smith-sheet .smith-refine-actions .smith-auto-start.is-running { border-color: #492020; background: linear-gradient(#cf6868, #953c3c); box-shadow: 0 3px 0 #431d1d; }
+.smith-sheet .smith-refine-actions .smith-auto-start:active:not(:disabled) { box-shadow: 0 1px 0 #111; }
+.smith-sheet .smith-refine-actions .smith-auto-start.is-running:active { box-shadow: 0 1px 0 #431d1d; }
+.smith-auto-status { grid-column: 1 / -1; font-size: 13px; color: var(--muted); text-align: center; }
+.smith-auto-status:empty { display: none; }
+.smith-auto-refine [hidden] { display: none; }
+.smith-auto-mode > summary::-webkit-details-marker { display: none; }
+.smith-auto-mode > summary[aria-disabled="true"] { opacity: .55; cursor: default; }
+.smith-auto-mode { position: relative; }
+.smith-auto-mode-list { position: absolute; z-index: 4; left: 0; right: 0; bottom: calc(100% + 4px); display: grid; gap: 3px; box-sizing: border-box; max-height: min(180px, 40dvh); overflow-y: auto; padding: 4px; border: 1px solid rgba(255,255,255,.18); border-radius: 8px; background: #111214; box-shadow: 0 3px 10px rgba(0,0,0,.5); }
+.smith-auto-mode-list button { min-height: 40px; padding: 6px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #f4f4f2; font: 800 14px/1.35 var(--font-rounded); text-align: left; cursor: pointer; }
+.smith-auto-mode-list button[aria-pressed="true"] { border-color: #fff; background: rgba(255,255,255,.12); }
+.smith-auto-mode-list button:hover, .smith-auto-mode-list button:focus-visible { outline: none; border-color: #fff; background: rgba(255,255,255,.2); }
+.smith-auto-refine > :is(label, .smith-auto-mode-field) { align-self: start; }
 .station-sheet .station-scroll { display: flex; flex: 1 1 0; flex-direction: column; gap: 10px; min-height: 76px; padding: 2px 14px 12px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .station-sheet .station-scroll > .smith-filters, .station-sheet .station-scroll > .smith-ores, .station-sheet .station-scroll > .smith-intro, .station-sheet .station-scroll > .craft-section { margin: 0; }
 .station-sheet .station-scroll > * { flex: none; }
 .station-sheet .station-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .station-sheet .station-grid:empty { display: none; }
 .station-sheet .station-grid > .inventory-item { color: #fff; }
-.station-sheet .station-grid > .inventory-item.is-selected { border-color: #fff; background: #262626; box-shadow: inset 0 0 0 1px #fff; }
+.station-sheet .station-grid > .inventory-item.is-selected:not([data-grade]) { border-color: #fff; background: #262626; box-shadow: inset 0 0 0 1px #fff; }
 .station-sheet .station-grid > .inventory-item.is-waiting > :not(.station-tile-badge) { opacity: .4; }
 .station-sheet .station-tile-badge { position: absolute; right: 0; bottom: 3px; left: 0; color: #fff; font: 900 13px/1 var(--font-rounded); text-align: center; -webkit-text-stroke: 0; text-shadow: 0 1px 1px #000, 0 0 3px #000; pointer-events: none; }
 .station-sheet .station-detail-row { padding: 10px 12px; }
+/* A second grid's name in a tab: the Smith's Arrows under his gear. */
+.station-sheet .station-subhead { margin: 2px 0 -4px; color: #fff; font: 900 15px/1.2 var(--font-rounded); }
+.station-sheet .station-subhead[hidden] { display: none; }
 /* A school's Mastery card, as the Smith's crafting card. */
 .school-window .school-window-card { border-color: rgba(255,255,255,.12); border-radius: 12px; background: #141414; }
 .school-window .school-window-bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,.1); }
@@ -803,6 +831,9 @@
 .refine-stars { color: #ffd75e; }
 /* An ore stack in the bag: its count in the bottom corner, outlined like the tier label over it. */
 .inventory-item > .inventory-stack-count { position: absolute; right: 6px; bottom: 4px; z-index: 2; color: #fff; font: 900 13px/1 var(--font-rounded); -webkit-text-stroke: 3px #080b08; paint-order: stroke fill; pointer-events: none; }
+/* The arrow kind nocked: outlined in white, a tick before its name (hud.ts oreTile). */
+.inventory-item.is-ore.is-nocked { border-color: #fff; box-shadow: inset 0 0 0 1px #fff; }
+.inventory-item.is-ore.is-spent .inventory-item-art-wrap { opacity: .45; }
 /* Six filter tabs (Ores the sixth) and the bag's buttons need about 375px: narrower, the tabs take a row of their own
    and the buttons sit under them on the right, rather than the last tab scrolling out of sight. */
 @container (max-width: 380px) {

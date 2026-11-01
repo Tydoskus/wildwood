@@ -3,6 +3,7 @@ import * as server from "../../spacetimedb/src/index";
 import { ATTACK_BALANCE_VERSION, PROTOCOL_VERSION } from "../../shared/rules";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
 import { createMemoryDatabase } from "./spacetime-memory-db";
+import { RESEARCH_STAND } from "../../spacetimedb/src/research-station";
 
 export { server };
 export const identity = (digit: string) => new Identity(digit.repeat(64));
@@ -49,5 +50,7 @@ export function crystalFixture() {
   const patch = (table: string, changes: Record<string, unknown>, who = ctx.sender) => {
     db[table].identity.update({ ...db[table].identity.find(who), ...changes });
   };
-  return { ...storage, ctx, seed, progress, run, patch };
+  /** Research starts only at Tech Research in the Town (research-station.ts). */
+  const standAtResearch = () => patch("player", { mapId: "town", ...RESEARCH_STAND });
+  return { ...storage, ctx, seed, progress, run, patch, standAtResearch };
 }

@@ -14,6 +14,8 @@ export const NO_SWORD_SKILLS: SwordSkillRoll = Object.freeze({ whirlwind: 0, def
 export const SWORD_SKILL_APPEAR_CHANCE = 1 / 3;
 
 export const WHIRLWIND_RADIUS = 110;
+/** Whirlwind's radius for a sword reaching `reach`: range added past the sword's own reach widens the spin as much. */
+export const whirlwindRadius = (reach: number) => WHIRLWIND_RADIUS + Math.max(0, (Number.isFinite(reach) ? reach : SWORD_REACH) - SWORD_REACH);
 export const WHIRLWIND_TICKS = 3;
 export const WHIRLWIND_TICK_SECONDS = .2;
 export const WHIRLWIND_SECONDS = WHIRLWIND_TICKS * WHIRLWIND_TICK_SECONDS;

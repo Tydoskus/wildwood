@@ -19,7 +19,7 @@ export function createQuestTrackerSetting(storage: Pick<Storage, "getItem" | "se
 
 /**
  * The quest tracker on the HUD, at home too while it is switched on: the three quests in play with
- * their counts, those on the current map first and bright, the rest dimmed
+ * their counts, ordered by area from later to earlier. Those on the current map are bright, the rest dimmed
  * with where to find them. The header collapses it to a small chip; its ×, the
  * Quest Board and Settings turn it off. Rows are rebuilt only when what they show changes.
  */

@@ -166,7 +166,7 @@ export function payOutOldGear(ctx: Ctx, identity: Identity) {
   for (const row of [...ctx.db.playerCopyRefine.identity.filter(identity)] as any[]) {
     if (isOldMapGear(row.itemId)) ctx.db.playerCopyRefine.copyId.delete(row.copyId);
   }
-  for (const handle of [ctx.db.playerBowSkill, ctx.db.playerSwordSkill, ctx.db.playerStaffSkill, ctx.db.playerEquipmentLock, ctx.db.playerIgnoredDrop]) {
+  for (const handle of [ctx.db.playerBowSkill, ctx.db.playerSwordSkill, ctx.db.playerStaffSkill, ctx.db.playerEquipmentLock, ctx.db.playerIgnoredDrop, ctx.db.playerRefinePity]) {
     for (const row of [...handle.identity.filter(identity)] as any[]) if (isOldMapGear(row.itemId)) handle.key.delete(row.key);
   }
   const result = ctx.db.playerRefineResult.identity.find(identity);

@@ -25,6 +25,7 @@ import type { Camera } from "./camera";
 import type { ActorStatus } from "./actor-renderer";
 import { healthBarTextY } from "./health-bar-layout";
 import { drawScreenSpaceAt } from "./render-space";
+import { createPlayerStatusBars, paintPlayerStatusBar } from "./player-status-bar";
 import { OVERHEAD_IDENTITY_LIFT, OVERHEAD_PLATE_GAP, headArtTopOffsetY } from "./overhead-plate";
 import { NAMEPLATE_SCALE, plateFont, platePixels, plateSize, plateStroke } from "./nameplate-scale";
 import { plateIconBox, stackPlateLines, textInk, type LineInk } from "./plate-stack";
@@ -360,6 +361,7 @@ export function createPlayerIdentityRenderer(options: {
     });
   }
 
+  const drawStatusBar = createPlayerStatusBars();
   function drawActorStatus({ x, y, headTop = y + BARE_HEAD_TOP, identity, name, gender, nameColor, hp, maxHp, power, fillColor }: ActorStatus) {
     const ctx = options.ctx;
     // Anchored on the head or helmet in world space, so it clears tall helmets at every camera framing.
@@ -376,25 +378,9 @@ export function createPlayerIdentityRenderer(options: {
       const framePad = PLATE_FRAME_PAD;
       const barY = -OVERHEAD_PLATE_GAP - framePad - barH;
       const fillWidth = Math.round(barW * clamp(hp / maxHp, 0, 1));
-      const frameRadius = options.healthBarRadius + framePad;
-      ctx.fillStyle = "rgba(0,0,0,.88)";
-      options.roundRect(barX - framePad, barY - framePad, barW + framePad * 2, barH + framePad * 2, frameRadius);
-      ctx.fill();
-      ctx.fillStyle = "#000";
-      options.roundRect(barX, barY, barW, barH, options.healthBarRadius);
-      ctx.fill();
-      if (fillWidth > 0) {
-        ctx.save();
-        // Clip to the channel so a part-full bar keeps the rounded left end
-        // and stops square against the clip, instead of bulging at the join.
-        options.roundRect(barX, barY, barW, barH, options.healthBarRadius);
-        ctx.clip();
-        ctx.fillStyle = fillColor;
-        ctx.fillRect(barX, barY, fillWidth, barH);
-        ctx.fillStyle = "rgba(255,255,255,.25)";
-        ctx.fillRect(barX, barY, fillWidth, 1);
-        ctx.restore();
-      }
+      const bar = { x: barX, y: barY, width: barW, height: barH, pad: framePad, radius: options.healthBarRadius, fillWidth, fillColor };
+      // Copied from a bar drawn once per look (player-status-bar.ts), else drawn here.
+      if (!drawStatusBar(ctx, bar)) paintPlayerStatusBar(ctx, bar);
       ctx.save();
       ctx.font = PLATE_TEXT_FONT;
       ctx.textAlign = "center";

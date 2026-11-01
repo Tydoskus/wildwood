@@ -6,6 +6,7 @@ import { ARMOR_CLASSES, ARMOR_CLASS_DETAILS, BOOT_STYLES, BOOT_STYLE_SCHOOL, BOO
 import { GRADE_ARMOR_KINDS, bootStyleOf, type GradeItemId, type GradeWeaponKind } from "../../shared/grade-equipment";
 import type { GradeShopLine } from "../../shared/grade-shop";
 import type { WeaponSchool } from "../../shared/weapon-mastery";
+import { formatMultiplierChange } from "./number-format";
 
 /** What the player wears, as the bag saves it. */
 export type WornLoadout = { equippedRightHand?: string; equippedLeftHand?: string; equippedHead?: string; equippedChest?: string; equippedFeet?: string };
@@ -44,7 +45,7 @@ function slotStat(itemId: string, level: ItemLevel, bootStat?: "moveSpeed" | "ar
 export type GearComparison = { delta: number; label: string; text: string };
 
 /**
- * What an offer changes against what the player wears in its slot, in points of its stat: "+12% Damage vs Now".
+ * What an offer changes against what the player wears in its slot: "×1.14 Damage vs Now".
  * The offer arrives unrefined at the slot's tier; the worn piece counts its refine.
  */
 export function gearComparison(offerId: GradeItemId, worn: WornLoadout, levels: { tier: number; wornRefine: number }): GearComparison {
@@ -55,6 +56,12 @@ export function gearComparison(offerId: GradeItemId, worn: WornLoadout, levels: 
   if (style && current && bootStyleOf(current) !== style) return { delta: 0, label: offer.label, text: "Different Stat from Now" };
   const now = current ? slotStat(current, { tier: levels.tier, refine: levels.wornRefine }, bootStat).value : 0;
   const delta = Math.round((offer.value - now) * 10) / 10;
-  const text = delta === 0 ? "Same as Now" : `${delta > 0 ? "+" : "-"}${Math.abs(delta)}% ${offer.label} vs Now`;
-  return { delta, label: offer.label, text };
+  return { delta, label: offer.label, text: delta === 0 ? "Same as Now" : comparisonText(offer, now, delta) };
+}
+
+/** Move speed and skill chance in points ("+3% Move Speed vs Now"); the core stats as how much more they multiply ("×1.14 Damage vs Now"). */
+function comparisonText(offer: { label: string; value: number }, now: number, delta: number) {
+  if (offer.label === "Move Speed" || offer.label === "Skill Chance") return `${delta > 0 ? "+" : "-"}${Math.abs(delta)}% ${offer.label} vs Now`;
+  const ratio = (1 + offer.value / 100) / (1 + now / 100);
+  return `${formatMultiplierChange(ratio)} ${offer.label} vs Now`;
 }

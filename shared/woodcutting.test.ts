@@ -103,22 +103,22 @@ describe("the woodcutters' road", () => {
   });
 });
 
-describe("the walls round Timberwood", () => {
-  it("hold the grove and meet the village's walls west of it", () => {
-    const [east, grove] = TOWN_WALK_AREAS;
-    expect(grove.left).toBeLessThan(TOWN_GROVE.left);
-    expect(grove.top).toBeLessThan(TOWN_GROVE.top);
-    expect(grove.bottom).toBeGreaterThan(TOWN_GROVE.bottom);
-    expect(grove.right).toBeGreaterThan(east.left);
+describe("the walls round the Town", () => {
+  it("open all nine cells of the grid, Timberwood's included, and wall only round its outside", () => {
+    expect(TOWN_WALK_AREAS).toHaveLength(1);
+    const [walls] = TOWN_WALK_AREAS;
+    expect(walls.left).toBeLessThan(TOWN_GROVE.left);
+    expect(walls.top).toBeLessThan(TOWN_GROVE.top);
+    expect(walls.bottom).toBeGreaterThan(TOWN_GROVE.bottom);
     for (const tree of WOOD_TREE_NODES) expect(inTownWalkArea(tree.x, tree.y + 44)).toBe(true);
-    // North of the village and of the Copper Hills stays walled.
-    expect(inTownWalkArea(east.left + 100, east.top - 100)).toBe(false);
-    expect(inTownWalkArea(TOWN_HILLS.left + 1_000, TOWN_HILLS.top - 600)).toBe(false);
-    expect(east.top).toBe(TOWN_VILLAGE_WALK_AREA.top);
-    expect(townWalkClamp(east.left + 100, east.top - 100)).toEqual({ x: east.left + 100, y: east.top });
-    expect(townWalkClamp(TOWN_HILLS.left + 1_000, TOWN_HILLS.top - 600)).toEqual({ x: TOWN_HILLS.left + 1_000, y: east.top });
-    expect(townWalkClamp(TOWN_GROVE.left + 10, TOWN_GROVE.top + 10)).toEqual({ x: TOWN_GROVE.left + 10, y: TOWN_GROVE.top + 10 });
-    expect(townWalkClamp(TOWN_GROVE.left - 1_000, TOWN_GROVE.top + 10)).toEqual({ x: grove.left, y: TOWN_GROVE.top + 10 });
+    // North of the village and of the Copper Hills, and the grid's corners, are open countryside.
+    expect(inTownWalkArea(TOWN_VILLAGE_WALK_AREA.left + 100, TOWN_VILLAGE_WALK_AREA.top - 100)).toBe(true);
+    expect(inTownWalkArea(TOWN_HILLS.left + 1_000, TOWN_HILLS.top - 600)).toBe(true);
+    expect(inTownWalkArea(TOWN_GROVE.left, walls.top + 10)).toBe(true);
+    expect(inTownWalkArea(TOWN_HILLS.right, walls.bottom - 10)).toBe(true);
+    // Past the outside, feet are held at the wall.
+    expect(townWalkClamp(TOWN_GROVE.left + 10, walls.top - 500)).toEqual({ x: TOWN_GROVE.left + 10, y: walls.top });
+    expect(townWalkClamp(walls.left - 1_000, TOWN_GROVE.top + 10)).toEqual({ x: walls.left, y: TOWN_GROVE.top + 10 });
   });
 
   it("keep the countryside's own props out of the grove", () => {

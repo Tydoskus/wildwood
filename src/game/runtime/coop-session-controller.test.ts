@@ -17,7 +17,7 @@ function harness() {
   const noop = () => {};
   const controller = createCoopSessionController({
     coop,
-    syncLifetimeKills: noop, refreshGemCounter: noop, refreshMailbox: noop, refreshGiftsAndMail: noop,
+    syncLifetimeKills: noop, refreshGemCounter: noop, refreshGiftsAndMail: noop,
     refreshWindows: noop, refreshLeaderboard: noop, refreshDevPanel: noop, loadProgress,
     observedSessionGeneration: () => state.observed,
     setObservedSessionGeneration: (generation) => { state.observed = generation; },

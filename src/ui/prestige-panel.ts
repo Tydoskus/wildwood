@@ -1,4 +1,4 @@
-import { formatCompactNumber } from './number-format';
+import { formatCompactNumber, formatPercentMultiplier } from './number-format';
 import { PRESTIGE_PERK_POINTS_PER_LEVEL, PRESTIGE_STAT_GAIN_PER_LEVEL, prestigeCapped, prestigeEndlessRequirement, prestigeRequirementHint, prestigeStatMultiplier } from '../../shared/prestige';
 import { PRESTIGE_PERKS, PRESTIGE_PERK_IDS, prestigePerkEffectLabel, prestigePerkMaxRank, prestigePerkRank,
   type PrestigePerkId, type PrestigePerkRanks } from '../../shared/prestige-perks';
@@ -41,14 +41,13 @@ export async function submitPrestige(runPrestige: () => Promise<PrestigeResult>,
 }
 
 /**
- * What one more prestige adds, from the current level. Every prestige adds the
- * same stat gain and perk points; after the first, the new total follows.
+ * What one more prestige adds, from the current level: the stat gain it brings
+ * the run to, after the first with the one it has now, and its perk points.
  */
 export function prestigeRewardLabel(level: number) {
-  const gain = Math.round(PRESTIGE_STAT_GAIN_PER_LEVEL * 100);
-  const total = Math.round(prestigeStatMultiplier(level + 1) * 100 - 100);
+  const next = Math.round(prestigeStatMultiplier(level + 1) * 100 - 100), now = Math.round(prestigeStatMultiplier(level) * 100 - 100);
   const points = PRESTIGE_PERK_POINTS_PER_LEVEL;
-  return `+${gain}% stat gain${level > 0 ? ` (+${total}% total)` : ''} and ${points} perk point${points === 1 ? '' : 's'}`;
+  return `${formatPercentMultiplier(next)} stat gain${level > 0 ? ` (now ${formatPercentMultiplier(now)})` : ''} and ${points} perk point${points === 1 ? '' : 's'}`;
 }
 
 export function createPrestigeController(options: {
@@ -260,7 +259,7 @@ export function createPrestigeController(options: {
     const row = options.prestige();
     const level = row?.level ?? 0;
     options.level.textContent = `PRESTIGE ${level}`;
-    options.bonus.textContent = `+${Math.round(level * PRESTIGE_STAT_GAIN_PER_LEVEL * 100)}%`;
+    options.bonus.textContent = formatPercentMultiplier(Math.round(level * PRESTIGE_STAT_GAIN_PER_LEVEL * 100));
     options.points.textContent = String(row?.perkPoints ?? 0);
     options.peak.textContent = row?.peakPower ? formatCompactNumber(row.peakPower) : '—';
     options.cost.textContent = unlocked()

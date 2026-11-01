@@ -1,7 +1,9 @@
 import {
   EMPTY_GUILD_HALL_LEVELS, GUILD_HALL_DOOR, GUILD_HALL_FEET_OFFSET, guildHallGuildId, guildHallRoom, isGuildHallMap, type GuildHallLevels,
 } from "../../../../shared/guild-hall";
-import { guildHallBoard, guildHallDecor, guildHallDoorState, guildHallSeatAt, guildHallSeats, guildHallShown, guildHallSolids } from "../../guild-hall";
+import {
+  GUILD_HALL_INTERIOR_LEFT, guildHallBoard, guildHallDecor, guildHallDoorState, guildHallSeatAt, guildHallSeats, guildHallShown, guildHallSolids,
+} from "../../guild-hall";
 import type { SoulSolid } from "../../town-village";
 import type { MapId, WorldDecor } from "../../world";
 import { goThroughDoor, pushOutOf, type TownSource } from "../town/town-runtime";
@@ -55,17 +57,18 @@ export function createGuildHallRuntime(deps: {
 
   const levels = (): GuildHallLevels => deps.source()?.guildHall?.()?.levels ?? EMPTY_GUILD_HALL_LEVELS;
 
-  /** The decor, walls and seats for the hall's levels: rebuilt when they change or a map load empties the decor. */
+  /** The decor, walls and seats for the hall's levels and the player's side of the door: rebuilt when either changes or a map load empties the decor. */
   function refresh(mapId: string) {
-    const current = levels();
-    const key = `${mapId}:${JSON.stringify(current)}`;
+    const current = levels(), indoors = deps.player.x >= GUILD_HALL_INTERIOR_LEFT;
+    const key = `${mapId}:${indoors}:${JSON.stringify(current)}`;
     if (key === shownKey && deps.decor.length) return;
     shownKey = key;
+    guildHallShown.indoors = indoors;
     size = current.size;
     guildHallShown.size = size;
     solids = guildHallSolids(current);
     guildHallShown.seats = guildHallSeats(current);
-    deps.decor.splice(0, deps.decor.length, ...guildHallDecor(current));
+    deps.decor.splice(0, deps.decor.length, ...guildHallDecor(current, indoors));
     deps.invalidateDepthOrder();
   }
 

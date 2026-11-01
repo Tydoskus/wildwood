@@ -173,6 +173,7 @@ for (const dir of ["shared", "spacetimedb/src"]) {
     "shared/procedural-maps.ts": "per-bundle cache keyed by level",
     "shared/regular-enemy-simulation.ts": "scratch buffer",
     "shared/rules.ts": "BOSS_RULES installed and read by the game only",
+    "src/app/changelog.ts": "per-bundle cache of the sorted release notes",
     "src/app/after-entry.ts": "flag on the page; the held queue is per bundle by design",
     "src/app/avatar-frames.ts": "the game binds to coop.applyAvatarFrame; the cache lives in coop",
     "src/app/player-name-tags.ts": "the game binds to the coop provider; tags live in coop",

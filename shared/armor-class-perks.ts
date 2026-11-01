@@ -1,6 +1,7 @@
 import { ARMOR_CLASS_DETAILS, ARMOR_CLASS_NAMES, CLASS_SET_DAMAGE_PERCENT } from "./gear-grades";
 import { armorClassOf } from "./grade-equipment";
 import { classSetActive } from "./items";
+import { formatPercentMultiplier } from "./compact-number";
 
 /**
  * What a graded helmet or armor's class does per piece worn (gear-grades.ts ARMOR_CLASS_DETAILS). Its share of the
@@ -30,13 +31,13 @@ export function armorClassPerkLine(itemId: unknown) {
 }
 
 /**
- * The class set line ("Set: Light Helmet + Armor + Bow · +5% Damage"), and whether it is on when `worn` is this
+ * The class set line ("Set: Light Helmet + Armor + Bow · ×1.05 Damage"), and whether it is on when `worn` is this
  * piece's wearer. None for Heavy, which has no school, or for other items.
  */
 export function armorClassSetLine(itemId: unknown, worn?: { weapon: unknown; head: unknown; chest: unknown }) {
   const armorClass = armorClassOf(itemId), school = armorClass ? ARMOR_CLASS_DETAILS[armorClass].school : null;
   if (!armorClass || !school) return null;
-  const line = `Set: ${ARMOR_CLASS_NAMES[armorClass]} Helmet + Armor + ${SCHOOL_WEAPON[school]} · +${CLASS_SET_DAMAGE_PERCENT}% Damage`;
+  const line = `Set: ${ARMOR_CLASS_NAMES[armorClass]} Helmet + Armor + ${SCHOOL_WEAPON[school]} · ${formatPercentMultiplier(CLASS_SET_DAMAGE_PERCENT)} Damage`;
   if (!worn) return line;
   return `${line} · ${classSetActive(worn.weapon, worn.head, worn.chest) ? "Active" : "Inactive"}`;
 }

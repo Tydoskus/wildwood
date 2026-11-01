@@ -60,10 +60,61 @@ it("pays out the highest map the build can hold, and closes the window behind it
   // Reopening at zero is what stops the same absence paying twice.
   expect(row.awaySinceMicros).toBe(0n);
 
+  expect(row.damage + row.health + row.armor + row.regen).toBeGreaterThan(0);
+  // Offered, not paid, until the fight is picked.
+  expect(progressOf(fixture, fixture.ctx.sender).damage).toBe(before.damage);
+  fixture.run(server.collectOfflineProgressAs, { activity: "fight" });
   const after = progressOf(fixture, fixture.ctx.sender);
   expect(after.damage + after.maxHp + after.armor + after.regen)
     .toBeGreaterThan(before.damage + before.maxHp + before.armor + before.regen);
-  expect(row.damage + row.health + row.armor + row.regen).toBeGreaterThan(0);
+  expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).pending).toBe(false);
+  // Collected once: a second pick pays nothing more.
+  fixture.run(server.collectOfflineProgressAs, { activity: "fight" });
+  expect(progressOf(fixture, fixture.ctx.sender).damage).toBe(after.damage);
+});
+
+it("pays the mining instead of the fight when mining is picked", () => {
+  const fixture = away(OFFLINE_WINDOW_SECONDS);
+  const before = progressOf(fixture, fixture.ctx.sender);
+  enter(fixture);
+  const choice = fixture.db.offlineGatherChoice.identity.find(fixture.ctx.sender);
+  expect(choice.rocks).toBeGreaterThan(0);
+  fixture.run(server.collectOfflineProgressAs, { activity: "mine" });
+  expect(progressOf(fixture, fixture.ctx.sender).damage).toBe(before.damage);
+  expect(fixture.db.playerGold.identity.find(fixture.ctx.sender)?.gold ?? 0n).toBe(0n);
+  expect(fixture.db.playerMining.identity.find(fixture.ctx.sender).mining).toBe(choice.miningGain);
+  const copper = [...fixture.db.playerOre.iter()].find((row: any) => row.oreId === "copper_ore");
+  expect(copper?.count).toBe(JSON.parse(choice.mineOres).copper_ore);
+  expect(fixture.db.offlineGatherChoice.identity.find(fixture.ctx.sender)).toBeNull();
+});
+
+it("splits time away evenly over every vein and stand the skills open, and none still shut", () => {
+  const fixture = away(OFFLINE_WINDOW_SECONDS);
+  fixture.seed("playerMining", { identity: fixture.ctx.sender, mining: 60, pickaxeAt: fixture.ctx.timestamp, lastBreakAt: fixture.ctx.timestamp,
+    lastNodeId: 0, lastStarshard: false, rocksBroken: 0 });
+  enter(fixture);
+  const choice = fixture.db.offlineGatherChoice.identity.find(fixture.ctx.sender);
+  const mined = JSON.parse(choice.mineOres), chopped = JSON.parse(choice.chopOres);
+  expect(mined.copper_ore).toBeGreaterThan(0);
+  expect(mined.iron_ore).toBeGreaterThan(0);
+  expect(mined.adamant_ore).toBeUndefined();
+  // Mining 60 opens the Copper Hills' crystal rocks (25) but not the iron vein's (75).
+  expect(mined.arcane_crystal).toBeGreaterThan(0);
+  expect(Object.keys(chopped)).toEqual(["pine_log"]);
+});
+
+it("gives a guild member the hall's Hearth on top of the offline window, and the Lanterns' speed to gathering", () => {
+  const seconds = OFFLINE_WINDOW_SECONDS + 3_600;
+  const plain = away(seconds);
+  enter(plain);
+  const member = away(seconds);
+  member.seed("guildMember", { identity: member.ctx.sender, guildId: 7n, name: "Me", joinedAt: 0n, eligibleAt: 0n, champion: false, fighter: "", power: 0, vicePresident: false });
+  member.seed("guildHall", { guildId: 7n, fund: 0, spent: 0, levels: JSON.stringify({ hearth: 2, lights: 2 }) });
+  enter(member);
+  expect(plain.db.offlineProgress.identity.find(plain.ctx.sender).seconds).toBe(OFFLINE_WINDOW_SECONDS);
+  expect(member.db.offlineProgress.identity.find(member.ctx.sender).seconds).toBe(OFFLINE_WINDOW_SECONDS + 3_600);
+  expect(member.db.offlineGatherChoice.identity.find(member.ctx.sender).rocks)
+    .toBeGreaterThan(plain.db.offlineGatherChoice.identity.find(plain.ctx.sender).rocks);
 });
 
 it("caps a long absence at the window", () => {
@@ -124,6 +175,25 @@ it("only pays once, however many times the player re-enters", () => {
 
   expect(progressOf(fixture, fixture.ctx.sender).damage).toBe(paid);
   expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).grantedAtMicros).toBe(granted);
+});
+
+it("keeps time away that was never collected for the next absence, up to the window", () => {
+  const fixture = away(60 * 60);
+  enter(fixture);
+  const later = (seconds: number) => {
+    // The stamp a disconnect leaves (opens the window, above), without ending the test's session.
+    const row = fixture.db.offlineProgress.identity.find(fixture.ctx.sender);
+    fixture.db.offlineProgress.identity.update({ ...row, awaySinceMicros: fixture.ctx.timestamp.microsSinceUnixEpoch });
+    fixture.ctx.timestamp = new Timestamp(fixture.ctx.timestamp.microsSinceUnixEpoch + BigInt(seconds) * 1_000_000n);
+    enter(fixture);
+    return fixture.db.offlineProgress.identity.find(fixture.ctx.sender);
+  };
+
+  expect(later(2 * 60 * 60).seconds).toBe(3 * 60 * 60);
+  expect(later(OFFLINE_WINDOW_SECONDS).seconds).toBe(OFFLINE_WINDOW_SECONDS);
+
+  fixture.run(server.collectOfflineProgressAs, { activity: "mine" });
+  expect(later(60 * 60).seconds).toBe(60 * 60);
 });
 
 it("clears the summary when the client says it has been shown", () => {
@@ -206,6 +276,7 @@ it("pays no offline farming while a Reflect Only challenge runs", () => {
 it("pays offline kills gold at half the in-play rate, a gold every 10 kills", () => {
   const fixture = away(OFFLINE_WINDOW_SECONDS);
   enter(fixture);
+  fixture.run(server.collectOfflineProgressAs, { activity: "fight" });
   const kills = fixture.db.offlineProgress.identity.find(fixture.ctx.sender).kills;
   expect(kills).toBeGreaterThanOrEqual(10);
   expect(fixture.db.playerGold.identity.find(fixture.ctx.sender)?.gold).toBe(BigInt(Math.floor(kills / 10)));

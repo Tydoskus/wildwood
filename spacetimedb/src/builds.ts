@@ -1,7 +1,9 @@
 import { SenderError, table, t } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type spacetimedbType from "./index";
-import { BUILD_SLOTS, cleanBuildName, parseBuildCards, type BuildGear } from "../../shared/builds";
+import { BUILD_SLOTS, cleanBuildName, parseBuildCards, parseBuildGear, type BuildGear } from "../../shared/builds";
+import { isArrowId } from "../../shared/arrows";
+import { nockedArrowFor, setNockedArrow } from "./arrows";
 import { activeCardsFor, restoreActiveCards } from "./active-cards";
 import { readPlayerProgress } from "./wide-stats";
 
@@ -47,7 +49,8 @@ export function saveBuildFor(ctx: Ctx, { slot }: { slot: number }, deps: BuildDe
   validSlot(slot);
   const progress = readPlayerProgress(ctx, ctx.sender);
   if (!progress) throw new SenderError("Character unavailable.");
-  const gear: BuildGear = { HEAD: progress.equippedHead || "", CHEST: progress.equippedChest || "", FEET: progress.equippedFeet || "", HAND: progress.equippedRightHand || "" };
+  const gear: BuildGear = { HEAD: progress.equippedHead || "", CHEST: progress.equippedChest || "", FEET: progress.equippedFeet || "", HAND: progress.equippedRightHand || "",
+    ARROW: nockedArrowFor(ctx, ctx.sender) ?? "" };
   const cards = activeCardsFor(ctx, ctx.sender);
   const row = { key: buildKey(ctx.sender, slot), identity: ctx.sender, slot, gearJson: JSON.stringify(gear), cardsJson: JSON.stringify(cards), savedAt: ctx.timestamp };
   if (ctx.db.playerBuild.key.find(row.key)) ctx.db.playerBuild.key.update(row);
@@ -56,7 +59,8 @@ export function saveBuildFor(ctx: Ctx, { slot }: { slot: number }, deps: BuildDe
 
 /**
  * Puts the build's active cards back: copies no longer owned are skipped, and each type keeps as many as its
- * slots in play. The client equips the gear before calling this.
+ * slots in play; and nocks the arrow it was saved with (a build from before arrows leaves the nock alone). The
+ * client equips the gear before calling this.
  */
 export function applyBuildCardsFor(ctx: Ctx, { slot }: { slot: number }, deps: BuildDeps) {
   deps.requireControllingPlayer(ctx);
@@ -66,6 +70,8 @@ export function applyBuildCardsFor(ctx: Ctx, { slot }: { slot: number }, deps: B
   if (!build) throw new SenderError("Save this build first.");
   if (!readPlayerProgress(ctx, ctx.sender)) throw new SenderError("Character unavailable.");
   restoreActiveCards(ctx, ctx.sender, parseBuildCards(build.cardsJson));
+  const arrow = parseBuildGear(build.gearJson).ARROW;
+  if (arrow !== undefined) setNockedArrow(ctx, ctx.sender, isArrowId(arrow) ? arrow : null);
   deps.afterCardsChanged(ctx, ctx.sender);
 }
 

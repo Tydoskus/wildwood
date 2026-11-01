@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { BOW_ATTACK_SPEED_BONUS } from "./bow-skills";
 import { equipmentStatDefinition } from "./equipment-budget";
 import { itemDefinition, STARTER_STAFF } from "./items";
 import {
@@ -45,7 +46,8 @@ it("puts a staff's one-target damage a second at three quarters of its tier's bo
   expect(STAFF_BOLT_DAMAGE_FACTOR).toBeCloseTo(STAFF_SINGLE_TARGET_SHARE * STAFF_CAST_INTERVAL_FACTOR);
   expect(STAFF_DPS_FACTOR).toBeCloseTo(.75);
   expect(weaponAttackInterval("ion_staff", .5)).toBeCloseTo(.5 * 1.35);
-  expect(weaponAttackInterval("ion_bow", .5)).toBe(.5);
+  // A bow shoots faster than the player's own interval (bow-skills.ts); a staff's share is of the bow before that.
+  expect(weaponAttackInterval("ion_bow", .5)).toBeCloseTo(.5 / (1 + BOW_ATTACK_SPEED_BONUS));
   expect(weaponHitFactor("ion_sword")).toBe(1);
   for (const [id, tier] of [["forest_staff", 1], ["lava_staff", 4], ["ion_staff", 15]] as const) {
     const bow = 1 + equipmentStatDefinition(tier, "HAND").weapon!.damageMultiplierBonus!;

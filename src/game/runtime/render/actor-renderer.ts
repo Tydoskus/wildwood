@@ -1,47 +1,33 @@
-import { SOUL_STAT_DETAILS, type SoulStatId } from "../../../../shared/soul-dimension";
-import { soulRewardText, soulStatOfCampName } from "../../soul-world";
 import { residentDrawable } from "./resident-image";
 import { decodedImage } from "./decoded-image";
 import { isMeleeWeapon } from "../../weapon-combat";
 import { paintArrowProjectile, paintRockProjectile, rockProjectileSize } from "./weapon-projectile-renderer";
+import { ARROW_ART_ROTATION, ARROW_SPRITE_SIZE, arrowImage } from "./arrow-images";
 export { rockProjectileSize } from "./weapon-projectile-renderer";
-import { ENEMY_TYPES, REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition, type LoadedEnemySprite, type LoadedSpriteLayer } from "../../enemies";
+import { ENEMY_TYPES, type EnemyDefinition, type LoadedEnemySprite, type LoadedSpriteLayer } from "../../enemies";
 import { clamp } from "../../math";
 import type { RemotePlayer } from "../../../wildstat-coop";
 import type { PlayerGender } from "../../../../shared/player-gender";
 import type { Camera } from "./camera";
-import { ENEMY_HEALTH_BAR_HEIGHT, ENEMY_HEALTH_FILL, ENEMY_NAME_GAP, createEnemyStatusPlates, fillPill } from "../enemies/enemy-status-plate";
-import { createCanvasAtlas, drawAtlasImage } from "./canvas-atlas";
-import { cameraZoomPreference } from "./camera-zoom-preference";
+import { createEnemyOverheadPlates } from "./enemy-overhead-plate";
 import type { TextSegment } from "../../canvas";
-import { liveRewardText, soulRewardCapped, type RewardLabelContext } from "../reward-labels";
-import { enemyHpNumbersEnabled } from "../../../ui/enemy-hp-setting";
+import type { RewardLabelContext } from "../reward-labels";
 import { ownNamePlateEnabled } from "../../../ui/name-plate-setting";
 import { headArtTopOffsetY } from "./overhead-plate";
-import { formatCompactNumber } from "../../../../shared/compact-number";
+import { GENERATED_BOSS_SIZE } from "../../procedural-maps";
 import { attackPoseItem } from "../../../../shared/equipment-appearance";
-import { healthBarTextY } from "./health-bar-layout";
-import { plateFont, platePixels, plateSize, plateStroke } from "./nameplate-scale";
-
-/** The health numbers on a bar, when Settings asks for them. */
-const ENEMY_HP_FONT = plateFont(10);
-const ENEMY_HP_BAR_HEIGHT = platePixels(11);
-const ENEMY_HP_TEXT_STROKE = plateStroke(2);
-/** Pixels between the top of an enemy's sprite and the bottom of its bar. */
-const ENEMY_BAR_GAP = plateSize(4);
 import type { BossTarget, DuelCombatant, DuelScene, EnemyShot, EnemyState, PlayerState, Projectile } from "../types";
 import { itemPresentation, projectileKindForWeapon } from "../../item-presentation";
 import { localItemRefine } from "../../local-item-refines";
 import { playerDeathPose, type PlayerDeathAnimationState } from "../player-death-animation";
 import { finishedEquipmentSprite } from "../../player-appearance";
 import type { StaticWorldSpriteFrame } from "./webgl-static-world-layer";
-import { drawScreenSpaceAt, snapWorldRenderCoordinate, transformAtScale } from "./render-space";
+import { snapWorldRenderCoordinate } from "./render-space";
 import { createTintedImageCanvas } from "./image-tint";
 import { freezeCanvas, freezeEntry, type FrozenImage } from "./frozen-canvas";
 import { drawTrainingDummy } from "./training-dummy-art";
 import { boltSprite, drawBolt, staffBoltColor } from "../../staff-look";
 import { createEnemyAnimationSampler } from "../enemies/enemy-animation";
-import { ENEMY_HP_LOSS_FLASH_SECONDS } from "../../constants";
 
 
 type Viewport = { width: number; height: number };
@@ -165,9 +151,6 @@ export function drawableEnemyLayers(layers: LoadedSpriteLayer[] | undefined) {
   return layers?.filter((layer) => layer.image.complete && layer.image.naturalWidth > 0) ?? [];
 }
 
-/** A boss's body is about this share of its art's half-width (Ironhorn's tuned hitbox). */
-const BOSS_HITBOX_ART_SHARE = .76;
-
 export function enemySpriteVerticalBounds(sprite: LoadedEnemySprite | undefined, enemyRadius: number) {
   if (sprite?.animation) {
     const cached = enemyBoundsCache.get(sprite);
@@ -273,55 +256,7 @@ export function createActorRenderer(options: {
   const sampleEnemyAnimation = createEnemyAnimationSampler();
   const screenX = (worldX: number) => snapWorldRenderCoordinate(worldX - camera.x, camera.zoom, options.devicePixelRatio());
   const screenY = (worldY: number) => snapWorldRenderCoordinate(worldY - camera.y, camera.zoom, options.devicePixelRatio());
-  // Reward runs per label text, so a frame builds none; the sprites themselves are cached in canvas.ts.
-  const enemyLabelCache = new Map<string, readonly TextSegment[]>();
-  // Plates are packed onto a few shared pages instead of a canvas each (canvas-atlas.ts).
-  const plateAtlas = createCanvasAtlas();
-  const statusPlates = createEnemyStatusPlates({ pixelRatio: options.devicePixelRatio, atlas: plateAtlas });
-  let atlasMapId: string | undefined;
-  /** Text is measured on its own small canvas, before the label's room is taken. */
-  let labelMeasure: CanvasRenderingContext2D | null | undefined;
-  // An enemy's "440 / 500" changes only when its health does: kept per enemy, not formatted every frame.
-  const hpLabels = new WeakMap<EnemyState, { hp: number; maxHp: number; label: string }>();
-  function enemyHpLabel(enemy: EnemyState, hp: number) {
-    const shownHp = Math.max(0, Math.ceil(hp)), shownMax = Math.ceil(enemy.maxHp);
-    const cached = hpLabels.get(enemy);
-    if (cached && cached.hp === shownHp && cached.maxHp === shownMax) return cached.label;
-    const label = `${formatCompactNumber(shownHp)} / ${formatCompactNumber(shownMax)}`;
-    hpLabels.set(enemy, { hp: shownHp, maxHp: shownMax, label });
-    return label;
-  }
-  // Rewards under an enemy at full size; names over its bar at plate scale (nameplate-scale.ts).
-  const rewardLabelFont = '900 11px "Arial Rounded MT Bold", "Arial Rounded MT", Arial, sans-serif';
-  const nameLabelFont = plateFont(11);
-  const nameStroke = plateStroke(4);
-  /** How far the names' alphabetic baseline sits above the bottom of their em box. */
-  let nameBaselineLift: number | undefined;
-  function nameLift() {
-    if (nameBaselineLift !== undefined) return nameBaselineLift;
-    if (labelMeasure === undefined) labelMeasure = document.createElement("canvas").getContext("2d");
-    if (!labelMeasure) return 0;
-    labelMeasure.font = nameLabelFont;
-    labelMeasure.textBaseline = "bottom";
-    const fromBottom = labelMeasure.measureText("H").actualBoundingBoxDescent;
-    labelMeasure.textBaseline = "alphabetic";
-    const fromBaseline = labelMeasure.measureText("H").actualBoundingBoxDescent;
-    const lift = fromBaseline - fromBottom;
-    return nameBaselineLift = Number.isFinite(lift) && lift >= 0 ? lift : 0;
-  }
-  /** How far the rewards' alphabetic baseline sits below the top of their em box. */
-  let rewardBaselineDrop: number | undefined;
-  function rewardDrop() {
-    if (rewardBaselineDrop !== undefined) return rewardBaselineDrop;
-    if (labelMeasure === undefined) labelMeasure = document.createElement("canvas").getContext("2d");
-    if (!labelMeasure) return 0;
-    labelMeasure.font = rewardLabelFont;
-    labelMeasure.textBaseline = "top";
-    const fromTop = labelMeasure.measureText("H").actualBoundingBoxAscent;
-    labelMeasure.textBaseline = "alphabetic";
-    const drop = labelMeasure.measureText("H").actualBoundingBoxAscent - fromTop;
-    return rewardBaselineDrop = Number.isFinite(drop) && drop >= 0 ? drop : 0;
-  }
+  const enemyPlates = createEnemyOverheadPlates(options);
   const projectileCircleSprites = new Map<string, HTMLCanvasElement>();
   let arrowProjectileSprite: HTMLCanvasElement | null | undefined;
 
@@ -386,7 +321,10 @@ export function createActorRenderer(options: {
     const weaponItem = localShotItem();
     const projectileKind = enemy ? undefined : projectileKindForWeapon(weaponItem);
     let source: HTMLCanvasElement | HTMLImageElement | null = null;
-    if (projectileKind === "ARROW") source = arrowSprite();
+    const ammo = !enemy && projectileKind === "ARROW" && "ammo" in projectile ? projectile.ammo : null;
+    const art = ammo ? arrowImage(ammo) : null;
+    if (art) source = art;
+    else if (projectileKind === "ARROW") source = arrowSprite();
     else if (projectileKind === "BOLT") source = boltSprite(staffBoltColor(weaponItem));
     else if (projectileKind === "ROCK") {
       const image = options.itemSprite(weaponItem);
@@ -395,57 +333,13 @@ export function createActorRenderer(options: {
     if (!source) return null;
     const sourceWidth = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
     const sourceHeight = source instanceof HTMLImageElement ? source.naturalHeight : source.height;
-    const { width, height } = projectileKind === "ROCK"
+    const { width, height } = art ? { width: ARROW_SPRITE_SIZE, height: ARROW_SPRITE_SIZE } : projectileKind === "ROCK"
       ? rockProjectileSize(weaponItem, sourceWidth, sourceHeight)
       : { width: sourceWidth, height: sourceHeight };
     const rotation = projectileKind === "ARROW" || projectileKind === "ROCK" || projectileKind === "BOLT"
-      ? Math.atan2(projectile.vy, projectile.vx)
+      ? Math.atan2(projectile.vy, projectile.vx) + (art ? ARROW_ART_ROTATION : 0)
       : undefined;
     return { source, left: x - width / 2, top: y - height / 2, width, height, rotation };
-  }
-
-  /** A Soul Dimension enemy is named for the soul stat it pays, and shows that flat reward in its colour. */
-  function soulEnemyLabels(stat: SoulStatId) {
-    const context = options.rewardContext?.();
-    const capped = soulRewardCapped(stat, context);
-    const multiplier = Math.max(1, context?.soulRewardMultiplier ?? 1);
-    const detail = SOUL_STAT_DETAILS[stat];
-    return {
-      name: `Soul ${detail.label}`,
-      reward: cachedLabel(`soul:${stat}:${capped ? "capped" : ""}:${multiplier}`, () => {
-        const amount = capped ? "Capped" : stat === "critDamage" ? `+${+(detail.reward * multiplier * 100).toFixed(1)}%` : soulRewardText(stat, multiplier);
-        return [{ text: `${amount} `, color: "#ffffff" }, { text: detail.label, color: detail.color }];
-      }),
-    };
-  }
-
-  /**
-   * What one attack speed kill gives this player now, in attacks a second, as the label under the enemy
-   * shows it: the rating is a number players can't read, its worth shrinks as attack speed nears
-   * the cap. Rounded, so the label is redrawn only when the shown value changes.
-   */
-
-
-  // A name is cached apart from the reward under it, which moves with the player's attack speed
-  // and crit, so the name and its plate are not redrawn at every step.
-  function cachedLabel(key: string, create: () => readonly TextSegment[]) {
-    let label = enemyLabelCache.get(key);
-    if (!label) {
-      if (enemyLabelCache.size >= 512) enemyLabelCache.clear();
-      enemyLabelCache.set(key, label = create());
-    }
-    return label;
-  }
-
-  function enemyLabels(type: string, reward: EnemyDefinition["reward"]) {
-    const amountText = liveRewardText(reward, options.rewardContext?.()) ?? rewardAmountLabel(reward);
-    return {
-      name: type,
-      reward: cachedLabel(`reward:${reward.type}:${amountText}`, () => [
-        { text: `${amountText} `, color: "#ffffff" },
-        { text: reward.type === "speed" ? "Atk Speed" : reward.type === "crit" ? "Crit Multiplier" : rewardStatLabel(reward), color: REWARD_DATA[reward.type].color },
-      ]),
-    };
   }
 
   /** Where an actor's plate starts: the top of its head, or of the helmet drawn on it. */
@@ -787,19 +681,24 @@ export function createActorRenderer(options: {
     }
     const base = enemy.definition ?? ENEMY_TYPES[enemy.type];
     const sourceSprite = options.enemySprites[enemy.type];
-    // An Endless boss borrows a map enemy's art: drawn to fit its own body, as a campaign boss's art does.
-    const spriteScale = enemy.generatedBoss && sourceSprite ? 2 * enemy.r / BOSS_HITBOX_ART_SHARE / sourceSprite.size : enemy.spriteScale ?? 1;
+    // An Endless boss is its map's enemy drawn at twice the size, as its hitbox is.
+    const spriteScale = enemy.generatedBoss ? GENERATED_BOSS_SIZE : enemy.spriteScale ?? 1;
     const sprite = sourceSprite && scaledEnemySprite(sourceSprite, spriteScale);
     const margin = Math.max(80, sprite?.size ?? 0);
     if (x < -margin || y < -margin || x > width + margin || y > height + margin) return;
     const layers = sprite?.layers;
     const image = sprite?.image;
     const imageReady = Boolean(image?.complete && image.naturalWidth > 0);
-    const spriteBounds = enemySpriteVerticalBounds(sprite, enemy.r);
+    // Layered and atlas art draw at their own pixel size, so they take the scale on the canvas;
+    // a single image takes it through its size.
+    const artScale = layers ? spriteScale : 1;
+    const unscaledBounds = enemySpriteVerticalBounds(sprite, enemy.r);
+    const spriteBounds = artScale === 1 ? unscaledBounds
+      : { top: unscaledBounds.top * artScale, bottom: unscaledBounds.bottom * artScale, height: unscaledBounds.height * artScale };
     const spriteHeight = spriteBounds.height;
     if (!sprite?.animation?.hasBakedShadow) {
-      const shadowWidth = enemy.generatedBoss ? (sprite?.size ?? enemy.r * 2) * .6 : Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
-      const shadowY = y + enemyShadowOffsetY(sprite, enemy.r);
+      const shadowWidth = spriteScale !== 1 ? (sprite?.size ?? enemy.r * 2) * .6 : Math.max(34, Math.min(76, (sprite?.size ?? enemy.r * 2) * .9));
+      const shadowY = y + enemyShadowOffsetY(sprite, enemy.r) * artScale;
       options.drawShadow(x, shadowY, shadowWidth, .36 * visibility);
     }
 
@@ -817,6 +716,8 @@ export function createActorRenderer(options: {
       y: enemy.combatTargetY ?? options.player.y,
     };
     if (layers && sprite) {
+      ctx.save();
+      if (artScale !== 1) ctx.scale(artScale, artScale);
       ctx.globalAlpha = visibility;
       if (sprite.animation) {
         const animation = sprite.animation;
@@ -877,6 +778,7 @@ export function createActorRenderer(options: {
           }
         }
       }
+      ctx.restore();
     } else if (imageReady && image && sprite) {
       ctx.globalAlpha = visibility;
       ctx.drawImage(
@@ -909,99 +811,7 @@ export function createActorRenderer(options: {
 
     if (enemy.hideStatus || !options.enemyTextVisible(enemy) || deathProgress > 0) return;
 
-    const spriteTop = spriteBounds.top;
-    const spriteBottom = spriteBounds.bottom;
-    const rewardY = spriteBottom * camera.zoom + 13;
-    // A long, thin pill with no numbers: one plate image at full health, one fill when wounded.
-    const barW = platePixels(Math.max(60, Math.min(100, (sprite?.size ?? enemy.r * 2) * 1.35)));
-    // Taller with the numbers on it (Settings > Enemy HP Numbers), with the same bottom edge.
-    const showNumbers = enemyHpNumbersEnabled();
-    const barH = showNumbers ? ENEMY_HP_BAR_HEIGHT : ENEMY_HEALTH_BAR_HEIGHT;
-    const barX = -barW / 2;
-    const barCenterX = barX + barW / 2;
-    const barY = spriteTop * camera.zoom - ENEMY_BAR_GAP - barH;
-    const displayedHp = enemy.remoteCombatHp ?? enemy.hp;
-    const hpRatio = clamp(displayedHp / enemy.maxHp, 0, 1);
-
-    drawScreenSpaceAt(ctx, camera.zoom, x, y, () => {
-      ctx.globalAlpha = visibility;
-      const displayAmount = (reward: EnemyDefinition["reward"]) => options.rewardAmount?.(reward.type, reward.amount) ?? reward.amount * options.rewardMultiplier();
-      // A full atlas starts over only here, before this enemy takes anything from it; a new map lets every page go.
-      const mapId = options.mapId?.();
-      if (mapId !== atlasMapId) {
-        atlasMapId = mapId;
-        enemyLabelCache.clear();
-        plateAtlas.release();
-      }
-      plateAtlas.resetIfFull();
-      const soulStat = soulStatOfCampName(enemy.campName);
-      const labels = soulStat ? soulEnemyLabels(soulStat)
-        : enemyLabels(enemy.displayName ?? (enemy.generatedBoss ? enemy.campName : enemy.type), { ...enemy.reward, amount: displayAmount(enemy.reward) });
-      // The empty bar, plus the full bar at full health: one image shared by
-      // every enemy with a bar this size (enemy-status-plate.ts).
-      const full = hpRatio >= 1;
-      const lossTimer = enemy.hpLossFlashTimer ?? 0;
-      const lossFrom = lossTimer > 0 && (enemy.hpLossFlashFrom ?? 0) > displayedHp
-        ? clamp((enemy.hpLossFlashFrom ?? 0) / enemy.maxHp, hpRatio, 1) : null;
-      const lossAlpha = visibility * clamp(lossTimer / ENEMY_HP_LOSS_FLASH_SECONDS, 0, 1);
-      let barTop = barY, barHeight = barH;
-      // At the plates' own scale the bar is drawn on whole device pixels: its plate copied one to one,
-      // the fill on the same edges, and the text placed from where the bar landed.
-      const scale = options.devicePixelRatio() * cameraZoomPreference();
-      const grid = transformAtScale(ctx, scale);
-      if (grid) {
-        const plate = statusPlates.plate(barW, barH, full, scale);
-        const left = Math.round(grid.a * barX + grid.e), top = Math.round(grid.d * barY + grid.f);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawAtlasImage(ctx, plate, left - plate.inset, top - plate.inset, plate.pixelWidth, plate.pixelHeight);
-        if (!full) drawEnemyHealthFill(left, top, plate.barPixelWidth, plate.barPixelHeight, hpRatio, lossFrom, lossAlpha, true);
-        ctx.setTransform(grid);
-        barTop = (top - grid.f) / grid.d;
-        barHeight = plate.barPixelHeight / grid.d;
-      } else {
-        const plate = statusPlates.plate(barW, barH, full);
-        const smoothing = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = true;
-        drawAtlasImage(ctx, plate, barX + plate.left, barY + plate.top, plate.width, plate.height);
-        ctx.imageSmoothingEnabled = smoothing;
-        if (!full) drawEnemyHealthFill(barX, barY, barW, barH, hpRatio, lossFrom, lossAlpha, false);
-      }
-      ctx.font = nameLabelFont;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "alphabetic";
-      options.outlinedText(labels.name, barCenterX, barTop - ENEMY_NAME_GAP - nameLift(), "#f5e9c4", nameStroke);
-      if (showNumbers) {
-        ctx.textAlign = "center";
-        ctx.font = ENEMY_HP_FONT;
-        ctx.textBaseline = "middle";
-        options.outlinedText(enemyHpLabel(enemy, displayedHp), barCenterX, healthBarTextY(barTop, barHeight), "#ffffff", ENEMY_HP_TEXT_STROKE);
-      }
-
-      if (!enemy.remoteCombatGhost && !enemy.generatedBoss) {
-        ctx.font = rewardLabelFont;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "alphabetic";
-        options.outlinedSegments(labels.reward, 0, rewardY + rewardDrop(), 4);
-      }
-    });
-  }
-
-  /**
-   * The green fill over an enemy's empty bar and, fading, the health just lost. `pixels`: the bar is in
-   * device pixels, so the fill's end is rounded to one too.
-   */
-  function drawEnemyHealthFill(x: number, y: number, width: number, height: number, ratio: number, lossFrom: number | null, lossAlpha: number, pixels: boolean) {
-    const at = (value: number) => !pixels ? width * value : value > 0 ? Math.max(1, Math.round(width * value)) : 0;
-    const filled = at(ratio);
-    ctx.fillStyle = ENEMY_HEALTH_FILL;
-    fillPill(ctx, x, y, filled, height);
-    // Only the health just lost lights up, fading out, the way a boss's bar does.
-    if (lossFrom === null) return;
-    ctx.save();
-    ctx.globalAlpha = lossAlpha;
-    ctx.fillStyle = "#ffffff";
-    fillPill(ctx, x + filled, y, Math.max(1, at(lossFrom) - filled), height);
-    ctx.restore();
+    enemyPlates.draw(enemy, x, y, spriteBounds.top, spriteBounds.bottom, sprite?.size ?? enemy.r * 2, visibility);
   }
 
   function drawProjectile(projectile: Projectile | EnemyShot, enemy = false) {
@@ -1012,7 +822,14 @@ export function createActorRenderer(options: {
       ? projectileKindForWeapon(weaponItem)
       : undefined;
     if (projectileKind === "ARROW") {
-      drawArrow(x, y, Math.atan2(projectile.vy, projectile.vx));
+      const angle = Math.atan2(projectile.vy, projectile.vx), ammo = "ammo" in projectile ? projectile.ammo : null;
+      const art = ammo ? arrowImage(ammo) : null;
+      // A crafted arrow flies as its own art (arrow-images.ts).
+      if (art) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(angle + ARROW_ART_ROTATION);
+        ctx.drawImage(residentDrawable(art), -ARROW_SPRITE_SIZE / 2, -ARROW_SPRITE_SIZE / 2, ARROW_SPRITE_SIZE, ARROW_SPRITE_SIZE);
+        ctx.restore();
+      } else drawArrow(x, y, angle);
       return;
     }
     if (projectileKind === "BOLT") {

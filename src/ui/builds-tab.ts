@@ -1,4 +1,5 @@
 import { BUILD_GEAR_SLOTS, BUILD_NAME_MAX, BUILD_SLOTS, buildLabel } from "../../shared/builds";
+import { ARROW_KINDS, isArrowId } from "../../shared/arrows";
 import type { SavedBuild } from "../../shared/builds";
 import type { BuildActions } from "./build-actions";
 
@@ -17,7 +18,7 @@ export function createBuildsTab(options: {
   element.hidden = true;
   const note = document.createElement("p");
   note.className = "inventory-cosmetics-note builds-tab-note";
-  note.textContent = "Save what you wear and your active cards, then swap back in one tap.";
+  note.textContent = "Save what you wear, your active cards and your nocked arrow, then swap back in one tap.";
   const list = document.createElement("div");
   list.className = "builds-tab-list";
   element.append(note, list);
@@ -27,6 +28,8 @@ export function createBuildsTab(options: {
   const summary = (build: SavedBuild | null) => {
     if (!build) return "Empty";
     const names = BUILD_GEAR_SLOTS.map(slot => build.gear[slot]).filter(Boolean).map(options.itemName);
+    // The arrow it nocks, by name (Steel Arrow); a build without one shoots plain arrows.
+    if (isArrowId(build.gear.ARROW)) names.push(ARROW_KINDS[build.gear.ARROW].name);
     const cards = Object.values(build.cards).reduce((sum, ids) => sum + ids.length, 0);
     return `${names.join(" · ") || "No gear"}${cards ? ` · ${cards} Card${cards === 1 ? "" : "s"}` : ""}`;
   };

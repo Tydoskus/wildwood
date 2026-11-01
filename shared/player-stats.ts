@@ -4,6 +4,7 @@
  * the run's stats, the loadout and the bonuses in play as plain data.
  */
 import { armorMoveSpeedFactor, armorSkillChanceFactor } from "./armor-class-perks";
+import { bowCritChanceBonus } from "./bow-skills";
 import { cardChance, cardValue, NO_CARDS, type CardTotals } from "./card-effects";
 import { armorDamageReduction } from "./combat";
 import { criticalDamage } from "./critical-damage";
@@ -18,6 +19,7 @@ import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "./prestige-challenge";
 import { prestigePerkValue, type PrestigePerkRanks } from "./prestige-perks";
 import { createEmptyResearchRanks, researchStatRewardMultiplier, utilityMovementSpeedBonus, type ResearchRanks } from "./research";
 import { DEFAULT_ATTACK_RANGE, movementSpeedMultiplier } from "./rules";
+import { weaponSchool } from "./weapon-mastery";
 import { cleanSoulStats, soulAttackSpeedBonus, type SoulStats } from "./soul-dimension";
 import { weaponAttackInterval } from "./staff-skills";
 import { attackCapInterval, type AttackCapArg } from "./stat-rating";
@@ -62,9 +64,13 @@ const weaponOf = (loadout: PlayerStatLoadout) => loadout.rightHand || loadout.le
 export const blackBootsSpeed = (feet: string, dueling = false) => feet === BLACK_BOOTS && !dueling ? BLACK_BOOTS_SPEED_BONUS : 0;
 
 /** A sword reaches its own range plus what the run added past the default; a bow or staff shoots the range itself. */
+/** What a bow adds to the ranged reach: archers outrange staves. */
+export const BOW_RANGE_BONUS = 50;
+
 export function weaponAttackRange(itemId: string | undefined, rangedRange: number) {
   const weapon = itemDefinition(itemId)?.weapon;
-  return weapon?.mode === "MELEE" ? (weapon.range ?? 75) + Math.max(0, rangedRange - DEFAULT_ATTACK_RANGE) : rangedRange;
+  if (weapon?.mode === "MELEE") return (weapon.range ?? 75) + Math.max(0, rangedRange - DEFAULT_ATTACK_RANGE);
+  return weaponSchool(itemId) === "archery" ? rangedRange + BOW_RANGE_BONUS : rangedRange;
 }
 
 /** What armor classes and boots multiply move speed by (Tailwind aside). */
@@ -75,9 +81,9 @@ export const gearMoveSpeedFactor = (head: string, chest: string, feet: string | 
 export const skillChanceFactor = (head: string, chest: string, feet: string | undefined, feetLevel: ItemLevel) =>
   armorSkillChanceFactor(head, chest) * bootSkillChanceFactor(feet, feetLevel);
 
-/** Crit chance (0–1): Critical Chance research, Keen Edge and crit cards. */
-export const critChanceFor = (research: Partial<ResearchRanks> | null | undefined, perks: Partial<PrestigePerkRanks> | null | undefined, cardCritChance = 0) =>
-  (research?.criticalChance ?? 0) * .01 + prestigePerkValue(perks, "keenEdge") + cardCritChance;
+/** Crit chance (0–1): Critical Chance research, Keen Edge, crit cards and a bow's own. */
+export const critChanceFor = (research: Partial<ResearchRanks> | null | undefined, perks: Partial<PrestigePerkRanks> | null | undefined, cardCritChance = 0,
+  weapon?: unknown) => (research?.criticalChance ?? 0) * .01 + prestigePerkValue(perks, "keenEdge") + cardCritChance + bowCritChanceBonus(weapon);
 
 /** A perk's proc chance with the worn cards of the same name added. */
 export const procChance = (perkChance: number, cards: CardTotals, effect: "doubleStrike" | "splitShot" | "reflect") =>
@@ -99,7 +105,7 @@ export function playerStatPower(inputs: PlayerStatInputs) {
   const { factors, stats } = playerCoreStats(inputs), ranks = ranksOf(inputs), perks = inputs.perks ?? null;
   const critMultiplier = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: cleanSoulStats(inputs.soul).critDamage,
     rating: inputs.base.critRating, capRank: ranks.critCap, card: factors.cards.critDamage }).multiplier;
-  return unroundedPlayerPower({ ...stats, critChance: critChanceFor(ranks, perks, factors.cards.critChance), critMultiplier });
+  return unroundedPlayerPower({ ...stats, critChance: critChanceFor(ranks, perks, factors.cards.critChance, weaponOf(inputs.loadout)), critMultiplier });
 }
 
 /** Move speed: (base × research + Utility) × (Fleet Foot + cards), plus Black Boots, × armor class × boots × Tailwind. */
@@ -121,7 +127,7 @@ export function computePlayerStats(inputs: PlayerStatInputs) {
   const { gear, research, cards } = factors;
   const capInterval = attackCapInterval(inputs.attackCap);
   const attackInterval = Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, capInterval, base.attackInterval);
-  const critChance = critChanceFor(ranks, perks, cards.critChance);
+  const critChance = critChanceFor(ranks, perks, cards.critChance, weapon);
   const critDamage = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: soul.critDamage, rating: base.critRating, capRank: ranks.critCap,
     card: cards.critDamage });
   const moveSpeed = playerMoveSpeed(inputs);
@@ -138,7 +144,7 @@ export function computePlayerStats(inputs: PlayerStatInputs) {
     /** Seconds between attacks, never under the cap; attackRate is attacks a second. */
     attackInterval,
     attackRate: 1 / attackInterval,
-    /** What the weapon fires at: a staff casts slower (staff-skills.ts). */
+    /** What the weapon fires at: a staff casts slower, a bow shoots faster (staff-skills.ts). */
     weaponInterval: weaponAttackInterval(weapon, attackInterval),
     capInterval,
     range,
@@ -205,7 +211,7 @@ function statSources(inputs: PlayerStatInputs, ranks: ResearchRanks, soul: SoulS
       /** Bounty cards: one stat's gain, in percent. */
       singleStat: Object.entries(cardTotals.statGain).filter(([, value]) => (value ?? 0) > 0) as [string, number][],
     },
-    critChance: { techPercent: ranks.criticalChance, prestige: prestigePerkValue(perks, "keenEdge"), cards: cards.critChance },
+    critChance: { techPercent: ranks.criticalChance, prestige: prestigePerkValue(perks, "keenEdge"), cards: cards.critChance, weapon: bowCritChanceBonus(weapon) },
     critDamage,
     reflect: { prestige: prestigePerkValue(perks, "riposte"), cards: cardChance(cardTotals, "reflect") / 100 },
     doubleStrike: { prestige: prestigePerkValue(perks, "doubleStrike"), cards: cardChance(cardTotals, "doubleStrike") / 100 },

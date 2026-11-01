@@ -1,4 +1,5 @@
 import { tables, type DbConnection } from "../../module_bindings";
+export type { OfflineActivity } from "../../../shared/offline-gathering";
 
 export type OfflineProgressSummary = {
   mapId: string;
@@ -11,7 +12,27 @@ export type OfflineProgressSummary = {
   attackSpeed: number;
   /** Nothing was earned: no unlocked map was survivable for the full window. */
   blocked: boolean;
+  /** The mining and chopping on offer beside the fight; absent on a summary that was paid as a fight already. */
+  choice?: OfflineGatherChoice;
 };
+
+export type OfflineGatherChoice = {
+  rocks: number;
+  miningGain: number;
+  mineOres: Record<string, number>;
+  trees: number;
+  woodcuttingGain: number;
+  chopOres: Record<string, number>;
+};
+
+function parseOres(json: string): Record<string, number> {
+  try {
+    const value = JSON.parse(json);
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Watches for the one summary the server leaves behind on world entry.
@@ -25,23 +46,29 @@ export function watchOfflineProgress(
   present: (summary: OfflineProgressSummary) => void,
 ) {
   const seen = new Set<string>();
-  const apply = (row: OfflineProgressSummary & { grantedAtMicros: bigint }) => {
-    if (!isCurrent()) return;
-    // World entry can be retried; the same grant must open one summary.
-    const key = String(row.grantedAtMicros);
+  const apply = () => {
+    const row = [...connection.db.myOfflineProgress.iter()][0];
+    if (!row || !isCurrent()) return;
+    const gather = [...connection.db.myOfflineGatherChoice.iter()].find(entry => entry.grantedAtMicros === row.grantedAtMicros);
+    // World entry can be retried; the same grant must open one summary. Its choice may arrive a moment after it.
+    const key = `${row.grantedAtMicros}:${Boolean(gather)}`;
     if (seen.has(key)) return;
     seen.add(key);
     present({
       mapId: row.mapId, seconds: row.seconds, kills: row.kills,
       damage: row.damage, health: row.health, armor: row.armor,
       regen: row.regen, attackSpeed: row.attackSpeed, blocked: row.blocked,
+      choice: gather && {
+        rocks: gather.rocks, miningGain: gather.miningGain, mineOres: parseOres(gather.mineOres),
+        trees: gather.trees, woodcuttingGain: gather.woodcuttingGain, chopOres: parseOres(gather.chopOres),
+      },
     });
   };
-  connection.db.myOfflineProgress.onInsert((_ctx, row) => apply(row));
-  connection.db.myOfflineProgress.onUpdate((_ctx, _old, row) => apply(row));
-  connection.subscriptionBuilder().onApplied(() => {
-    for (const row of connection.db.myOfflineProgress.iter()) apply(row);
-  }).subscribe([tables.myOfflineProgress]);
+  connection.db.myOfflineProgress.onInsert(apply);
+  connection.db.myOfflineProgress.onUpdate(apply);
+  connection.db.myOfflineGatherChoice.onInsert(apply);
+  connection.db.myOfflineGatherChoice.onUpdate(apply);
+  connection.subscriptionBuilder().onApplied(apply).subscribe([tables.myOfflineProgress, tables.myOfflineGatherChoice]);
 }
 
 /**

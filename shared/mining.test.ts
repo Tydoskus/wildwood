@@ -24,7 +24,6 @@ describe("the Copper Hills' veins", () => {
     expect(TOWN_HILLS.left).toBeGreaterThan(TOWN_VILLAGE_WALK_AREA.right);
     expect(TOWN_WALK_AREA.right).toBeGreaterThan(TOWN_HILLS.right);
     const [walls] = TOWN_WALK_AREAS;
-    expect([walls.top, walls.bottom]).toEqual([TOWN_VILLAGE_WALK_AREA.top, TOWN_VILLAGE_WALK_AREA.bottom]);
     expect(walls.right).toBeGreaterThan(TOWN_HILLS.right);
     expect(TOWN_HILLS.top).toBeGreaterThan(walls.top);
     expect(TOWN_HILLS.bottom).toBeLessThan(walls.bottom);

@@ -12,8 +12,11 @@ import {
   type ActiveSubscription,
 } from "./subscription-handoff";
 
-/** One account-scoped view follows the server's admitted map instance automatically. */
-export function createProceduralMapService(port: ReducerPort) {
+/**
+ * One account-scoped view follows the server's admitted map instance automatically. procedural_progress comes with
+ * the base subscription (base-subscription.ts): ready waits for that one too.
+ */
+export function createProceduralMapService(port: ReducerPort, progressReady: () => boolean = () => true) {
   let connection: DbConnection | null = null;
   let subscription: {
     handle: ActiveSubscription | null;
@@ -54,12 +57,7 @@ export function createProceduralMapService(port: ReducerPort) {
             attempt.ready = true;
           })
           .onError((ctx) => failed(ctx.event))
-          .subscribe([
-            tables.proceduralProgress.where((row) =>
-              row.identity.eq(conn.identity!),
-            ),
-            tables.myEndlessTravelAccess,
-          ]);
+          .subscribe([tables.myEndlessTravelAccess]);
       } catch (error) {
         failed(error);
       }
@@ -85,7 +83,7 @@ export function createProceduralMapService(port: ReducerPort) {
     },
     proceduralMapState() {
       const conn = refresh();
-      const ready = Boolean(conn && subscription?.ready);
+      const ready = Boolean(conn && subscription?.ready && progressReady());
       const completed = conn?.identity
         ? (conn.db.proceduralProgress.identity.find(conn.identity)?.completed ??
           0)

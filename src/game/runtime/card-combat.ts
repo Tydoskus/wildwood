@@ -2,8 +2,11 @@ import {
   CARD_EFFECT_DEFAULTS, NO_CARDS, cardChance, cardDamageDealtMultiplier, cardDamageTakenMultiplier, cardValue, type CardTotals,
 } from "../../../shared/card-effects";
 import { CARD_CHAIN_RANGE, CARD_SPLASH_MAX_TARGETS, CARD_SPLASH_RADIUS, PRISM_MAX_TARGETS, PRISM_REPEAT_SECONDS } from "../../../shared/card-bounds";
+import { FIRE_ARROW_BURN, type ArrowEffect } from "../../../shared/arrows";
 import { ENEMY_TYPES } from "../enemies";
 import type { BossTarget, EnemyCardStatus, EnemyState, PlayerState } from "./types";
+import type { DamageSource } from "./dps-meter";
+import { healPlayer } from "./player-health";
 
 type Target = EnemyState | BossTarget;
 type DamageOverTime = { dps: number; left: number; pending: number; tick: number; color: string };
@@ -39,7 +42,7 @@ export function createCardCombat(deps: {
   mapId: () => string;
   isDueling: () => boolean;
   /** Card damage on a target: no crit and no cards; a kill pays as any kill does. Prism's is reflected damage. */
-  strike: (target: Target, damage: number, reflected?: boolean) => void;
+  strike: (target: Target, damage: number, source: DamageSource, reflected?: boolean) => void;
   spawnBurst: (x: number, y: number, color: string, count?: number, speed?: number) => void;
   spawnParticle?: (x: number, y: number, vx: number, vy: number, life: number, maxLife: number, size: number, color: string) => void;
   streak?: (fromX: number, fromY: number, toX: number, toY: number, color: string) => void;
@@ -106,7 +109,7 @@ export function createCardCombat(deps: {
   function splashAround(target: Target, damage: number) {
     if (!(damage > 0)) return;
     deps.spawnBurst(target.x, target.y, COLORS.splash, 10, 120);
-    for (const enemy of near(target.x, target.y, CARD_SPLASH_RADIUS, new Set([target])).slice(0, CARD_SPLASH_MAX_TARGETS)) deps.strike(enemy, damage);
+    for (const enemy of near(target.x, target.y, CARD_SPLASH_RADIUS, new Set([target])).slice(0, CARD_SPLASH_MAX_TARGETS)) deps.strike(enemy, damage, 'card-splash');
   }
 
   function chainLightning(target: Target, damage: number, targets: number) {
@@ -117,7 +120,7 @@ export function createCardCombat(deps: {
       if (!next) return;
       deps.streak?.(from.x, from.y, next.x, next.y, COLORS.chain);
       struck.add(next);
-      deps.strike(next, damage);
+      deps.strike(next, damage, 'card-chain');
       from = next;
     }
   }
@@ -132,7 +135,7 @@ export function createCardCombat(deps: {
     const threshold = cardValue(worn, "reap");
     if (!(threshold > 0) || target.hp >= target.maxHp * threshold / 100) return false;
     deps.spawnBurst(target.x, target.y, "#d7b8ff", 14, 140);
-    deps.strike(target, target.hp);
+    deps.strike(target, target.hp, 'card-reap');
     return true;
   }
 
@@ -141,7 +144,7 @@ export function createCardCombat(deps: {
     const worn = cards();
     if (worn === NO_CARDS || !(damage > 0)) return;
     const steal = cardValue(worn, "lifesteal");
-    if (steal > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + damage * steal / 100);
+    if (steal > 0) healPlayer(player, damage * steal / 100, "lifesteal");
     const regular = isRegular(target) ? target : null;
     splashAround(target, damage * cardValue(worn, "splash") / 100);
     const defaults = CARD_EFFECT_DEFAULTS;
@@ -216,7 +219,7 @@ export function createCardCombat(deps: {
     }
     const panic = CARD_EFFECT_DEFAULTS.panicHeal;
     if (player.hp > 0 && player.hp < player.maxHp * panic.below && deps.random() * 100 < cardChance(worn, "panicHeal")) {
-      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * panic.heal);
+      healPlayer(player, player.maxHp * panic.heal, "panic-heal");
       deps.spawnBurst(player.x, player.y, "#7cf08f", 14, 120);
     }
     const web = cardValue(worn, "web");
@@ -232,10 +235,10 @@ export function createCardCombat(deps: {
     deps.spawnBurst(source.x, source.y, COLORS.splash, 10, 120);
     const fresh = near(source.x, source.y, CARD_SPLASH_RADIUS, new Set([source]))
       .filter(enemy => !(clock - (prismStruckAt.get(enemy) ?? -Infinity) < PRISM_REPEAT_SECONDS)).slice(0, PRISM_MAX_TARGETS);
-    for (const enemy of fresh) { prismStruckAt.set(enemy, clock); deps.strike(enemy, damage, true); }
+    for (const enemy of fresh) { prismStruckAt.set(enemy, clock); deps.strike(enemy, damage, 'card-reflect-splash', true); }
   }
 
-  function tickDamage(target: Target, entry: DamageOverTime, dt: number) {
+  function tickDamage(target: Target, entry: DamageOverTime, dt: number, source: DamageSource) {
     const step = Math.min(dt, entry.left);
     entry.left -= step;
     entry.pending += entry.dps * step;
@@ -246,7 +249,7 @@ export function createCardCombat(deps: {
     entry.pending = 0;
     if (amount > 0 && !target.dead) {
       deps.spawnParticle?.(target.x, target.y - 10, 0, -40, .5, .5, 4, entry.color);
-      deps.strike(target, amount);
+      deps.strike(target, amount, source);
     }
   }
 
@@ -269,7 +272,7 @@ export function createCardCombat(deps: {
       for (const kind of ["burn", "poison"] as const) {
         const dot = entry[kind];
         if (!dot) continue;
-        tickDamage(target, dot, dt);
+        tickDamage(target, dot, dt, `card-${kind}`);
         if (dot.left <= 0) delete entry[kind];
       }
       if (target.dead || (!entry.burn && !entry.poison)) dots.delete(target);
@@ -288,8 +291,19 @@ export function createCardCombat(deps: {
     }
   }
 
+  /** A nocked arrow's hit (arrows.ts): Fire burns, Venom poisons and weakens, Frost chills, on every hit, cards or not. */
+  function arrowHit(target: Target, damage: number, effect: ArrowEffect) {
+    if (!(damage > 0) || target.dead) return;
+    const regular = isRegular(target) ? target : null, defaults = CARD_EFFECT_DEFAULTS;
+    if (effect === "burn") damageOverTime(target, "burn", damage * FIRE_ARROW_BURN.share, FIRE_ARROW_BURN.seconds);
+    else if (effect === "poison") {
+      damageOverTime(target, "poison", damage * defaults.poison.share, defaults.poison.seconds);
+      if (regular) setStatus(regular, "weaken", defaults.poison.weaken, defaults.poison.seconds);
+    } else if (effect === "chill" && regular) setStatus(regular, "slow", defaults.chill.slow, defaults.chill.seconds);
+  }
+
   return {
-    hitMultiplier, firstHitCrit, afterHit, reap, onKill, secondWind, incoming, absorb, afterHurt, afterReflect, update,
+    hitMultiplier, firstHitCrit, afterHit, arrowHit, reap, onKill, secondWind, incoming, absorb, afterHurt, afterReflect, update,
     /** The shield in play and its most, for the health bar. */
     shield: () => ({ amount: shield, max: player.maxHp * Math.max(0, cardValue(cards(), "shield")) / 100 }),
   };

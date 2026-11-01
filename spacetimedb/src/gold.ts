@@ -3,10 +3,11 @@ import type { Identity } from "spacetimedb";
 import type spacetimedbType from "./index";
 import { offlineGold, rollBossGold, rollKillGold } from "../../shared/gold";
 import { cardStatFactors, type CardTotals } from "../../shared/card-effects";
-import { luckMultiplier } from "../../shared/luck-research";
+import { luckMultiplier, type LuckRanks } from "../../shared/luck-research";
 import { activeCardTotalsFor } from "./active-cards";
 import { luckInPlay } from "./luck-research";
 import { serverBoostRewardMultiplier } from "./server-boost-tables";
+import { guildHallBonusFor } from "./guild-hall-bonus";
 
 /** Each player's gold (shared/gold.ts). Private; the player reads their own through my_gold. */
 export const playerGold = table({ name: "player_gold", public: false }, {
@@ -37,20 +38,22 @@ export function takeGold(ctx: Ctx, identity: Identity, amount: number | bigint) 
   return true;
 }
 
-/** What Treasure cards in the worn gear and Gold Luck (the gearLuck rank) multiply the gold drop chance by. `cards` saves a reread. */
-export function goldChanceMultiplier(ctx: Ctx, identity: Identity, cards?: CardTotals) {
+/** What Treasure cards in the worn gear, Gold Luck (the gearLuck rank) and the guild's Great Table multiply the gold drop chance by. `cards` saves a reread. */
+export function goldChanceMultiplier(ctx: Ctx, identity: Identity, cards?: CardTotals, luck?: LuckRanks) {
   const treasure = 1 + cardStatFactors(cards ?? activeCardTotalsFor(ctx, identity)).treasure;
-  return treasure * luckMultiplier("gearLuck", luckInPlay(ctx, identity).gearLuck);
+  return treasure * luckMultiplier("gearLuck", (luck ?? luckInPlay(ctx, identity)).gearLuck) * (1 + guildHallBonusFor(ctx, identity, "table"));
 }
 
 /**
  * An accepted kill report's gold: a roll per regular kill, and a boss's first clear in the run, doubled during a Server Boost. A boss clear is the
  * client's claim, so a repeat pays nothing.
  */
-export function awardKillGold(ctx: Ctx, identity: Identity, kills: number, firstBossClear: boolean, cards?: CardTotals) {
-  const chance = kills > 0 ? goldChanceMultiplier(ctx, identity, cards) : 1;
-  const gold = rollKillGold(kills, () => ctx.random(), chance) + (firstBossClear ? rollBossGold(() => ctx.random()) : 0);
-  addGold(ctx, identity, gold * serverBoostRewardMultiplier(ctx));
+export function awardKillGold(ctx: Ctx, identity: Identity, kills: number, firstBossClear: boolean, cards?: CardTotals,
+  read?: { luck: () => LuckRanks; serverBoost: () => number }) {
+  const chance = kills > 0 ? goldChanceMultiplier(ctx, identity, cards, read?.luck()) : 1;
+  const boss = firstBossClear ? rollBossGold(() => ctx.random()) + guildHallBonusFor(ctx, identity, "trophies") : 0;
+  const gold = rollKillGold(kills, () => ctx.random(), chance) + boss;
+  addGold(ctx, identity, gold * (read ? read.serverBoost() : serverBoostRewardMultiplier(ctx)));
 }
 
 /** Offline kills pay half the in-play rate, without rolling. */

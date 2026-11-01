@@ -23,6 +23,8 @@ import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
 import { craftKey, craftSkillExperience } from "../../spacetimedb/src/crafting";
 import { toolKey } from "../../spacetimedb/src/tools";
 import { researchRankKey } from "../../spacetimedb/src/research-rank";
+import { RESEARCH_STAND } from "../../spacetimedb/src/research-station";
+import { standAt } from "./harness/gear";
 import { fillBag, serverGatherer } from "./harness/gather";
 import { connectClient } from "./harness/client";
 import { createAccountRowServices } from "../../src/coop/services/account-row-services";
@@ -245,10 +247,24 @@ describe("Woodcutting on the server", () => {
   });
 });
 
+describe("Tech Research", () => {
+  it("starts research only at the Tech Research station in the Town", () => {
+    const world = scenarioWorld();
+    const ann = townsfolk(world, "Ann");
+    standAt(world, ann.player, { mapId: "town", x: TOWN_ARRIVAL.x, y: TOWN_ARRIVAL.y });
+    expect(ann.player.refusal("startResearch", { researchId: "foraging" })).not.toBeNull();
+    expect(world.db.activeResearch.identity.find(ann.player.identity)).toBeFalsy();
+    standAt(world, ann.player, { mapId: "town", ...RESEARCH_STAND });
+    ann.player.call("startResearch", { researchId: "foraging" });
+    expect(world.db.activeResearch.identity.find(ann.player.identity)?.researchId).toBe("foraging");
+  });
+});
+
 describe("Resource Respawn research", () => {
   it("needs Card Luck or Gear Luck first, then researches into its own rank row", () => {
     const world = scenarioWorld();
     const ann = townsfolk(world, "Ann");
+    standAt(world, ann.player, { mapId: "town", ...RESEARCH_STAND });
     expect(ann.player.refusal("startResearch", { researchId: "resourceRespawn" })).not.toBeNull();
     world.setup(ctx => ctx.db.playerLuckResearch.insert({ identity: ann.player.identity, cardLuck: 1, gearLuck: 0, miningLuck: 0, skillLuck: 0, refineLuck: 0 }));
     ann.player.call("startResearch", { researchId: "resourceRespawn" });

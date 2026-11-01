@@ -20,6 +20,7 @@
     "build:stat-graph": "vite build --config config/vite.stat-graph.config.ts",
     "build:client": "npm run build:coop && npm run build:game && node scripts/prune-client-build.mjs && node scripts/fingerprint-client.mjs && node scripts/check-client-build.mjs",
     "dev:local": "node scripts/local-dev.mjs",
+    "local:guild-hall": "tsx scripts/local-guild-hall.ts",
     "dev:live": "node scripts/live-dev.mjs",
     "balance:lab": "vite --config config/vite.balance.config.ts --host 127.0.0.1 --open /balance-lab.html",
     "balance:stat-graph": "vite --config config/vite.stat-graph.config.ts --host 127.0.0.1 --open /balance-stat-graph.html",
@@ -72,7 +73,8 @@
     "balance:scorecard": "tsx scripts/balance-scorecard.ts",
     "visual:capture": "node tools/visual-check/capture.mjs",
     "visual:diff": "node tools/visual-check/diff.mjs",
-    "visual:check": "node tools/visual-check/check.mjs"
+    "visual:check": "node tools/visual-check/check.mjs",
+    "perf": "node tools/visual-check/perf.mjs"
   },
   "dependencies": {
     "spacetimedb": "2.12.0"

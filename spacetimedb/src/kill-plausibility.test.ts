@@ -1,4 +1,5 @@
 import { fillDefeatBudget, readDefeatClock, reportKills, seedDefeatClock } from "../../tests/helpers/enemy-defeat";
+import { BOW_ATTACK_SPEED_BONUS } from "../../shared/bow-skills";
 import { expect, it, vi } from "vitest";
 import { crystalFixture } from "../../tests/helpers/crystal-hollows-fixture";
 import { STARTER_BOW } from "../../shared/items";
@@ -82,7 +83,7 @@ it("charges every kill at least the map's respawn over its whole population, so 
 });
 
 it("shares one combat clock across species, so claiming several at once earns no more", () => {
-  // One arrow a second, one-shotting: 1.25 kills a second of banked time,
+  // A bow's quicker arrows, one-shotting: 1.25 kills an arrow of banked time,
   // whichever species they land on. Per-species banks paid each species that
   // rate separately, so a report naming every species multiplied it.
   const species = Object.keys(ENEMY_TYPES).filter(kind => enemyDefeatDefinition("crystal_hollows", kind)).slice(0, 2);
@@ -93,6 +94,6 @@ it("shares one combat clock across species, so claiming several at once earns no
   seedDefeatClock(f, "combat", 10);
   reportKills(f, { streamId: "plausibility-stream-03", sequence: 1n, mapId: "crystal_hollows",
     enemies: species.map(enemy => ({ enemy, count: 10 })) });
-  expect(kills(f)).toBe(BigInt(Math.floor(10 * PLAUSIBLE_KILL_TOLERANCE)));
+  expect(kills(f)).toBe(BigInt(Math.floor(10 * (1 + BOW_ATTACK_SPEED_BONUS) * PLAUSIBLE_KILL_TOLERANCE)));
   expect(restricted(f)).toBe(false);
 });

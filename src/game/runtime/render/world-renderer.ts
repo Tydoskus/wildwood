@@ -1,7 +1,7 @@
 import { TOWN_VILLAGE_GROUND } from "../../town-village";
 import { WORLD_WIDTH } from "../../../../shared/rules";
 import { isSoulMap, SOUL_STAT_DETAILS } from "../../../../shared/soul-dimension";
-import { inTownInteriors, isTownMap, TOWN_DOORS, TOWN_EXCHANGE_WALK_AREA, TOWN_GROVE_WALK_AREA, TOWN_INTERIOR_MARGIN, TOWN_VILLAGE_WALK_AREA, TOWN_WALK_AREAS } from "../../../../shared/town";
+import { inTownInteriors, isTownMap, TOWN_DOORS, TOWN_INTERIOR_MARGIN, TOWN_VILLAGE_WALK_AREA, TOWN_WALK_AREA } from "../../../../shared/town";
 import { TOWN_EXCHANGE_LABEL } from "../../town-exchange";
 import { TOWN_EXCHANGE_GROUND } from "../town/exchange-ground";
 import { MINING_NODES } from "../../../../shared/mining";
@@ -39,9 +39,12 @@ import { createTintedImageCanvas } from "./image-tint";
 import { decorPaletteColor, mapVisualTheme } from "../../map-design";
 import { mapWorldLayout } from "../../map-layout";
 import { isGuildHallMap } from "../../../../shared/guild-hall";
+import { guildHallCameraRegion } from "../../guild-hall";
 import { portalTravelScene } from "./portal-glimpse";
 import { createShrunkImages, deviceScale } from "./shrunk-image";
+import { createPresizedTiles } from "./presized-tiles";
 import { freezeEntry, markCanvasChanged, releaseFrozen, type FrozenImage } from "./frozen-canvas";
+import { createChangeSignature } from "./change-signature";
 import { createGlowCache } from "./glow-cache";
 
 export { snapWorldRenderCoordinate } from "./render-space";
@@ -258,6 +261,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   let cachedStaticScene: StaticTileScene | null = null;
   let minimapCacheKey = "";
   let nextMinimapFrameAt = 0;
+  const minimapInputs = createChangeSignature();
   let staticTileLimit = STATIC_TILE_MIN_LIMIT;
   let staticTilePlaceholder: HTMLCanvasElement | null = null;
   let staticTilePlaceholderGeneration = -1;
@@ -271,8 +275,16 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   let lavaRocksRenderedByWebGL = false;
   const viewport = () => options.getViewport();
   const visibleSize = () => ({ width: viewport().width / camera.zoom, height: viewport().height / camera.zoom });
+  const drawPresizedTile = createPresizedTiles();
   const snapToWorldPixel = (value: number) => snapWorldRenderCoordinate(value, camera.zoom, options.getDevicePixelRatio());
-  const hasLavaRocks = () => options.decor.some((decor) => decor.type === "lavaRock");
+  // Scanned once per rebuild of the world (or change in its decor count), not twice a frame.
+  let lavaRocksKnown = { generation: -1, count: -1, found: false };
+  const hasLavaRocks = () => {
+    if (lavaRocksKnown.generation !== staticTileGeneration || lavaRocksKnown.count !== options.decor.length) {
+      lavaRocksKnown = { generation: staticTileGeneration, count: options.decor.length, found: options.decor.some((decor) => decor.type === "lavaRock") };
+    }
+    return lavaRocksKnown.found;
+  };
   const hasLavaPools = () => options.decor.some((decor) => decor.type === "lavaPool");
 
   function tintedPortalSwirl(destination: MapId) {
@@ -570,7 +582,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
         const source = staticTile(tileX, tileY);
         if (source === staticTilePlaceholder) unpainted = true;
         if (useWebGL) gpuTiles.push({ key, source, left, top, width: right - left, height: bottom - top });
-        else ctx.drawImage(source, left, top, right - left, bottom - top);
+        else drawPresizedTile(ctx, source, left, top, right - left, bottom - top);
       }
     }
     // The edge ring is useful for movement, but it never needs a placeholder
@@ -1192,18 +1204,28 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   /**
    * Where the minimap looks on the Town, or null on any other map (it shows the whole world): the walled village,
-   * or once the player is out past it, the Copper Hills east of it, Timberwood west of it or the market south, and the walk out.
+   * or once the player is out past it, whichever cell of the 3×3 grid they are in: the Copper Hills east, Timberwood west, the market south, countryside elsewhere.
    */
   function townMinimapFrame() {
+    // A guild hall's minimap shows only the player's side of its door, the hall in the middle.
+    if (isGuildHallMap(options.getMapId())) {
+      const area = guildHallCameraRegion(options.player.x), span = Math.max(area.right - area.left, area.bottom - area.top);
+      return { x: (area.left + area.right - span) / 2, y: (area.top + area.bottom - span) / 2, span, rooms: false, hills: false, grove: false };
+    }
     if (!isTownMap(options.getMapId())) return null;
     if (inTownInteriors(options.player.x, options.player.y, TOWN_INTERIOR_MARGIN)) {
       return { x: options.player.x - TOWN_ROOMS_MINIMAP_SPAN / 2, y: options.player.y - TOWN_ROOMS_MINIMAP_SPAN / 2, span: TOWN_ROOMS_MINIMAP_SPAN, rooms: true, hills: false, grove: false };
     }
-    const hills = options.player.x > TOWN_VILLAGE_WALK_AREA.right, grove = options.player.x < TOWN_VILLAGE_WALK_AREA.left;
-    const market = !hills && !grove && options.player.y > TOWN_VILLAGE_WALK_AREA.bottom;
-    const area = hills ? { ...TOWN_WALK_AREAS[0], left: TOWN_VILLAGE_WALK_AREA.right - 300 }
-      : grove ? { ...TOWN_GROVE_WALK_AREA, right: TOWN_VILLAGE_WALK_AREA.left + 300 }
-      : market ? { ...TOWN_EXCHANGE_WALK_AREA, top: TOWN_VILLAGE_WALK_AREA.bottom - 300 } : TOWN_VILLAGE_WALK_AREA;
+    // The cell of the 3×3 grid the player is in, with a little of the village's side showing.
+    const village = TOWN_VILLAGE_WALK_AREA, walls = TOWN_WALK_AREA;
+    const hills = options.player.x > village.right, grove = options.player.x < village.left;
+    const north = options.player.y < village.top, south = options.player.y > village.bottom;
+    const area = {
+      left: hills ? village.right - 300 : grove ? walls.left : village.left,
+      right: hills ? walls.right : grove ? village.left + 300 : village.right,
+      top: north ? walls.top : south ? village.bottom - 300 : village.top,
+      bottom: north ? village.top + 300 : south ? walls.bottom : village.bottom,
+    };
     const span = Math.max(area.right - area.left, area.bottom - area.top);
     return { x: (area.left + area.right - span) / 2, y: (area.top + area.bottom - span) / 2, span, rooms: false, hills, grove };
   }
@@ -1265,7 +1287,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const sx = innerSize / (frame?.span ?? WORLD.w); const sy = innerSize / (frame?.span ?? WORLD.h);
     const colors = mapColors();
     draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
-    if (frame && !frame.rooms) {
+    if (frame && !frame.rooms && isTownMap(options.getMapId())) {
       drawTownVillageOnMinimap(draw, ox, oy, sx, sy);
       // The road to the Trade Chrysanthemum and its square, in the roads' colour.
       draw.fillStyle = colors.path;
@@ -1325,6 +1347,34 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     minimapCacheKey = cacheKey;
   }
 
+  /** Whether anything renderMinimapFrame draws from changed since the last check. */
+  function minimapMoved(remotePlayers: MapPlayerMarker[], view: Viewport) {
+    const inputs = minimapInputs.begin();
+    const frame = townMinimapFrame();
+    if (frame) inputs.add(frame.x).add(frame.y).add(frame.span).add(Number(frame.rooms)).add(Number(frame.hills)).add(Number(frame.grove));
+    inputs.add(townVillageThumbnail ? 1 : options.minimapVillageGround?.()?.complete ? 2 : 0).add(options.paths.length);
+    if (frame?.hills) for (const node of MINING_NODES) inputs.add(Number(miningScene.bare.has(node.id)));
+    if (frame?.grove) for (const tree of WOOD_TREE_NODES) inputs.add(Number(woodcuttingScene.felled.has(tree.id)));
+    inputs.add(options.enemies.length);
+    for (const enemy of options.enemies) {
+      const definition = enemy.definition ?? ENEMY_TYPES[enemy.type];
+      inputs.add(enemy.x).add(enemy.y).add(Number(Boolean(enemy.generatedBoss || definition.elite))).text(soulMarkerColor(enemy) ?? definition.reward.type);
+    }
+    for (const portal of [options.activePortal(), options.secondaryPortal()]) {
+      if (portal) inputs.add(portal.x).add(portal.y).text(portal.destination).add(Number(options.portalIsUnlocked(portal)));
+      else inputs.add(-Infinity);
+    }
+    const mapBoss = bossForMap(options.getMapId());
+    if (mapBoss) {
+      const state = options.bosses[mapBoss.kind];
+      inputs.add(state.x).add(state.y).add(Number(state.dead));
+    }
+    inputs.add(remotePlayers.length);
+    for (const player of remotePlayers) inputs.add(player.x).add(player.y);
+    inputs.add(options.player.x).add(options.player.y).add(camera.x).add(camera.y).add(camera.zoom).add(view.width).add(view.height);
+    return inputs.finish();
+  }
+
   function drawMinimap(remotePlayers: MapPlayerMarker[]) {
     if (options.getMapId() === "first_steps") return;
     const view = viewport();
@@ -1333,7 +1383,9 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     const cacheKey = `${options.getMapId()}:${size}:${options.getDevicePixelRatio()}`;
     const now = performance.now();
     if (cacheKey !== minimapCacheKey || now >= nextMinimapFrameAt) {
-      renderMinimapFrame(remotePlayers, size, view);
+      // Redrawn, and so uploaded again, only when something on it moved.
+      const moved = minimapMoved(remotePlayers, view);
+      if (moved || cacheKey !== minimapCacheKey) renderMinimapFrame(remotePlayers, size, view);
       nextMinimapFrameAt = now + MINIMAP_FRAME_INTERVAL_MS;
     }
     if (minimapCanvas.width > 0 && minimapCanvas.height > 0) ctx.drawImage(minimapCanvas, layout.x, layout.y, size, size);

@@ -1,5 +1,5 @@
 import { itemDefinition } from "./items";
-import { bowSkillChanceRangeTenths } from "./bow-skills";
+import { BOW_ATTACK_SPEED_BONUS, bowSkillChanceRangeTenths, isBow } from "./bow-skills";
 import { chanceWithLuck } from "./luck-research";
 
 // ---- Wizard staffs: every number to tune is in this block. ----
@@ -105,8 +105,8 @@ export function staffSkillScore(roll: Partial<StaffSkillRoll> | null | undefined
 
 /** Damage a second a staff deals against what its hit and interval alone would: the slower, heavier casts. */
 export const STAFF_DPS_FACTOR = STAFF_BOLT_DAMAGE_FACTOR / STAFF_CAST_INTERVAL_FACTOR;
-/** A weapon's cast interval from the player's attack interval. */
+/** A weapon's attack interval from the player's: a staff casts slower, a bow shoots faster (bow-skills.ts). */
 export const weaponAttackInterval = (itemId: unknown, attackInterval: number) =>
-  isStaff(itemId) ? attackInterval * STAFF_CAST_INTERVAL_FACTOR : attackInterval;
+  isStaff(itemId) ? attackInterval * STAFF_CAST_INTERVAL_FACTOR : isBow(itemId) ? attackInterval / (1 + BOW_ATTACK_SPEED_BONUS) : attackInterval;
 /** A weapon's hit from the player's damage: a bolt's is STAFF_BOLT_DAMAGE_FACTOR of an arrow's. */
 export const weaponHitFactor = (itemId: unknown) => isStaff(itemId) ? STAFF_BOLT_DAMAGE_FACTOR : 1;

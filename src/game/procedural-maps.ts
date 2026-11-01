@@ -42,7 +42,7 @@ export function generatedMapContent(id: ProceduralMapId) {
         definition: {
           ...ENEMY_TYPES[kind],
           ...generatedEnemyStats(map, endlessSiteLane(camp, j)),
-          r: Math.min(GENERATED_ENEMY_MAX_RADIUS, ENEMY_TYPES[kind].r),
+          r: generatedEnemyRadius(kind),
           speed: runtimeMapBalance(id)?.enemies[kind]?.speed ?? campaignMeleeChaseSpeed(PROCEDURAL_FIRST_TIER),
           elite: false,
         },
@@ -109,6 +109,14 @@ export function withGeneratedMaps<T>(
       );
     },
   });
+}
+
+/** An Endless boss is its map's enemy at twice the size: art and hitbox both. */
+export const GENERATED_BOSS_SIZE = 2;
+
+/** An Endless enemy's hitbox: its own, capped so big art brings no bigger hitbox. */
+export function generatedEnemyRadius(kind: EnemyKind) {
+  return Math.min(GENERATED_ENEMY_MAX_RADIUS, ENEMY_TYPES[kind].r);
 }
 
 /** One species per map; camps supply stats independently of that species' original role. */

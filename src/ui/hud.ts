@@ -1,9 +1,8 @@
-import { appendBagTileContents, setTileGrade } from "./bag-item-tile";
-import { itemTier } from "../../shared/item-tier";
+import { appendBagTileContents, appendOreTileContents, setTileGrade } from "./bag-item-tile";
+import { itemGradeRank } from "../../shared/item-tier";
 import { appendItemTierLabel } from "./item-tier-label";
 import { appendRefineBadge, withRefineStars } from "./refine-badge";
-import { oreIconSource } from "./ore-icon";
-import { oreKindsHeld, type OreCounts } from "../../shared/ore-bag";
+import { ORE_ORDER, oreKindsHeld, type OreCounts } from "../../shared/ore-bag";
 import { REFINE_ORES, type OreId } from "../../shared/refine";
 import { cosmeticInventoryStacks, bagInventoryStacks, isStarterLook, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
@@ -310,34 +309,25 @@ function renderEquipmentSlot(
 }
 
 /**
- * One kind of ore, wood or crystal in the bag: its icon, its name over it as a tier sits over gear, and the stack's
+ * One kind of ore, wood, crystal or arrow in the bag: its icon, its name over it as a tier sits over gear, and the stack's
  * count in the corner. Tapping it opens the item window. It takes a bag slot like an item, but is never picked to delete.
+ * The arrow kind nocked is outlined, a tick before its name.
  */
-function oreTile(oreId: OreId, count: number, onInspect?: (oreId: OreId) => void) {
+function oreTile(oreId: OreId, count: number, onInspect?: (oreId: OreId) => void, nocked = false) {
   const name = REFINE_ORES[oreId].name;
   const button = document.createElement("button");
   button.type = "button";
   button.className = "inventory-item is-filled is-ore";
   button.dataset.inventoryLocation = "ORE";
   button.dataset.oreId = oreId;
-  button.setAttribute("aria-label", `${name}, ${count}. Tap to inspect.`);
-  const art = document.createElement("span");
-  art.className = "inventory-item-art-wrap";
-  const source = oreIconSource(oreId);
-  if (source) {
-    const image = document.createElement("span");
-    image.className = "inventory-item-art";
-    image.setAttribute("aria-hidden", "true");
-    image.style.backgroundImage = `url(${source})`;
-    art.append(image);
+  button.setAttribute("aria-label", `${name}, ${count}${nocked ? ", Nocked" : ""}. Tap to inspect.`);
+  appendOreTileContents(button, oreId, count);
+  if (count <= 0) button.classList.add("is-spent");
+  if (nocked) {
+    button.classList.add("is-nocked");
+    const label = button.querySelector(".item-tier-label");
+    if (label) label.textContent = `✓ ${label.textContent}`;
   }
-  const label = document.createElement("span");
-  label.className = "item-tier-label is-above";
-  label.textContent = name.replace(/ Ore$/, "").replace(/^Arcane /, "");
-  const stack = document.createElement("span");
-  stack.className = "inventory-stack-count";
-  stack.textContent = count < 10_000 ? String(count) : formatCompactNumber(count);
-  button.append(art, label, stack);
   button.addEventListener("click", () => onInspect?.(oreId));
   return button;
 }
@@ -364,6 +354,8 @@ export function renderInventoryView(
     /** Ores held: each kind is a stack in one bag slot, after the gear (shared/ore-bag.ts). */
     ores?: OreCounts;
     onInspectOre?: (oreId: OreId) => void;
+    /** The arrow kind the bow has nocked: its stack is marked. */
+    nockedArrow?: OreId | null;
   },
 ) {
   elements.items.replaceChildren();
@@ -373,12 +365,15 @@ export function renderInventoryView(
     .filter(copy => inventory.itemIds.includes(copy.itemId)).map(copy => ({ itemId: copy.itemId, copyId: copy.id }));
   const bagStacks = cosmetics ? cosmeticInventoryStacks(inventory).map(stack => ({ ...stack, copyId: 0n })) : [
     ...bagInventoryStacks(inventory).map(stack => ({ ...stack, copyId: 0n })), ...keptCopies,
-  ].sort((a, b) => (itemTier(b.itemId) ?? 0) - (itemTier(a.itemId) ?? 0)
+  ].sort((a, b) => (itemGradeRank(b.itemId) ?? -1) - (itemGradeRank(a.itemId) ?? -1)
       || itemDisplayName(a.itemId).localeCompare(itemDisplayName(b.itemId))
       || (a.copyId < b.copyId ? -1 : a.copyId > b.copyId ? 1 : 0));
   const slotCapacity = cosmetics ? Math.max(50, bagStacks.length) : actions.slotCapacity;
-  const oreStacks = cosmetics ? [] : oreKindsHeld(actions.ores ?? {});
-  elements.count.textContent = `${bagStacks.length + oreStacks.length} / ${slotCapacity} ${cosmetics ? "Cosmetics" : "Items"}`;
+  const heldOres = cosmetics ? [] : oreKindsHeld(actions.ores ?? {});
+  // A nocked arrow kind that ran out keeps its tile at 0, so the next kind does not slide into its place.
+  const spentNock = !cosmetics && actions.nockedArrow && !heldOres.includes(actions.nockedArrow) ? actions.nockedArrow : null;
+  const oreStacks = spentNock ? ORE_ORDER.filter(oreId => heldOres.includes(oreId) || oreId === spentNock) : heldOres;
+  elements.count.textContent = `${bagStacks.length + heldOres.length} / ${slotCapacity} ${cosmetics ? "Cosmetics" : "Items"}`;
   const wornRefine = actions.refineLevel && ((itemId: string) => actions.refineLevel!(itemId, 0n));
   renderEquipmentSlot(elements.equippedHead, inventory, "HEAD", "HEAD", mode, actions.upgradeLevel, actions.slotTier, wornRefine, actions.lookRefine);
   renderEquipmentSlot(elements.equippedChest, inventory, "CHEST", "ARMOR", mode, actions.upgradeLevel, actions.slotTier, wornRefine, actions.lookRefine);
@@ -395,7 +390,7 @@ export function renderInventoryView(
   for (let index = 0; index < visibleSlots; index += 1) {
     const ore = visibleOres[index - visibleStacks.length];
     if (index >= visibleStacks.length && ore) {
-      elements.items.appendChild(oreTile(ore, actions.ores?.[ore] ?? 0, actions.onInspectOre));
+      elements.items.appendChild(oreTile(ore, actions.ores?.[ore] ?? 0, actions.onInspectOre, ore === actions.nockedArrow));
       continue;
     }
     const stack = visibleStacks[index];

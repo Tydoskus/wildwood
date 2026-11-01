@@ -1,5 +1,5 @@
 import { watchDefeatSession } from "./coop/services/defeat-session-watch";
-import { watchOfflineProgress, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
+import { watchOfflineProgress, type OfflineActivity, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
 import { createAccountAudioSettings } from "./coop/services/account-audio-settings";
 import { createAccountRowServices, keptCardSlots, presenceGatherClock } from "./coop/services/account-row-services";
 import { createFramePlayers } from "./coop/services/frame-players";
@@ -728,6 +728,7 @@ function connect() {
         if (generation !== connectionGeneration || connection !== conn) return;
         latency.finish(protocolProbe); // this call alone: timing the next one too read double after every reconnect
         await conn.reducers.registerClientVersion({ clientVersion: GAME_VERSION });
+        void conn.reducers.registerClientHost({ host: window.location.host }).catch(() => {});
         if (generation !== connectionGeneration || connection !== conn) return;
         protocolReadyGeneration = generation;
         accountService.clearRetry();
@@ -903,13 +904,13 @@ export const wildstatCoop = {
     return localIdentity;
   },
   pendingOfflineProgress: () => pendingOfflineProgress,
+  runTiming: () => accountRows.api.runTimingWith(progressionService.lifetimeFor(localIdentity)),
   ...accountRows.api,
   weaponMasteryInPlay: (): MasteryPoints => masteryPointsInPlay(accountRows.api.weaponMastery(), progressionService.api.prestigeChallenge().active || progressionService.api.aggroChallenge().active), // None during challenges.
   accountAudio: accountAudio.api,
-  async acknowledgeOfflineProgress() {
+  async acknowledgeOfflineProgress(activity: OfflineActivity = "fight") {
+    if (connection?.isActive) await connection.reducers.collectOfflineProgressAs({ activity });
     pendingOfflineProgress = null;
-    if (!connection?.isActive) return;
-    await connection.reducers.acknowledgeOfflineSummary({});
   },
   async simulateTimeAway(seconds: number) {
     if (!connection?.isActive || !isDeveloperIdentity(localIdentity)) return false;

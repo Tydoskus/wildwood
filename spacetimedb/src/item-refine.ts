@@ -60,10 +60,24 @@ export const playerRefineResult = table({ name: "player_refine_result", public: 
   triedAt: t.timestamp(),
 });
 
+/**
+ * Failed tries in a row on one copy at one level, which raise the next try's chance (shared/refine.ts
+ * refineChanceAfterFails). A success removes the row; a row for another level counts as none.
+ */
+export const playerRefinePity = table({ name: "player_refine_pity", public: false }, {
+  key: t.string().primaryKey(),
+  identity: t.identity().index("btree"),
+  itemId: t.string(),
+  copyId: t.u64(),
+  level: t.u8(),
+  fails: t.u32(),
+});
+
 type Ctx = any;
 
 export const itemRefineKey = (identity: { toHexString(): string }, itemId: string) => `${identity.toHexString()}:${itemId}`;
 export const oreKey = (identity: { toHexString(): string }, oreId: string) => `${identity.toHexString()}:${oreId}`;
+const pityKey = (identity: { toHexString(): string }, itemId: string, copyId: bigint) => `${identity.toHexString()}:${itemId}:${copyId}`;
 export const isOreId = (value: unknown): value is OreId => typeof value === "string" && Object.prototype.hasOwnProperty.call(REFINE_ORES, value);
 
 /** The refine level of one copy: `copyId` 0 is the first copy. */
@@ -152,6 +166,20 @@ function rowsOf(handle: any, identity: Identity): any[] {
   return [...handle.identity.filter(identity)];
 }
 
+/** Fails in a row on this copy at `level`. */
+function refineFailsFor(ctx: Ctx, identity: Identity, itemId: string, copyId: bigint, level: number) {
+  const row = ctx.db.playerRefinePity.key.find(pityKey(identity, itemId, copyId));
+  return row && row.level === level ? row.fails : 0;
+}
+
+function recordRefineTry(ctx: Ctx, identity: Identity, itemId: string, copyId: bigint, level: number, succeeded: boolean) {
+  const key = pityKey(identity, itemId, copyId), current = ctx.db.playerRefinePity.key.find(key);
+  if (succeeded) { if (current) ctx.db.playerRefinePity.key.delete(key); return; }
+  const fails = Math.min(4_294_967_295, (current?.level === level ? current.fails : 0) + 1);
+  if (current) ctx.db.playerRefinePity.key.update({ ...current, level, fails });
+  else ctx.db.playerRefinePity.insert({ key, identity, itemId, copyId, level, fails });
+}
+
 /** Reset Save and a deleted account take the bag; its refines and the ores go with it. Prestige keeps them. */
 export function removeRefineData(ctx: Ctx, identity: Identity) {
   for (const row of [...rowsOf(ctx.db.playerItemRefine, identity), ...rowsOf(ctx.db.playerCopyRefine, identity)]) {
@@ -160,6 +188,7 @@ export function removeRefineData(ctx: Ctx, identity: Identity) {
   for (const row of rowsOf(ctx.db.playerItemRefine, identity)) ctx.db.playerItemRefine.key.delete(row.key);
   for (const row of rowsOf(ctx.db.playerCopyRefine, identity)) ctx.db.playerCopyRefine.copyId.delete(row.copyId);
   for (const row of rowsOf(ctx.db.playerOre, identity)) ctx.db.playerOre.key.delete(row.key);
+  for (const row of rowsOf(ctx.db.playerRefinePity, identity)) ctx.db.playerRefinePity.key.delete(row.key);
   if (ctx.db.playerRefineResult.identity.find(identity)) ctx.db.playerRefineResult.identity.delete(identity);
 }
 
@@ -180,6 +209,7 @@ export function mergeRefineData(ctx: Ctx, guest: Identity, account: Identity) {
   }
   const result = ctx.db.playerRefineResult.identity.find(guest);
   if (result) ctx.db.playerRefineResult.identity.delete(guest);
+  for (const row of rowsOf(ctx.db.playerRefinePity, guest)) ctx.db.playerRefinePity.key.delete(row.key);
 }
 
 /** Refining happens at the Smith, in the Town's smithy: where a player stands (not their feet) beside him. */
@@ -226,8 +256,10 @@ export function refineItemFor(ctx: Ctx, args: { itemId: string; copyId: bigint; 
   if (from >= REFINE_MAX) throw new SenderError(`That item is already +${REFINE_MAX}.`);
   const cost = refineCost(itemId, from + 1)!;
   if (!takeOres(ctx, ctx.sender, cost)) throw new SenderError(`You need ${oreList(cost)}.`);
-  const { succeeded, level } = rollRefine(itemId, from, ctx.random(), luckInPlay(ctx, ctx.sender).refineLuck);
+  const fails = refineFailsFor(ctx, ctx.sender, itemId, copyId, from);
+  const { succeeded, level } = rollRefine(itemId, from, ctx.random(), luckInPlay(ctx, ctx.sender).refineLuck, fails);
   setRefineLevel(ctx, ctx.sender, itemId, copyId, level);
+  recordRefineTry(ctx, ctx.sender, itemId, copyId, from, succeeded);
   const previous = ctx.db.playerRefineResult.identity.find(ctx.sender);
   const result = { identity: ctx.sender, itemId, copyId, fromLevel: from, toLevel: level, succeeded,
     attempt: ((previous?.attempt ?? 0) + 1) % 4_294_967_296, triedAt: ctx.timestamp };
@@ -263,5 +295,7 @@ export function registerItemRefine(spacetimedb: typeof spacetimedbType, deps: It
     const row = ctx.db.playerRefineResult.identity.find(ctx.sender);
     return row ? [row] : [];
   });
-  return { refineItem, destroyOre, myItemRefines, myCopyRefines, myOres, myRefineResult };
+  const myRefinePity = spacetimedb.view({ name: "my_refine_pity", public: true }, t.array(playerRefinePity.rowType),
+    (ctx: any) => [...ctx.db.playerRefinePity.identity.filter(ctx.sender)]);
+  return { refineItem, destroyOre, myItemRefines, myCopyRefines, myOres, myRefineResult, myRefinePity };
 }

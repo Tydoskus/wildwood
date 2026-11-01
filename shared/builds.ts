@@ -13,7 +13,8 @@ export function cleanBuildName(name: unknown) {
 /** What a Build is called: its name, or "Build 1" and so on. */
 export const buildLabel = (slot: number, name?: string | null) => name || `Build ${slot + 1}`;
 
-export type BuildGear = { HEAD: string; CHEST: string; FEET: string; HAND: string };
+/** ARROW is the arrow kind nocked when saved ("" for plain arrows); a build saved before arrows has none. */
+export type BuildGear = { HEAD: string; CHEST: string; FEET: string; HAND: string; ARROW?: string };
 /** A saved build as the client reads it: the gear in each slot and the active cards by type. */
 export type SavedBuild = { slot: number; gear: BuildGear; cards: ActiveCards };
 export const BUILD_GEAR_SLOTS = ["HAND", "HEAD", "CHEST", "FEET"] as const;
@@ -24,7 +25,8 @@ export function parseBuildGear(text: string): BuildGear {
   try {
     const value = JSON.parse(text);
     if (!value || typeof value !== "object") return { ...EMPTY_GEAR };
-    return Object.fromEntries(BUILD_GEAR_SLOTS.map(slot => [slot, typeof value[slot] === "string" ? value[slot] : ""])) as BuildGear;
+    const gear = Object.fromEntries(BUILD_GEAR_SLOTS.map(slot => [slot, typeof value[slot] === "string" ? value[slot] : ""])) as BuildGear;
+    return typeof value.ARROW === "string" ? { ...gear, ARROW: value.ARROW } : gear;
   } catch { return { ...EMPTY_GEAR }; }
 }
 

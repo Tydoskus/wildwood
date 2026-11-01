@@ -290,6 +290,7 @@ export function equipmentLegs(assets: PlayerAppearanceAssets, itemId: string | u
  * itself cached, but a tone change must not repaint on every frame.
  */
 const tintedLegs = new Map<string, HTMLCanvasElement>();
+const TINTED_LEG_LIMIT = PLAYER_SKIN_TONES.length * 4;
 export function skinTonedLeg(leg: HTMLImageElement, tone: string): PlayerLayerAsset {
   if (typeof document === "undefined" || !leg.complete || !leg.naturalWidth) return leg;
   const key = `${leg.src}|${tone}`;
@@ -327,7 +328,8 @@ export function skinTonedLeg(leg: HTMLImageElement, tone: string): PlayerLayerAs
     data[i + 2] = rgb[2] * value;
   }
   context.putImageData(pixels, 0, 0);
-  if (tintedLegs.size > 32) tintedLegs.clear();
+  // Room for both legs in every tone: a smaller cap cleared it every frame in a crowded Town.
+  if (tintedLegs.size >= TINTED_LEG_LIMIT) tintedLegs.clear();
   tintedLegs.set(key, canvas);
   return canvas;
 }

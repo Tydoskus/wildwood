@@ -259,3 +259,39 @@ describe("The Quest Board and Research in Town", () => {
     expect(world.db.homeReturnLocation.identity.find(bob.player.identity)?.mapId).toBe(TUTORIAL_FOREST_MAP_ID);
   });
 });
+
+describe("Arrows from the Smith", () => {
+  /** Beside the Smith, within his reach. */
+  const bySmith = clearSpotNear({ x: TOWN_SMITH_POSITION.x, y: TOWN_SMITH_POSITION.y + 30 }, 40);
+
+  it("crafts a stack at the Smith, nocks it for good, and the server takes the arrows the bow fires, never more than held", async () => {
+    const world = gameWorld();
+    const ann = await gatherer(world, "Ann", { at: standingAt(bySmith),
+      before: player => serverGatherer(world, player).give({ pine_log: 3, iron_ore: 3 }) });
+    const held = serverGatherer(world, ann.player);
+    // Two crafts: two of each material, two hundred arrows.
+    expect((await ann.tab.coop.craftArrows("steel_arrow", 2)).ok).toBe(true);
+    await ann.tab.play(500);
+    expect([held.ore("steel_arrow"), held.ore("pine_log"), held.ore("iron_ore")]).toEqual([200, 1, 1]);
+    // Short of materials: refused, nothing taken.
+    expect((await ann.tab.coop.craftArrows("steel_arrow", 2)).ok).toBe(false);
+    expect([held.ore("pine_log"), held.ore("iron_ore")]).toEqual([1, 1]);
+    await ann.tab.coop.nockArrow("steel_arrow");
+    await ann.tab.play(500);
+    expect(ann.tab.coop.arrowInPlay()).toBe("steel_arrow");
+    // Arrows fired come off the stack at once; the server takes them some seconds later.
+    for (let shot = 0; shot < 150; shot++) ann.tab.coop.recordArrowShot("steel_arrow");
+    expect(ann.tab.coop.ores().steel_arrow).toBe(50);
+    await ann.tab.play(16_000);
+    expect(held.ore("steel_arrow")).toBe(50);
+    // More reported than held: the server takes what there is, and the bow is back to plain arrows.
+    for (let shot = 0; shot < 80; shot++) ann.tab.coop.recordArrowShot("steel_arrow");
+    await ann.tab.play(16_000);
+    expect(held.ore("steel_arrow")).toBe(0);
+    expect(ann.tab.coop.arrowInPlay()).toBeNull();
+    // The nock is the account's: still nocked after a reload, ready for the next stack.
+    const tab = await ann.tab.reload();
+    expect(await tab.until(tab.playing, 20_000)).toBe(true);
+    expect(tab.coop.nockedArrow()).toBe("steel_arrow");
+  });
+});

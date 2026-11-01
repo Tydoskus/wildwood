@@ -87,11 +87,11 @@ describe("class lines", () => {
     expect(armorClassPerkLine(armor("magic"))).toBe("Magic: +3% Skill Chance");
     expect(armorClassPerkLine(armor("medium"))).toBeNull();
     expect(armorClassPerkLine("common_bow")).toBeNull();
-    expect(armorClassSetLine(helmet("light"))).toBe("Set: Light Helmet + Armor + Bow · +5% Damage");
+    expect(armorClassSetLine(helmet("light"))).toBe("Set: Light Helmet + Armor + Bow · ×1.05 Damage");
     expect(armorClassSetLine(armor("heavy"))).toBeNull();
     expect(armorClassSetLine(helmet("medium"), { weapon: "common_sword", head: helmet("medium"), chest: armor("medium") }))
-      .toBe("Set: Medium Helmet + Armor + Sword · +5% Damage · Active");
+      .toBe("Set: Medium Helmet + Armor + Sword · ×1.05 Damage · Active");
     expect(armorClassSetLine(helmet("magic"), { weapon: "common_staff", head: helmet("magic"), chest: "" }))
-      .toBe("Set: Magic Helmet + Armor + Staff · +5% Damage · Inactive");
+      .toBe("Set: Magic Helmet + Armor + Staff · ×1.05 Damage · Inactive");
   });
 });

@@ -1,4 +1,5 @@
 import { Timestamp } from "spacetimedb";
+import { BOW_ATTACK_SPEED_BONUS } from "../../shared/bow-skills";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportEnemy, seedDefeatClock } from "../../tests/helpers/enemy-defeat";
@@ -116,7 +117,7 @@ it("pays an honest staff farmer every enemy its bursts kill in a pack, where a b
   expect(honest).toBeLessThanOrEqual(wall);
   const archer = farmer(STARTER_BOW);
   reportEnemy(archer, ENEMY, honest);
-  expect(kills(archer)).toBe(Math.floor(10 * PLAUSIBLE_KILL_TOLERANCE));
+  expect(kills(archer)).toBe(Math.floor(10 * (1 + BOW_ATTACK_SPEED_BONUS) * PLAUSIBLE_KILL_TOLERANCE));
   const staff = farmer(STARTER_STAFF);
   reportEnemy(staff, ENEMY, honest);
   expect(kills(staff)).toBe(honest);
@@ -163,7 +164,7 @@ it("freezes staff rolls for a duel and resolves it as its replay will", () => {
   const staff = f.db.duelStaffSkill.duelId.find(duel.id);
   expect(staff).toMatchObject({ challengerMeteor: 100, challengerChain: 100, challengerFrostNova: 100, opponentMeteor: 0 });
   // The staff's slower casts are in the duel row itself.
-  expect(duel.challengerAttackRate).toBeCloseTo(duel.opponentAttackRate * STAFF_CAST_INTERVAL_FACTOR);
+  expect(duel.challengerAttackRate).toBeCloseTo(duel.opponentAttackRate * STAFF_CAST_INTERVAL_FACTOR * (1 + BOW_ATTACK_SPEED_BONUS));
   f.transaction(() => setStaffSkillRoll(ctxOf(f), f.ctx.sender, "ion_staff", A));
   f.ctx.timestamp = new Timestamp(duel.endsAtMicros + 1_000_000n); f.run(server.pulseDuel);
   const finishing = f.db.duel.id.find(duel.id);
