@@ -12,6 +12,8 @@ import { STAT_NAMES } from "../../shared/card-text";
 import { bonusesInPlay, masteryInPlayAtLevels } from "../../shared/bonuses-in-play";
 import { masteryAttackRange } from "../../shared/weapon-mastery";
 import { MOMENTUM_MAX, hasTechnique } from "../../shared/mastery-techniques";
+import { prestigeBonusesOff } from "../../shared/aggro-challenge";
+import { prestigeStatGainOn } from "../../shared/bonus-toggles";
 
 export function formatPlayedTime(seconds: number) {
   const wholeMinutes = Math.max(0, Math.floor(seconds / 60));
@@ -85,6 +87,11 @@ export function profileActiveCardIds(profile: ProfileStatRows) {
 /** Another player's attack speed cap: their Reflect Only wins and Quick Draw, and the Quick Draw cards they wear. */
 export function profileAttackCap(profile: ProfileStatRows) {
   return profileInPlay(profile).attackCap;
+}
+
+/** The prestige level their stat gain counts, as the server pays it: none during an Aggro run or with Stat Gain switched off. */
+export function profilePrestigeStatLevel(profile: Pick<PlayerProfileData, "prestigeLevel" | "aggroChallenge" | "bonusOff">) {
+  return !prestigeBonusesOff(profile.aggroChallenge) && prestigeStatGainOn(new Set(profile.bonusOff ?? [])) ? profile.prestigeLevel ?? 0 : 0;
 }
 
 /** The profile's power as the server counts it: research, perks and cards in play, the soul stats in play added, crits counted. */

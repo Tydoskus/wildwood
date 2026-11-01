@@ -40,6 +40,7 @@ import * as GetPlayerModerationHistoryProcedure from "../get_player_moderation_h
 import * as GetPlayerPresenceProcedure from "../get_player_presence_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "../get_social_chat_history_with_reactions_procedure";
 import * as GetSocialHubProcedure from "../get_social_hub_procedure";
+import * as GetStatGainBonusProcedure from "../get_stat_gain_bonus_procedure";
 import * as PreviewMapBalanceProcedure from "../preview_map_balance_procedure";
 import * as RefreshPatreonMembershipProcedure from "../refresh_patreon_membership_procedure";
 
@@ -111,6 +112,8 @@ export type GetSocialChatHistoryWithReactionsArgs = __Infer<typeof GetSocialChat
 export type GetSocialChatHistoryWithReactionsResult = __Infer<typeof GetSocialChatHistoryWithReactionsProcedure.returnType>;
 export type GetSocialHubArgs = __Infer<typeof GetSocialHubProcedure.params>;
 export type GetSocialHubResult = __Infer<typeof GetSocialHubProcedure.returnType>;
+export type GetStatGainBonusArgs = __Infer<typeof GetStatGainBonusProcedure.params>;
+export type GetStatGainBonusResult = __Infer<typeof GetStatGainBonusProcedure.returnType>;
 export type PreviewMapBalanceArgs = __Infer<typeof PreviewMapBalanceProcedure.params>;
 export type PreviewMapBalanceResult = __Infer<typeof PreviewMapBalanceProcedure.returnType>;
 export type RefreshPatreonMembershipArgs = __Infer<typeof RefreshPatreonMembershipProcedure.params>;

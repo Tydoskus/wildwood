@@ -77,6 +77,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
   const leaderboardEntries = new Map<string, LeaderboardEntry>();
   const profilePlayerMaps = new Map<string, string>();
   const playerProfileLoads = new Map<string, Promise<PlayerProfileData | null>>();
+  const questBonuses = new Map<string, number>();
   let leaderboardGeneration = 0;
   const leaderboardRequests = new Map<LeaderboardStat, Promise<LeaderboardEntry[]>>();
   const leaderboardPages = new Map<string, Promise<LeaderboardPage<LeaderboardEntry>>>();
@@ -106,6 +107,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
       prestigeChallenge: (() => { const row = [...(dependencies.connection()?.db.playerPrestigeChallenge.iter() ?? [])].find(row => row.identity.toHexString() === identity); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
       aggroChallenge: (() => { const row = [...(dependencies.connection()?.db.playerAggroChallenge?.iter() ?? [])].find(row => row.identity.toHexString() === identity); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
       prestigeLevel: [...(dependencies.connection()?.db.playerPrestige.iter() ?? [])].find(row => row.identity.toHexString() === identity)?.level ?? 0,
+      questBonus: questBonuses.get(identity),
       prestigePerks: (() => {
         const row = [...(dependencies.connection()?.db.playerPrestigePerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
         const expansion = [...(dependencies.connection()?.db.playerPrestigeExpansionPerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
@@ -207,6 +209,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     if (activeIdentity && activeIdentity !== dependencies.localIdentity()) {
       dependencies.progression.clearProfile(activeIdentity);
       profilePlayerMaps.delete(activeIdentity);
+      questBonuses.delete(activeIdentity);
       playerProfileLoads.delete(activeIdentity);
     }
     activeSubscription = null;
@@ -255,6 +258,12 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     const remove: Parameters<typeof connection.db.player.onDelete>[0] = (_ctx, row) => {
       if (row.identity.toHexString() === identity) askPresence();
     };
+    // The guild bonus is worked out on the server from rows other players cannot read.
+    void Promise.resolve().then(() => connection.procedures.getStatGainBonus({ identity: dbIdentity })).then(bonus => {
+      if (!current() || !Number.isFinite(bonus)) return;
+      questBonuses.set(identity, bonus);
+      dependencies.notify();
+    }).catch(() => undefined);
     connection.db.player.onInsert(observe);
     connection.db.player.onUpdate(update);
     connection.db.player.onDelete(remove);

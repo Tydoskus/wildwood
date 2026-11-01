@@ -1,6 +1,6 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
 import { standsAtResearch } from "./research-station";
-import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild, refreshQuestBonus } from "./daily-quests";
+import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild, refreshQuestBonus, guildQuestBonusFor } from "./daily-quests";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { compactNumberChanged } from "../../shared/compact-number";
@@ -3921,6 +3921,8 @@ function requireSocialPlayer(ctx: ModuleReducerCtx) {
 /** The viewer's chat role: their moderator heart, and whether their reports remove messages. */
 // A profile's online line: player rows of eye-off players are withheld from other clients.
 export const getPlayerPresence = spacetimedb.procedure({ identity: t.identity() }, t.string(), (ctx, { identity }) => ctx.withTx(tx => JSON.stringify(playerPresence(tx, identity))));
+// A profile's Guild stat gain: last week's guild points, or solo quests without a guild.
+export const getStatGainBonus = spacetimedb.procedure({ identity: t.identity() }, t.f64(), (ctx, { identity }) => ctx.withTx(tx => guildQuestBonusFor(tx, identity)));
 export const getMapIndexBalance = spacetimedb.procedure({ mapId: t.string() }, t.string(), (ctx, { mapId }) => ctx.withTx(tx => mapBalanceForIndex(tx, mapId)));
 export const getChatRole = spacetimedb.procedure({}, t.string(), ctx => ctx.withTx(tx => { requireSocialPlayer(tx); return JSON.stringify({ moderatorHeart: moderatorHeartFor(tx, tx.sender), canModerate: (isDeveloperIdentity(tx.sender) || isChatModerator(tx, tx.sender)) && hasSpacetimeAuthAccount(tx) }); }));
 /** Undo a removal from the chat itself; developers and moderators, signed in. */

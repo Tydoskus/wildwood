@@ -11,7 +11,7 @@ import type { createItemInspectionController } from "./item-inspection-controlle
 import { formatCompactNumber } from "./number-format";
 import { createPlayerSafetyController } from "./player-safety-controller";
 import type { createPrestigeExpansionRuntime } from "./prestige-expansion-runtime";
-import { formatPlayedTime, profileAttackCap, profileInPlay, profilePower, profilePresenceText, profileSoulInPlay, renderProfileStats } from "./profile";
+import { formatPlayedTime, profileAttackCap, profileInPlay, profilePower, profilePrestigeStatLevel, profilePresenceText, profileSoulInPlay, renderProfileStats } from "./profile";
 import { profileBonusDeps } from "./profile-bonus-toggles";
 import { createProfileWindowController } from "./profile-window-controller";
 import { createGuildLookup } from "./profile-guild";
@@ -122,9 +122,9 @@ export function createProfileRuntime(deps: ProfileRuntimeDeps) {
       return renderProfileStats(profile, element, formatArmorReduction,
         own ? coop.attackCap() : profileAttackCap(profile),
         own ? client?.researchInPlay?.() ?? profile.research : theirs?.research ?? profile.research,
-        own ? (client?.prestigeStatGainInPlay?.() === false ? 0 : coop.prestigeLevel()) : profile.prestigeLevel ?? 0,
+        own ? (client?.prestigeStatGainInPlay?.() === false ? 0 : coop.prestigeLevel()) : profilePrestigeStatLevel(profile),
         own ? client?.prestigePerks?.() : theirs?.perks,
-        own ? client?.weeklyQuests?.()?.bonus ?? 1 : 1,
+        own ? client?.weeklyQuests?.()?.bonus ?? 1 : profile.questBonus ?? 1,
         ownSoulInPlay(profile));
     },
     formatPower: profile => formatCompactNumber(profilePower(profile, ownSoulInPlay(profile))),

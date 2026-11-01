@@ -156,6 +156,8 @@ export type PlayerProfileData = {
   prestigeChallenge?: import("../../shared/prestige-challenge").PrestigeChallenge;
   aggroChallenge?: import("../../shared/aggro-challenge").AggroChallenge;
   prestigeLevel?: number;
+  /** Another player's Guild stat gain (get_stat_gain_bonus), once the server answers; your own comes from weeklyQuests. */
+  questBonus?: number;
   prestigePerks?: Partial<import("../../shared/prestige-perks").PrestigePerkRanks>;
   /** Their soul stats as the server holds them (profile_soul_stats), null with none; the profile drops them during a challenge. */
   soulStats?: import("../../shared/soul-dimension").SoulStats | null;

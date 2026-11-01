@@ -272,6 +272,7 @@ import * as GetPlayerModerationHistoryProcedure from "./get_player_moderation_hi
 import * as GetPlayerPresenceProcedure from "./get_player_presence_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "./get_social_chat_history_with_reactions_procedure";
 import * as GetSocialHubProcedure from "./get_social_hub_procedure";
+import * as GetStatGainBonusProcedure from "./get_stat_gain_bonus_procedure";
 import * as PreviewMapBalanceProcedure from "./preview_map_balance_procedure";
 import * as RefreshPatreonMembershipProcedure from "./refresh_patreon_membership_procedure";
 
@@ -2065,6 +2066,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_player_presence", GetPlayerPresenceProcedure.params, GetPlayerPresenceProcedure.returnType),
   __procedureSchema("get_social_chat_history_with_reactions", GetSocialChatHistoryWithReactionsProcedure.params, GetSocialChatHistoryWithReactionsProcedure.returnType),
   __procedureSchema("get_social_hub", GetSocialHubProcedure.params, GetSocialHubProcedure.returnType),
+  __procedureSchema("get_stat_gain_bonus", GetStatGainBonusProcedure.params, GetStatGainBonusProcedure.returnType),
   __procedureSchema("preview_map_balance", PreviewMapBalanceProcedure.params, PreviewMapBalanceProcedure.returnType),
   __procedureSchema("refresh_patreon_membership", RefreshPatreonMembershipProcedure.params, RefreshPatreonMembershipProcedure.returnType),
 );
