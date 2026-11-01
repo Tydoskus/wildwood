@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.917.43": [
+    "Other players' profiles now show their Guild stat gain",
+  ],
   "0.917.42": [
     "Picking a slot at the Slot Upgrade bench now starts its upgrade right away",
   ],
@@ -4091,6 +4094,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.917.43": "2026-11-01",
   "0.917.42": "2026-10-31",
   "0.917.41": "2026-10-31",
   "0.917.40": "2026-10-29",
