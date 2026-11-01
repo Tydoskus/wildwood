@@ -11,7 +11,7 @@ import { itemGradeRank } from "../../shared/item-tier";
 import { craftDepsFor, createCraftSection, materialList, type CraftCoop, type CraftSectionDeps } from "./craft-section";
 import { mountToolSection, toolDepsFor, type ToolSectionDeps } from "./tool-section";
 import { asDetail, renderStationGrid, stationPick, stationViewMarkup, type StationTile } from "./station-grid";
-import { createAutoRefine } from './auto-refine';
+import { createAutoRefine } from "./auto-refine";
 
 type Result = { ok: boolean; error?: string } | undefined;
 type RefineResult = { itemId: string; copyId: bigint; fromLevel: number; toLevel: number; succeeded: boolean };
@@ -137,7 +137,7 @@ export function createSmithController(deps: {
   let refining = false;
   let renderedState = "";
   const auto = createAutoRefine({
-    valid: item => dialog.open && view === 'refine' && deps.inTown() && (deps.connected?.() ?? true)
+    valid: item => dialog.open && view === "refine" && deps.inTown() && (deps.connected?.() ?? true)
       && deps.items().some(held => key(held) === key(item)),
     next: item => { const next = nextTry(item); return { level: next.level, ready: !refining && next.ready }; },
     attempt: (item, level) => refine({ ...item, equipped: false }, level, true),
@@ -152,7 +152,7 @@ export function createSmithController(deps: {
   }
 
   /** A copy's next try: what it costs, and whether it can be made now. */
-  function nextTry(item: Pick<SmithItem, 'itemId' | 'copyId'>) {
+  function nextTry(item: Pick<SmithItem, "itemId" | "copyId">) {
     const level = deps.refineLevel(item.itemId, item.copyId), atTop = level >= REFINE_MAX;
     const cost = atTop ? null : refineCost(item.itemId, level + 1), held = deps.ores();
     const short = cost ? Object.entries(cost).filter(([oreId, count]) => (held[oreId as OreId] ?? 0) < (count ?? 0)) : [];
@@ -293,7 +293,7 @@ export function createSmithController(deps: {
       }
       return Boolean(result?.ok);
     } catch {
-      if (!automatic) auto.manualError('Refine error');
+      if (!automatic) auto.manualError("Refine error");
       return false;
     } finally {
       refining = false;
@@ -331,11 +331,11 @@ export function createSmithController(deps: {
 
   back.addEventListener("click", close);
   dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
-  dialog.addEventListener('close', () => auto.stop());
+  dialog.addEventListener("close", () => auto.stop());
   const visibility = () => { if (document.hidden) auto.stop(); };
-  document.addEventListener('visibilitychange', visibility);
+  document.addEventListener("visibilitychange", visibility);
   return {
-    open, close, isOpen: () => dialog.open, render, showResult, destroy() { close(); document.removeEventListener('visibilitychange', visibility); dialog.remove(); },
+    open, close, isOpen: () => dialog.open, render, showResult, destroy() { close(); document.removeEventListener("visibilitychange", visibility); dialog.remove(); },
   };
 }
 
