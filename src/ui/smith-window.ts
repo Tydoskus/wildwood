@@ -11,6 +11,7 @@ import { itemGradeRank } from "../../shared/item-tier";
 import { craftDepsFor, createCraftSection, materialList, type CraftCoop, type CraftSectionDeps } from "./craft-section";
 import { mountToolSection, toolDepsFor, type ToolSectionDeps } from "./tool-section";
 import { asDetail, renderStationGrid, stationPick, stationViewMarkup, type StationTile } from "./station-grid";
+import { createAutoRefine } from './auto-refine';
 
 type Result = { ok: boolean; error?: string } | undefined;
 type RefineResult = { itemId: string; copyId: bigint; fromLevel: number; toLevel: number; succeeded: boolean };
@@ -47,6 +48,7 @@ function store(key: string, value: string) {
  */
 export function createSmithController(deps: {
   inTown: () => boolean;
+  connected?: () => boolean;
   clearInput?: () => void;
   items: () => SmithItem[];
   refineLevel: (itemId: string, copyId: bigint) => number;
@@ -114,7 +116,7 @@ export function createSmithController(deps: {
   let view: SmithView = storedView() ?? views[0];
   viewBar.parentElement!.hidden = views.length < 2;
   for (const each of views) {
-    const button = pillButton(VIEW_NAMES[each], () => { if (view !== each) { view = each; store(VIEW_STORE, each); render(); } });
+    const button = pillButton(VIEW_NAMES[each], () => { if (view !== each) { auto.stop(); view = each; store(VIEW_STORE, each); render(); } });
     button.dataset.view = each;
     viewBar.append(button);
   }
@@ -126,15 +128,21 @@ export function createSmithController(deps: {
     button.className = "inventory-filter";
     button.dataset.filter = kind;
     button.textContent = label;
-    button.addEventListener("click", () => { if (shown !== kind) { shown = kind; render(); } });
+    button.addEventListener("click", () => { if (shown !== kind) { auto.stop(); shown = kind; render(); } });
     filterBar.append(button);
   }
   /** The piece picked on each tab, kept while the window is closed. */
   let selected: string | null = null;
   const picked: Partial<Record<"craft" | "reforge", string | null>> = {};
   let refining = false;
-  let lastResult: { text: string; good: boolean } | null = null;
   let renderedState = "";
+  const auto = createAutoRefine({
+    valid: item => dialog.open && view === 'refine' && deps.inTown() && (deps.connected?.() ?? true)
+      && deps.items().some(held => key(held) === key(item)),
+    next: item => { const next = nextTry(item); return { level: next.level, ready: !refining && next.ready }; },
+    attempt: (item, level) => refine({ ...item, equipped: false }, level, true),
+    onStop: () => { queueMicrotask(() => { if (dialog.open) render(); }); },
+  });
 
   function choices() {
     return deps.items().filter(item => isRefinableItem(item.itemId) && (shown === "ALL" || itemDefinition(item.itemId)?.slot === shown))
@@ -144,7 +152,7 @@ export function createSmithController(deps: {
   }
 
   /** A copy's next try: what it costs, and whether it can be made now. */
-  function nextTry(item: SmithItem) {
+  function nextTry(item: Pick<SmithItem, 'itemId' | 'copyId'>) {
     const level = deps.refineLevel(item.itemId, item.copyId), atTop = level >= REFINE_MAX;
     const cost = atTop ? null : refineCost(item.itemId, level + 1), held = deps.ores();
     const short = cost ? Object.entries(cost).filter(([oreId, count]) => (held[oreId as OreId] ?? 0) < (count ?? 0)) : [];
@@ -189,14 +197,15 @@ export function createSmithController(deps: {
     button.type = "button";
     button.className = "farm-start smith-refine";
     button.textContent = atTop ? `★${REFINE_MAX}` : refining ? "Refining…" : "Refine";
-    button.disabled = atTop || refining || short.length > 0;
+    button.disabled = atTop || refining || auto.running() || short.length > 0;
     if (short.length) button.textContent = `Need ${short.map(([oreId]) => REFINE_ORES[oreId as OreId].name).join(" + ")}`;
     button.addEventListener("click", () => { void refine(item, level); });
     focus.append(head, facts);
     // What the try costs, each ore held against needed.
     if (cost) focus.append(materialList(cost as Record<string, number>, deps.ores()));
-    focus.append(button);
-    appendOutcome();
+    auto.setManualButton(button);
+    auto.update(item);
+    focus.append(auto.element);
   }
 
   function itemHead(item: SmithItem, line: string) {
@@ -208,13 +217,6 @@ export function createSmithController(deps: {
     return head;
   }
 
-  function appendOutcome() {
-    if (!lastResult) return;
-    const outcome = document.createElement("p");
-    outcome.className = `smith-outcome ${lastResult.good ? "is-good" : "is-bad"}`;
-    outcome.textContent = lastResult.text;
-    focus.append(outcome);
-  }
 
   function render() {
     crafts?.render();
@@ -226,6 +228,7 @@ export function createSmithController(deps: {
     }));
     selected = stationPick(refineTiles, selected);
     const chosen = items.find(item => key(item) === selected);
+    auto.update(chosen);
     // Only the tab on screen lists its tiles; picking another tab renders it.
     const craftTiles = view === "craft" && crafts ? crafts.craftTiles() : [];
     const arrowTiles = view === "craft" && crafts ? crafts.arrowTiles() : [];
@@ -234,7 +237,7 @@ export function createSmithController(deps: {
     if (view === "reforge") picked.reforge = stationPick(reforgeTiles, picked.reforge ?? null);
     // Presence updates also refresh open windows. Keep focus and buttons in place until this window changes.
     const state = JSON.stringify([
-      view, shown, selected, picked, refining, lastResult, deps.refineLuck?.(),
+      view, shown, selected, picked, refining, auto.running(), deps.refineLuck?.(),
       chosen && deps.refineFails?.(chosen.itemId, chosen.copyId, deps.refineLevel(chosen.itemId, chosen.copyId)),
       deps.ores(), deps.mining?.(), deps.woodcutting?.(), crafts?.state(), refineTiles,
     ], (_key, value) => typeof value === "bigint" ? String(value) : value);
@@ -250,7 +253,7 @@ export function createSmithController(deps: {
     woodcuttingText.textContent = `Woodcutting ${deps.woodcutting?.() ?? 0} · Wood is in Timberwood, west of Town`;
     if (view === "refine") {
       renderFocus(chosen);
-      renderStationGrid(viewPart("refine", ".station-grid"), refineTiles, selected, pick => { selected = pick; lastResult = null; render(); });
+      renderStationGrid(viewPart("refine", ".station-grid"), refineTiles, selected, pick => { selected = pick; render(); });
     } else if (view === "craft" && crafts) {
       viewPart("craft", ".station-detail").replaceChildren(...detailOf(picked.craft ? crafts.craftDetail(picked.craft) : null));
       renderStationGrid(viewPart("craft", ".station-grid"), craftTiles, picked.craft ?? null, pick => {
@@ -277,17 +280,21 @@ export function createSmithController(deps: {
     return [note];
   }
 
-  async function refine(item: SmithItem, level: number) {
-    if (refining) return;
+  async function refine(item: SmithItem, level: number, automatic = false): Promise<boolean> {
+    if (refining || (!automatic && auto.running())) return false;
     refining = true;
-    lastResult = null;
+    if (!automatic) auto.manualStart(item, level);
     render();
     try {
       const result = await deps.refine(item.itemId, item.copyId, level);
       if (!result?.ok) {
-        lastResult = { text: result?.error ?? "Not connected", good: false };
+        if (!automatic) auto.manualError(result?.error ?? 'Not connected');
         deps.showMessage(result?.error ?? "Not Connected", "#ff9b91");
       }
+      return Boolean(result?.ok);
+    } catch {
+      if (!automatic) auto.manualError('Refine error');
+      return false;
     } finally {
       refining = false;
       if (dialog.open) render();
@@ -296,15 +303,14 @@ export function createSmithController(deps: {
 
   /** The server's verdict on a try (player_refine_result), shown where the player is looking. */
   function showResult(result: RefineResult) {
+    auto.result(result);
     const name = `${nameOf(result.itemId)} ${refineStars(result.toLevel) || "★0"}`;
-    lastResult = result.succeeded
-      ? { text: `Success! ${name}`, good: true }
-      : { text: "It failed. Nothing lost but the ore.", good: false };
     deps.showMessage(result.succeeded ? `Refined · ${name}` : `Refine Failed · ${name}`, result.succeeded ? "#ffd75e" : "#ff9b91");
     if (dialog.open) render();
   }
 
   function close() {
+    auto.stop();
     if (!dialog.open) return false;
     dialog.close();
     deps.clearInput?.();
@@ -315,18 +321,21 @@ export function createSmithController(deps: {
   function open(on?: SmithView) {
     if (!deps.inTown() || dialog.open) return;
     view = on && views.includes(on) ? on : storedView() ?? views[0];
-    lastResult = null;
     crafts?.reset();
     render();
     deps.clearInput?.();
     dialog.showModal();
+    render();
     back.focus();
   }
 
   back.addEventListener("click", close);
   dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
+  dialog.addEventListener('close', () => auto.stop());
+  const visibility = () => { if (document.hidden) auto.stop(); };
+  document.addEventListener('visibilitychange', visibility);
   return {
-    open, close, isOpen: () => dialog.open, render, showResult, destroy() { close(); dialog.remove(); },
+    open, close, isOpen: () => dialog.open, render, showResult, destroy() { close(); document.removeEventListener('visibilitychange', visibility); dialog.remove(); },
   };
 }
 
@@ -352,6 +361,7 @@ export function createSmithRuntime(deps: {
     refineFails?: (itemId: string, copyId: bigint, level: number) => number;
     researchInPlay?: () => { refineLuck?: number };
     setOnRefineResult?: (callback: ((result: RefineResult) => void) | null) => void;
+    isConnected?: () => boolean;
   }) | null | undefined;
   inventory: { itemIds: string[]; equippedHead: string; equippedChest: string; equippedFeet?: string; equippedRightHand: string; equippedLeftHand: string };
   showMessage: (text: string, color: string) => void;
@@ -362,6 +372,7 @@ export function createSmithRuntime(deps: {
   const worn = () => new Set([inventory.equippedHead, inventory.equippedChest, inventory.equippedFeet ?? "", inventory.equippedRightHand, inventory.equippedLeftHand]);
   const smith = createSmithController({
     inTown: deps.inTown, clearInput: deps.clearInput, showMessage: deps.showMessage,
+    connected: () => deps.coop()?.isConnected?.() ?? false,
     items: () => {
       const wearing = worn();
       return [

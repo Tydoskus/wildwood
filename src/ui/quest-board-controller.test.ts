@@ -1,12 +1,33 @@
 import { expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
-import { formatQuestReset, guildQuestStanding, questBoardView, questBoardWorldStatus } from "./quest-board-controller";
+import { formatQuestReset, guildQuestStanding, questBoardView, questBoardWorldStatus, questTrackerView } from "./quest-board-controller";
+import { MAP_IDS } from '../../shared/rules';
 import { questWeekEndsAtMs } from "../../shared/weekly-quests";
 
 const state = { day: 20_000, bonus: 1.1, guildPoints: 37, guildName: "Oaks", quests: [
   { mapId: "beginner_desert", enemy: "Venom Guard", target: 73, progress: 73 },
   { mapId: "beginner_desert", enemy: "Dune Raider", target: 60, progress: 12 },
   { mapId: "tutorial_forest", enemy: "Spitter", target: 50, progress: 0 }] };
+
+it('orders active tracker quests by descending area without promoting the current map', () => {
+  const quests = [0, 2, 1].map(index => ({ mapId: MAP_IDS[index], stat: 'damage' as const, target: 10, progress: 0 }));
+  const input = { ...state, quests };
+  const view = questTrackerView(input, MAP_IDS[0], id => id)!;
+  expect(view.items.map(item => item.where)).toEqual([MAP_IDS[2], MAP_IDS[1], MAP_IDS[0]]);
+  expect(view.items.map(item => item.onMap)).toEqual([false, false, true]);
+  expect(input.quests).toEqual(quests);
+});
+
+it('retains the original order within one area and excludes completed quests', () => {
+  const quests = [
+    { mapId: MAP_IDS[0], stat: 'damage' as const, target: 10, progress: 10 },
+    { mapId: MAP_IDS[1], stat: 'regen' as const, target: 10, progress: 1 },
+    { mapId: MAP_IDS[1], stat: 'armor' as const, target: 10, progress: 2 },
+    { mapId: MAP_IDS[0], stat: 'health' as const, target: 10, progress: 3 },
+  ];
+  expect(questTrackerView({ ...state, quests }, MAP_IDS[0], id => id)!.items.map(item => item.stat))
+    .toEqual(['regen', 'armor', 'health']);
+});
 
 it("lists the quests in play, the week's count, and when the next fifteen come", () => {
   const view = questBoardView(state, questWeekEndsAtMs(20_000) - 90 * 60_000,
@@ -63,7 +84,7 @@ it("counts a quest kill at once from the server's count and the kills it has not
   vi.unstubAllGlobals();
 });
 
-it("tracks the quests in play away from home, this map's first", async () => {
+it("tracks the quests in play away from home, later areas first", async () => {
   const { questTrackerView } = await import("./quest-board-controller");
   const week = { ...state, quests: [
     { mapId: "beginner_desert", enemy: "Venom Guard", target: 73, progress: 73 },
@@ -75,10 +96,10 @@ it("tracks the quests in play away from home, this map's first", async () => {
   // The week counts the quest collected from the pool as well as the player's own three, so it can pass their own.
   expect(view).toMatchObject({ done: 1, total: 4 });
   expect(view.items.map(item => [item.enemy, item.onMap, item.count, item.where, item.from])).toEqual([
-    ["Spitter", true, 0, "Forest", "Odin"], ["Brood", true, 0, "Forest", ""], ["Dune Raider", false, 12, "Desert", ""],
+    ["Dune Raider", false, 12, "Desert", ""], ["Spitter", true, 0, "Forest", "Odin"], ["Brood", true, 0, "Forest", ""],
   ]);
   // Each names the stat its kills pay.
-  expect(view.items.map(item => item.stat)).toEqual(["damage", "regen", "damage"]);
+  expect(view.items.map(item => item.stat)).toEqual(["damage", "damage", "regen"]);
   expect(questTrackerView({ ...week, quests: [week.quests[0]] }, "tutorial_forest", id => id)).toBeNull();
   expect(questTrackerView(null, "tutorial_forest", id => id)).toBeNull();
 });

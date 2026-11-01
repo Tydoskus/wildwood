@@ -1,4 +1,5 @@
 import { renderBooleanSetting } from "./settings";
+import { MAP_IDS } from "../../shared/rules";
 import { formatMultiplierChange } from "./number-format";
 import { ENEMY_TYPES, rewardStatLabel, type EnemyKind, type RewardType } from "../game/enemies";
 import { GUILD_QUEST_BONUS_PER_POINT, SOLO_QUEST_BONUS_PER_QUEST, WEEKLY_QUEST_COUNT, activeQuestIndices, applyQuestKills, ownQuest, questDay, questTarget, questDone, questOpen, questWeek, questWeekEndsAtMs, type WeeklyQuest } from "../../shared/weekly-quests";
@@ -91,7 +92,8 @@ export function questTrackerView(state: QuestState | null, mapId: string, mapNam
   if (!active.length) return null;
   return {
     ...weekCount(state.quests),
-    items: active.map(index => {
+    // Later campaign areas first; stable ties keep quests in their original order.
+    items: [...active].sort((a, b) => MAP_IDS.indexOf(state.quests[b].mapId) - MAP_IDS.indexOf(state.quests[a].mapId)).map(index => {
       const quest = state.quests[index];
       const count = Math.min(quest.target, quest.progress);
       // The stat a kill pays, so the tracker says what the quest is farming.
@@ -99,9 +101,7 @@ export function questTrackerView(state: QuestState | null, mapId: string, mapNam
       const stat: RewardType | null = quest.stat ?? ENEMY_TYPES[quest.enemy as EnemyKind]?.reward.type ?? null;
       return { key: `${index}:${quest.mapId}:${questTarget(quest)}`, enemy: quest.enemy ?? "", stat, where: mapName(quest.mapId), from: quest.from ?? "",
         onMap: quest.mapId === mapId, count, target: quest.target, share: quest.target > 0 ? count / quest.target : 0 };
-    })
-      // Quests on this map first: they are the ones the player is working on now.
-      .sort((a, b) => Number(b.onMap) - Number(a.onMap)),
+    }),
   };
 }
 export type QuestTrackerView = NonNullable<ReturnType<typeof questTrackerView>>;
