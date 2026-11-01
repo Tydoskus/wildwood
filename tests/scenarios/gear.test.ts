@@ -726,9 +726,8 @@ describe("slot upgrades", () => {
     const pick = async (queue: string, slotIndex: number) => {
       tab.tap(queue);
       await playUntil(tab, () => tab.shown("slotUpgradesPickerItems"), "the slot picker opens");
+      // Picking the slot starts its upgrade; there is no second button to press.
       press(tab, tab.element("slotUpgradesPickerItems").querySelectorAll("button")[slotIndex]);
-      await playUntil(tab, () => tab.shown("slotUpgradesAction") && !(tab.element("slotUpgradesAction") as HTMLButtonElement).disabled, "Upgrade is ready");
-      tab.tap("slotUpgradesAction");
     };
     const buyQueue = async (queue: string) => {
       const cost = shownNumber(tab.element(queue).textContent), gems = gemsOf(world, ann);
