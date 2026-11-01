@@ -376,6 +376,7 @@ export function createCardsTab(options: {
       button.type = "button";
       button.className = "farm-start cards-equip-button";
       button.textContent = busy ? "Equipping…" : "Equip";
+      button.translate = false;
       button.disabled = busy;
       button.addEventListener("click", () => { void act(card, "Equipped", () => port.activate(card.id, copies)); });
       actions.append(button);

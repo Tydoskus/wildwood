@@ -108,6 +108,8 @@ export function createBuildsTab(options: {
       equip.type = "button";
       equip.className = "builds-tab-equip";
       equip.textContent = busy === slot ? "Working…" : "Equip";
+      // A page translator reads the lone word as Catalan and shows "Team".
+      equip.translate = false;
       equip.disabled = !build || busy >= 0;
       equip.addEventListener("click", () => { void run(slot, "equip"); });
       const save = document.createElement("button");
