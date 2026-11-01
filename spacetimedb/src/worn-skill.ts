@@ -18,7 +18,7 @@ export const playerWornSkill = table({ name: "player_worn_skill", public: true }
 });
 
 type Ctx = any;
-const SKILLS = ["arrowStorm", "ricochet", "piercingShot", "whirlwind", "deflect", "shockwave"] as const;
+const SKILLS = ["arrowStorm", "ricochet", "piercingShot", "whirlwind", "deflect", "shockwave", "backstab", "poison", "dodge"] as const;
 
 /** Copies the equipped weapon's roll into player_worn_skill, writing only when something changed. */
 export function syncWornSkill(ctx: Ctx, identity: Identity, progress = readPlayerProgress(ctx, identity)) {

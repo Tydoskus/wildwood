@@ -306,5 +306,6 @@ export function createCardCombat(deps: {
     hitMultiplier, firstHitCrit, afterHit, arrowHit, reap, onKill, secondWind, incoming, absorb, afterHurt, afterReflect, update,
     /** The shield in play and its most, for the health bar. */
     shield: () => ({ amount: shield, max: player.maxHp * Math.max(0, cardValue(cards(), "shield")) / 100 }),
+    damageOverTime,
   };
 }

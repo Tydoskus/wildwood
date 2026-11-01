@@ -46,6 +46,7 @@ import { rollbackPlayerProgression } from "./player-progression-rollback";
 import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-gifts";
 import { playerBowSkill } from "./bow-skills";
 import { playerSwordSkill } from "./sword-skills";
+import { playerDaggerSkill } from "./dagger-skills"
 import { duelStaffSkill, playerStaffSkill, playerWornStaffSkill } from "./staff-skills"; import { registerStaffs } from "./starter-staff";
 import { ensureWeaponSkillRoll } from "./weapon-skills";
 import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, playerItemCollection, registerItemCollection } from "./equipment-copies";
@@ -1429,7 +1430,7 @@ const spacetimedb = schema({
   dailyGemBonus,
   playerAdReward, playerAdWatch, playerChatMute, playerClientHost, offlineGatherChoice, playerGatherPicks, playerRunTiming, playerRunHistory, playerNockedArrow,
   balanceApologyNotice,
-  playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerWornStaffSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
+  playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerDaggerSkill, playerWornStaffSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, regularEnemyStream, enemyDefeatBudget, playerDefeatClock, playerMapDeparture,

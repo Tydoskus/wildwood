@@ -2399,6 +2399,16 @@ export const PlayerSwordSkill = __t.object("PlayerSwordSkill", {
 });
 export type PlayerSwordSkill = __Infer<typeof PlayerSwordSkill>;
 
+export const PlayerDaggerSkill = __t.object("PlayerDaggerSkill", {
+  key: __t.string(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  whirlwind: __t.f32(),
+  deflect: __t.f32(),
+  shockwave: __t.f32(),
+});
+export type PlayerDaggerSkill = __Infer<typeof PlayerDaggerSkill>;
+
 export const PlayerTool = __t.object("PlayerTool", {
   key: __t.string(),
   identity: __t.identity(),

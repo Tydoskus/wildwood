@@ -60,6 +60,7 @@ import { deleteLuckResearch, luckRanksFor, writeLuckRanks } from "./luck-researc
 import { deleteRankTableResearch, rankTableRanksFor, writeRankTableRanks } from "./research-rank";
 import { carryNameColor } from "./profile-look";
 import { hasSpacetimeAuthAccount } from "./session-guards";
+import { mergeDaggerSkills } from "./dagger-skills";
 
 export const ACCOUNT_LINK_LIFETIME_MICROS = 600_000_000n;
 
@@ -259,6 +260,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     mergeBowSkills(ctx, link.guest, ctx.sender);
     mergeSwordSkills(ctx, link.guest, ctx.sender);
     mergeStaffSkills(ctx, link.guest, ctx.sender);
+    mergeDaggerSkills(ctx, link.guest, ctx.sender);
     mergeEquipmentCopies(ctx, link.guest, ctx.sender);
     mergeItemCollection(ctx, link.guest, ctx.sender);
     mergeRefineData(ctx, link.guest, ctx.sender);

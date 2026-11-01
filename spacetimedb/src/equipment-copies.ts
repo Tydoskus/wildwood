@@ -22,6 +22,8 @@ import { addOres, oreKindsHeldFor, promoteCopyRefine, refineLevelFor, setRefineL
 import { readPlayerProgress } from "./wide-stats";
 import { syncWornSkill } from "./worn-skill";
 import { luckInPlay } from "./luck-research";
+import { daggerSkillKey, setDaggerSkillRoll } from "./dagger-skills";
+import { isSkillDagger } from "../../shared/dagger-skills";
 
 /**
  * Copies of an item beyond the first, one row per copy a player chose to keep.
@@ -46,6 +48,7 @@ export const playerEquipmentCopy = table({ name: "player_equipment_copy", public
   piercingShot: t.f32(),
   acquiredAt: t.timestamp(),
   whirlwind: t.f32().default(0), deflect: t.f32().default(0), shockwave: t.f32().default(0),
+  backstab: t.f32().default(0), poison: t.f32().default(0), dodge: t.f32().default(0),
 });
 
 /**
@@ -91,6 +94,7 @@ export const pendingEquipmentOffer = table({ name: "pending_equipment_offer", pu
   createdAt: t.timestamp(),
   expiresAt: t.timestamp(),
   whirlwind: t.f32().default(0), deflect: t.f32().default(0), shockwave: t.f32().default(0),
+  backstab: t.f32().default(0), poison: t.f32().default(0), dodge: t.f32().default(0),
 });
 
 type Ctx = any;
@@ -268,6 +272,8 @@ function forgetFirstCopyRoll(ctx: Ctx, identity: Identity, itemId: string) {
   if (bow) ctx.db.playerBowSkill.key.delete(bow.key);
   const sword = ctx.db.playerSwordSkill.key.find(swordSkillKey(identity, itemId));
   if (sword) ctx.db.playerSwordSkill.key.delete(sword.key);
+  const dagger = ctx.db.playerDaggerSkill.key.find(daggerSkillKey(identity, itemId));
+  if (dagger) ctx.db.playerDaggerSkill.key.delete(dagger.key);
 }
 
 /** Writes the first copy's roll. Anything that is not a skill weapon has none to write. */
@@ -279,6 +285,7 @@ export function setFirstCopyRoll(ctx: Ctx, identity: Identity, itemId: string, r
 function writeFirstCopyRoll(ctx: Ctx, identity: Identity, itemId: string, roll: WeaponSkillRoll) {
   if (isSkillSword(itemId)) { setSwordSkillRoll(ctx, identity, itemId, roll); return; }
   if (isSkillStaff(itemId)) { setStaffSkillRoll(ctx, identity, itemId, roll); return; }
+  if (isSkillDagger(itemId)) { setDaggerSkillRoll(ctx, identity, itemId, roll); return; }
   if (!isSkillBow(itemId)) return;
   const { arrowStorm, ricochet, piercingShot } = weaponSkillColumns(roll);
   const row = { key: bowSkillKey(identity, itemId), identity, itemId, arrowStorm, ricochet, piercingShot };

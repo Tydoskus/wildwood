@@ -1,7 +1,12 @@
+import { DAGGER_REACH } from "../../shared/campaign-equipment";
 import { itemDefinition } from "../../shared/items";
 
 export function isMeleeWeapon(itemId: string | undefined) {
   return itemDefinition(itemId)?.weapon?.mode === "MELEE";
+}
+
+export function isDagger(itemId: unknown) {
+  return itemDefinition(itemId)?.weapon?.mode === "MELEE" && itemDefinition(itemId)?.weapon?.range === DAGGER_REACH;
 }
 /** A weapon's reach from the range in play (shared/player-stats.ts). */
 export { weaponAttackRange } from "../../shared/player-stats";

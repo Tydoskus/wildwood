@@ -18,7 +18,7 @@ export const MATERIAL_NAMES: Readonly<Record<string, string>> = {
   copper_ore: "Copper Ore", iron_ore: "Iron Ore", mithril_ore: "Mithril Ore", adamant_ore: "Adamant Ore", starshard: "Starshard",
 };
 
-export type CraftKind = "bow" | "sword" | "staff" | "helmet" | "armor";
+export type CraftKind = "bow" | "sword" | "staff" | "helmet" | "armor" | "dagger";
 export type Materials = Readonly<Record<string, number>>;
 
 /** The craft that makes a piece. */
@@ -52,6 +52,7 @@ function bandOf(grade: GearGrade) {
  * Enchanting wood for the haft and crystal for the focus. Helmets take half of what armor and weapons do.
  */
 export function craftMaterials(grade: GearGrade, kind: CraftKind, armorClass?: ArmorClass): Materials {
+  if (kind === "dagger") return {};
   const band = bandOf(grade), share = kind === "helmet" ? .5 : 1, skill = craftSkillFor(kind, armorClass);
   const n = (value: number) => Math.max(1, Math.round(value * share));
   const materials: Record<string, number> = {};

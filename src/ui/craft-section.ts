@@ -25,7 +25,7 @@ type Result = { ok: boolean; error?: string } | undefined;
 type Ores = Readonly<Partial<Record<OreId, number>>>;
 /** One thing a piece needs, met or not: "Lv 20 Archery". */
 export type GradeNeed = { text: string; met: boolean };
-const KIND_NAMES = { bow: "Bow", sword: "Sword", staff: "Staff", helmet: "Helmet", armor: "Armor", boots: "Boots" } as const;
+const KIND_NAMES = { bow: "Bow", sword: "Sword", staff: "Staff", helmet: "Helmet", armor: "Armor", boots: "Boots", dagger: "Dagger" } as const;
 const nameOf = (itemId: string) => itemInspectionButtonLabel(itemDisplayName(itemId));
 const count = (value: number) => Math.floor(value).toLocaleString("en-US");
 // Exact below 10,000, compact above, so three fit side by side on a phone.

@@ -45,6 +45,18 @@ function staff(id: string, name: string, tier: number): ItemDefinition {
   };
 }
 
+export const DAGGER_DAMAGE_FACTOR = 0.8;
+export const DAGGER_REACH = 60;
+/*function dagger(id: string, name: string, tier: number): ItemDefinition {
+  const bow = equipmentStatDefinition(tier, "HAND").weapon?.damageMultiplierBonus ?? 0;
+  const percent = Math.round(bow * DAGGER_DAMAGE_FACTOR * 10_000) / 100;
+  return {
+    id, name: name.toUpperCase(), slot: "HAND", acquisition: "CAMPAIGN_DROP",
+    description: "A sword that increases damage. It strikes up close.",
+    stats: [`DAMAGE +${percent}%`], weapon: { mode: "MELEE", range: DAGGER_REACH, damageMultiplierBonus: percent / 100, tier },
+  };
+}*/
+
 export const CAMPAIGN_EQUIPMENT = {
   // Swords, at each map's bow odds (shared/items.ts has the first maps' as constants; a map with no regular bow,
   // Lava Lake, takes its helmet's).
