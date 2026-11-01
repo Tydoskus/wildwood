@@ -2,7 +2,8 @@
 // walking the player in a circle. perf.mjs runs it in Chrome and prints the table; ?maps= and ?frames= narrow it.
 import { realNow } from "./determinism";
 import { mapView } from "./game-world";
-import { guildHallMapId } from "../../shared/guild-hall";
+import { GUILD_HALL_PARTS, guildHallMapId, isGuildHallMap, type GuildHallLevels } from "../../shared/guild-hall";
+import { guildHallDecor } from "../../src/game/guild-hall";
 import { resetCameraZoomPreference, stepCameraZoom } from "../../src/game/runtime/render/camera-zoom-preference";
 import type { MapId } from "../../src/game/world";
 
@@ -25,6 +26,13 @@ const VARIANTS: readonly { name: string; zoom: number; arrange?: (state: { enemi
   { name: "no enemies", zoom: -10, arrange: state => { state.enemies.length = 0; } },
 ];
 
+/** A guild hall is timed fully upgraded: every prop its courtyard can show. */
+const MAX_HALL = Object.fromEntries(GUILD_HALL_PARTS.map(part => [part.id, part.levels.length - 1])) as GuildHallLevels;
+const furnish = (mapId: string, decor: { type: string; sheet?: string }[]) => {
+  if (!isGuildHallMap(mapId)) return;
+  decor.splice(0, decor.length, ...decor.filter(item => item.sheet !== "hall"), ...guildHallDecor(MAX_HALL) as never[]);
+};
+
 const frame = () => new Promise<number>(resolve => requestAnimationFrame(resolve));
 const quantile = (values: number[], q: number) => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -41,7 +49,7 @@ export async function perf() {
     for (const variant of VARIANTS) {
       const view = await mapView({
         mapId: mapId as MapId, width: innerWidth, height: innerHeight, title: `${mapId} · ${variant.name}`, gameRuntime: true,
-        minimap: null, arrange: state => variant.arrange?.(state as never),
+        minimap: null, arrange: state => { furnish(mapId, state.decor as never); variant.arrange?.(state as never); },
       });
       await view.draw();
       for (let step = 0; step < Math.abs(variant.zoom); step += 1) stepCameraZoom(Math.sign(variant.zoom) as 1 | -1);
