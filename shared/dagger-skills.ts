@@ -54,7 +54,6 @@ export function rollDaggerSkills(itemId: unknown, random: () => number, skillLuc
   return roll;
 }
 
-/** A stored percentage as a chance in [0, 1]. Anything malformed is no skill. */
 export function daggerSkillChance(roll: Partial<DaggerSkillRoll> | null | undefined, skill: DaggerSkillId) {
   const percent = Number(roll?.[skill] ?? 0);
   return Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) / 100 : 0;
@@ -64,7 +63,6 @@ export function hasDaggerSkills(roll: Partial<DaggerSkillRoll> | null | undefine
   return DAGGER_SKILL_IDS.some(skill => daggerSkillChance(roll, skill) > 0);
 }
 
-/** The lines an item window shows, in title case: "Arrow Storm 2.4%". */
 export function daggerSkillLines(roll: Partial<DaggerSkillRoll> | null | undefined): string[] {
   return DAGGER_SKILL_IDS.filter(skill => daggerSkillChance(roll, skill) > 0)
     .map(skill => `${DAGGER_SKILL_LABELS[skill]} ${(Math.round(daggerSkillChance(roll, skill) * 1000) / 10).toFixed(1)}%`);
@@ -78,12 +76,9 @@ export function daggerSkillScore(roll: Partial<DaggerSkillRoll> | null | undefin
   const score = daggerSkillChance(roll, "backstab") * 100 * BACKSTAB_SCORE_WEIGHT
     + daggerSkillChance(roll, "poison") * 100 * POISON_SCORE_WEIGHT
     + daggerSkillChance(roll, "dodge") * 100 * DODGE_WEIGHT;
-  // Rounded past anything a roll can express, so two rolls worth the same
-  // never compare as "better" through floating-point noise.
   return Math.round(score * 1e6) / 1e6;
 }
 
-/** A score as it is written everywhere: one decimal, with its sign. "+7.5%". */
 export function formatDaggerSkillScore(score: number) {
   const tenths = Math.round((Number.isFinite(score) ? Math.max(0, score) : 0) * 10);
   return `+${(tenths / 10).toFixed(1)}%`;

@@ -1,6 +1,7 @@
-import { table, t } from "spacetimedb/server";
+import { table, t, type ReducerCtx, type InferSchema } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import { NO_DAGGER_SKILLS, isSkillDagger, rollDaggerSkills, type DaggerSkillRoll } from "../../shared/dagger-skills";
+import spacetimedb from ".";
 
 export const playerDaggerSkill = table({ name: "player_dagger_skill", public: false }, {
   key: t.string().primaryKey(),
@@ -11,7 +12,7 @@ export const playerDaggerSkill = table({ name: "player_dagger_skill", public: fa
   dodge: t.f32(),
 });
 
-type Ctx = any;
+type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
 
 export const daggerSkillKey = (identity: { toHexString(): string }, itemId: string) => `${identity.toHexString()}:${itemId}`;
 
@@ -47,7 +48,7 @@ export function removeDaggerSkills(ctx: Ctx, identity: Identity) {
 }
 
 export function mergeDaggerSkills(ctx: Ctx, guest: Identity, account: Identity) {
-  for (const row of [...ctx.db.playDaggerSkill.identity.filter(guest)] as any[]) {
+  for (const row of [...ctx.db.playerDaggerSkill.identity.filter(guest)] as any[]) {
     ctx.db.playerDaggerSkill.key.delete(row.key);
     const key = daggerSkillKey(account, row.itemId);
     if (!ctx.db.playerDaggerSkill.key.find(key)) ctx.db.playerDaggerSkill.insert({ ...row, key, identity: account });
