@@ -96,12 +96,12 @@ function addPoints(ctx: Ctx, identity: Identity, school: WeaponSchool, points: n
  * the weapon's, so they train nothing.
  */
 export function awardWeaponMastery(ctx: Ctx, identity: Identity, weapon: string | undefined, kills: number, firstBossClear: boolean,
-  inChallenge = () => challengeActive(ctx, identity)) {
+  inChallenge = () => challengeActive(ctx, identity), banners = () => guildHallBonusFor(ctx, identity, "banners")) {
   if (inChallenge()) return;
   const points = masteryPointsForReport(kills, firstBossClear);
   if (!points) return;
   // The guild hall's Crest Banners add their share.
-  addPoints(ctx, identity, weaponSchool(weapon), withBonusShare(points, guildHallBonusFor(ctx, identity, "banners"), () => ctx.random()));
+  addPoints(ctx, identity, weaponSchool(weapon), withBonusShare(points, banners(), () => ctx.random()));
 }
 
 /** Reset Save clears every school. Prestige keeps them. */

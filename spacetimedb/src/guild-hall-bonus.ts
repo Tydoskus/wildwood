@@ -2,10 +2,15 @@ import { guildHallBonus, parseGuildHallLevels, type GuildHallPart } from "../../
 
 /** A member's bonus from their guild hall's upgrade (shared/guild-hall.ts GUILD_HALL_BONUSES); 0 outside a guild. */
 export function guildHallBonusFor(ctx: any, identity: any, part: GuildHallPart) {
-  const guildId = ctx.db.guildMember.identity.find(identity)?.guildId;
-  if (guildId === undefined || guildId === null) return 0;
+  const levels = guildHallLevelsOf(ctx, ctx.db.guildMember.identity.find(identity)?.guildId);
+  return levels ? guildHallBonus(levels, part) : 0;
+}
+
+/** A guild's hall upgrades, for a caller that already knows the guild and wants several parts; null without a hall. */
+export function guildHallLevelsOf(ctx: any, guildId: bigint | null | undefined) {
+  if (guildId === undefined || guildId === null) return null;
   const row = ctx.db.guildHall.guildId.find(guildId);
-  return row ? guildHallBonus(parseGuildHallLevels(row.levels), part) : 0;
+  return row ? parseGuildHallLevels(row.levels) : null;
 }
 
 /** Card factors with the Courtyard's chance of an extra ore or log added. */

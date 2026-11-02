@@ -19,6 +19,16 @@ export const enemyDefeatBudget = table({ name: "enemy_defeat_budget" }, {
   key: t.string().primaryKey(), identity: t.identity().index("btree"), tokens: t.f64(), updatedAtMicros: t.u64().index("btree"),
 });
 
+/**
+ * Each species' spawn bucket on one map for one player, in one row, so a report reads and writes it once
+ * however many species it holds (an Endless level's sites are dozens). enemy_defeat_budget held one row a
+ * species; its rows move here on first use, and the sweep empties it of the rest within DEFEAT_BUDGET_IDLE_MICROS.
+ */
+const DefeatBucket = t.object("DefeatBucket", { enemy: t.string(), tokens: t.f64(), updatedAtMicros: t.u64() });
+export const enemyDefeatBank = table({ name: "enemy_defeat_bank" }, {
+  key: t.string().primaryKey(), identity: t.identity().index("btree"), buckets: t.array(DefeatBucket), updatedAtMicros: t.u64().index("btree"),
+});
+
 /** The map each player last left, and when: its kills may still be reported for a while (permittedDefeatMaps). */
 export const playerMapDeparture = table({ name: "player_map_departure", public: false }, {
   identity: t.identity().primaryKey(), mapId: t.string(), leftAtMicros: t.u64(),
@@ -77,13 +87,18 @@ export const DEFEAT_BUDGET_PRUNE_BATCH = 5_000;
 export function pruneIdleDefeatBudgets(ctx: Pick<GameReducerContext, "db" | "timestamp">) {
   const cutoff = ctx.timestamp.microsSinceUnixEpoch - DEFEAT_BUDGET_IDLE_MICROS;
   if (cutoff <= 0n) return 0;
-  const idle: string[] = [];
-  for (const row of ctx.db.enemyDefeatBudget.updatedAtMicros.filter(new Range({ tag: "unbounded" }, { tag: "excluded", value: cutoff }))) {
-    idle.push(row.key);
-    if (idle.length === DEFEAT_BUDGET_PRUNE_BATCH) break;
+  const before = new Range({ tag: "unbounded" }, { tag: "excluded", value: cutoff });
+  let pruned = 0;
+  for (const table of [ctx.db.enemyDefeatBudget, ctx.db.enemyDefeatBank]) {
+    const idle: string[] = [];
+    for (const row of table.updatedAtMicros.filter(before)) {
+      if (pruned + idle.length === DEFEAT_BUDGET_PRUNE_BATCH) break;
+      idle.push(row.key);
+    }
+    for (const key of idle) table.key.delete(key);
+    pruned += idle.length;
   }
-  for (const key of idle) ctx.db.enemyDefeatBudget.key.delete(key);
-  return idle.length;
+  return pruned;
 }
 
 
@@ -230,6 +245,9 @@ function watchKillRate(ctx: DefeatContext, clocks: DefeatClocks, mapId: string, 
   return next;
 }
 
+/** The clocks a kill report spent its throttle token from, and whether their row exists yet. */
+export type ThrottledClocks = { clocks: DefeatClocks; exists: boolean };
+
 /**
  * The first thing every kill reducer does, before any other read: one report
  * from a bucket of KILL_REPORT_BURST that refills one every
@@ -251,7 +269,7 @@ function watchKillRate(ctx: DefeatContext, clocks: DefeatClocks, mapId: string, 
  * throws later (a wrong map, an invalid enemy) is not counted, and costs the
  * reads up to its throw: the session and controller checks and the cursor.
  */
-export function throttleKillReports(ctx: DefeatContext): DefeatClocks {
+export function throttleKillReports(ctx: DefeatContext): ThrottledClocks {
   const row = ctx.db.playerDefeatClock.identity.find(ctx.sender);
   const previous = defeatClock(row, "report");
   const now = ctx.timestamp.microsSinceUnixEpoch;
@@ -260,9 +278,8 @@ export function throttleKillReports(ctx: DefeatContext): DefeatClocks {
     : KILL_REPORT_BURST;
   if (tokens < 1 - 1e-9) throw new SenderError("Enemy rewards are catching up.");
   const next = withDefeatClock(row ?? emptyClocks(ctx.sender), "report", Math.max(0, tokens - 1), now);
-  if (row) ctx.db.playerDefeatClock.identity.update(next); else ctx.db.playerDefeatClock.insert(next);
-  // The report goes on to spend the account's other clocks from this same row.
-  return next;
+  // The report goes on to spend the account's other clocks from this same row, and writes it once (acceptEnemyDefeats).
+  return { clocks: next, exists: Boolean(row) };
 }
 
 /**
@@ -398,22 +415,25 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
     /** The research row, read once for the report and the bound alike. */
     research?: () => any;
   },
-  /** The account's clocks as throttleKillReports left them; read here when not given. */
-  clocksRow?: DefeatClocks) {
+  /** The account's clocks as throttleKillReports left them, still to be written; read here when not given. */
+  throttled?: ThrottledClocks) {
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(batch.streamId) || batch.sequence < 1n || !batch.enemies.length)
     throw new SenderError("Invalid enemy defeat batch.");
   const key = `${ctx.sender.toHexString()}:${batch.streamId}`;
   const prior = streamCursor(ctx, key);
+  // A report that stops before the clocks below still spent the throttle's token.
+  const keepThrottle = () => { if (throttled) writeDefeatClocks(ctx, throttled.clocks, throttled.exists); };
   // A report already consumed is a retry of one whose acknowledgement was
   // lost. Return before anything is charged: it must not spend the simulation
   // clock (or anything else) a second time.
-  if (batch.sequence <= (prior?.sequence ?? 0n)) return null;
+  if (batch.sequence <= (prior?.sequence ?? 0n)) { keepThrottle(); return null; }
   if (!(typeof activeMapIds === "string" ? [activeMapIds] : activeMapIds).includes(batch.mapId)) throw new SenderError("Enemy defeats belong to another map.");
   if (batch.sequence !== (prior?.sequence ?? 0n) + 1n) throw new SenderError("Enemy defeat batches must arrive in order.");
   const total = batch.enemies.reduce((sum, entry) => sum + entry.count, 0);
   if (batch.enemies.every(entry => Number.isInteger(entry.count) && entry.count > 0)
     && total > ENEMY_DEFEAT_BATCH_MAX) {
     advanceStreamCursor(ctx, key, batch.sequence, prior);
+    keepThrottle();
     return { rewards: [], kills: [], count: 0, lootCount: 0, restrict: true, violations: [{ enemy: "batch", requested: total, accepted: 0 }], balance: null, bossCleared: false };
   }
   // A boss is a client-side gate. Preserve the existing report/ack protocol,
@@ -427,12 +447,13 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
   const entries = batch.enemies.filter(entry => entry.enemy !== "boss");
   if (!entries.length) {
     advanceStreamCursor(ctx, key, batch.sequence, prior);
+    keepThrottle();
     return { rewards: [], kills: [], count: 0, lootCount: 0, restrict: false, violations: [], balance: null, bossCleared };
   }
   // Scale first, then the bounds below, so the spawn wall and combat clock see
   // only what real time allowed and are not drained by the excess.
-  // throttleKillReports has already written the row; a caller without it reads it here.
-  const storedClocks = clocksRow ?? ctx.db.playerDefeatClock.identity.find(ctx.sender);
+  // A caller without throttleKillReports's clocks reads the row here.
+  const storedClocks = throttled?.clocks ?? ctx.db.playerDefeatClock.identity.find(ctx.sender);
   const simulation = chargeSimulationClock(ctx, storedClocks ?? emptyClocks(ctx.sender), batch.mapId, batch.simulatedMillis);
   let clocks = simulation.clocks;
   const scale = simulation.scale;
@@ -467,6 +488,24 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
   const rewards: EnemyStatReward[] = [];
   const violations: { enemy: string; requested: number; accepted: number }[] = [];
   const scaledCounts = scaledDefeatCounts(entries.map(entry => Number.isInteger(entry.count) ? entry.count : 0), scale);
+  // This map's buckets; one idle past DEFEAT_BUDGET_IDLE_MICROS starts again at the arrival bank, as a pruned row did.
+  const hex = ctx.sender.toHexString(), bankKey = `${hex}:${batch.mapId}`;
+  const bank = ctx.db.enemyDefeatBank.key.find(bankKey);
+  const live = (bucket: { updatedAtMicros: bigint }) => now - bucket.updatedAtMicros < DEFEAT_BUDGET_IDLE_MICROS;
+  const buckets = new Map<string, { enemy: string; tokens: number; updatedAtMicros: bigint }>(
+    (bank?.buckets ?? []).filter(live).map((bucket: any) => [bucket.enemy, bucket]));
+  let banked = false;
+  // A species last killed before the bank existed brings its old row's bucket along, written even if this report pays nothing.
+  const legacyBucket = (enemy: string) => {
+    const row = ctx.db.enemyDefeatBudget.key.find(`${hex}:${batch.mapId}:${enemy}`);
+    if (!row) return undefined;
+    ctx.db.enemyDefeatBudget.key.delete(row.key);
+    if (!live(row)) return undefined;
+    const bucket = { enemy, tokens: row.tokens, updatedAtMicros: row.updatedAtMicros };
+    buckets.set(enemy, bucket);
+    banked = true;
+    return bucket;
+  };
   for (const [index, entry] of entries.entries()) {
     const definition = enemyDefeatDefinition(batch.mapId, entry.enemy, balance ?? undefined);
     if (!definition || seen.has(entry.enemy) || !Number.isInteger(entry.count) || entry.count < 1 || (submittedCount += entry.count) > ENEMY_DEFEAT_BATCH_MAX)
@@ -477,8 +516,7 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
     const claimed = scaledCounts[index];
     if (!claimed) { violations.push({ enemy: entry.enemy, requested: entry.count, accepted: 0 }); continue; }
     const budget = defeatBudget(definition.population, defeatMinRespawnSeconds(regularRespawn));
-    const budgetKey = `${ctx.sender.toHexString()}:${batch.mapId}:${entry.enemy}`;
-    const previous = ctx.db.enemyDefeatBudget.key.find(budgetKey);
+    const previous = buckets.get(entry.enemy) ?? legacyBucket(entry.enemy);
     const elapsed = previous ? Math.max(0, Number(now - previous.updatedAtMicros) / 1e6) : 0;
     const tokens = previous ? Math.min(budget.capacity, previous.tokens + elapsed * budget.perSecond) : ((budget as { initial?: number }).initial ?? budget.capacity);
     let acceptedCount = claimed;
@@ -518,18 +556,22 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
     clockSpent = true;
     if (!acceptedCount) continue;
     combat.commit({ ...definition.reward, count: acceptedCount });
-    const next = { key: budgetKey, identity: ctx.sender, tokens: Math.max(0, tokens - acceptedCount), updatedAtMicros: now };
-    if (previous) ctx.db.enemyDefeatBudget.key.update(next); else ctx.db.enemyDefeatBudget.insert(next);
+    buckets.set(entry.enemy, { enemy: entry.enemy, tokens: Math.max(0, tokens - acceptedCount), updatedAtMicros: now });
+    banked = true;
     count += acceptedCount;
     rewards.push({ ...definition.reward, count: acceptedCount });
     kills.push({ enemy: entry.enemy, count: acceptedCount });
     if (definition.loot) lootCount += acceptedCount;
   }
+  if (banked) {
+    const row = { key: bankKey, identity: ctx.sender, buckets: [...buckets.values()], updatedAtMicros: now };
+    if (bank) ctx.db.enemyDefeatBank.key.update(row); else ctx.db.enemyDefeatBank.insert(row);
+  }
   if (clockSpent || simulation.creditedSeconds > 0) clocks = withDefeatClock(clocks, "combat", combatSeconds, now);
   advanceStreamCursor(ctx, key, batch.sequence, prior);
   if (count > 0) clocks = watchKillRate(ctx, clocks, batch.mapId, defeatMinRespawnSeconds(regularRespawn), count, simulation.creditedSeconds);
   // One write for the simulation clock, the combat clock and the watch.
-  writeDefeatClocks(ctx, clocks, Boolean(storedClocks));
+  writeDefeatClocks(ctx, clocks, throttled ? throttled.exists : Boolean(storedClocks));
   // A clipped claim is bounded, never a session action: the spawn wall clips
   // an honest client too (a portal round-trip re-presents a personal boss the
   // earned-time clock has not paid for yet, and a map change starts a fresh

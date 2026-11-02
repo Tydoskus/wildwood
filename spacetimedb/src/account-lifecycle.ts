@@ -630,6 +630,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     removeMailboxReceipts(ctx, identity);
     unlinkPatreon(ctx, identity);
     for (const budget of ctx.db.enemyDefeatBudget.identity.filter(identity)) ctx.db.enemyDefeatBudget.key.delete(budget.key);
+    for (const bank of [...ctx.db.enemyDefeatBank.identity.filter(identity)]) ctx.db.enemyDefeatBank.key.delete(bank.key);
     ctx.db.playerDefeatClock.identity.delete(identity);
     ctx.db.playerCombatStamp.identity.delete(identity);
     ctx.db.playerMapDeparture.identity.delete(identity);
@@ -696,6 +697,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     removeMailboxReceipts(ctx, identity);
     unlinkPatreon(ctx, identity);
     for (const budget of ctx.db.enemyDefeatBudget.identity.filter(identity)) ctx.db.enemyDefeatBudget.key.delete(budget.key);
+    for (const bank of [...ctx.db.enemyDefeatBank.identity.filter(identity)]) ctx.db.enemyDefeatBank.key.delete(bank.key);
     ctx.db.playerDefeatClock.identity.delete(identity);
     ctx.db.playerCombatStamp.identity.delete(identity);
     ctx.db.playerMapDeparture.identity.delete(identity);

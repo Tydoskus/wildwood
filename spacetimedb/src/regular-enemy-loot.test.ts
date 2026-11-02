@@ -58,7 +58,7 @@ it.each([
   const f = fixture();
   expect(() => reportKills(f, { ...batch, ...change })).toThrow();
   expect([...f.db.regularEnemyStream.iter()]).toHaveLength(0);
-  expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
+  expect([...f.db.enemyDefeatBank.iter()]).toHaveLength(0);
 });
 it("honours a report for the map the player left for the Town, paid by that map's budget", () => {
   const f = fixture(), base = progressOf(f, f.ctx.sender);
@@ -67,7 +67,7 @@ it("honours a report for the map the player left for the Town, paid by that map'
   reportKills(f, batch);
   expect(progressOf(f, f.ctx.sender).damage).toBeCloseTo(base.damage + enemyDefeatDefinition(batch.mapId, enemy)!.reward.amount * 15);
   // Spawn budgets are the map's own; the account-wide clocks live in player_defeat_clock.
-  expect([...f.db.enemyDefeatBudget.iter()].every(row => row.key.includes(`:${batch.mapId}:`))).toBe(true);
+  expect([...f.db.enemyDefeatBank.iter()].map(row => row.key)).toEqual([`${f.ctx.sender.toHexString()}:${batch.mapId}`]);
 });
 it("still rejects a report for a map the player did not come to the Town from, even when unlocked", () => {
   const f = fixture(); f.patch("player", { mapId: "town" }); f.patch("playerProgress", { waterUnlocked: true });
@@ -94,7 +94,7 @@ it("rolls back reward, budget, receipt and loot if a write fails", () => {
   const insert = vi.spyOn(f.db.playerItemDrop, "insert").mockImplementationOnce(() => { throw new Error("write failure"); });
   expect(() => reportKills(f, forestBatch)).toThrow("write failure");
   expect([...f.db.regularEnemyStream.iter()]).toHaveLength(0);
-  expect([...f.db.enemyDefeatBudget.iter()]).toHaveLength(0);
+  expect([...f.db.enemyDefeatBank.iter()]).toHaveLength(0);
   expect(progressOf(f, f.ctx.sender)).toEqual(base);
   insert.mockRestore(); reportKills(f, forestBatch);
   expect([...f.db.playerItemDrop.iter()]).toHaveLength(regularMapLoot("tutorial_forest").length);

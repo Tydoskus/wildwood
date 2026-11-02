@@ -30,7 +30,7 @@ it.each([...CAMPAIGN_MAPS.map(map => map.id), "endless_1", "endless_40"])("recor
   expect([...f.db.playerItemDrop.iter()]).toEqual([]);
   expect([...f.db.playerDailyQuest.iter()]).toEqual([]);
   expect(rolls).not.toHaveBeenCalled();
-  expect([...f.db.enemyDefeatBudget.iter()]).toEqual([]);
+  expect([...f.db.enemyDefeatBank.iter()]).toEqual([]);
   expect(readDefeatClock(f, "combat")).toBeUndefined();
   expect([...f.db.proceduralInstanceContribution.iter()]).toEqual([]);
 });

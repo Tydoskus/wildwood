@@ -32,7 +32,7 @@ it("reads the save and the worn cards a few times per kill report, not once per 
   expect(slotReads).toBeLessThanOrEqual(3);
 });
 
-it("reads the account's clocks once per kill report and writes them twice", () => {
+it("reads the account's clocks once per kill report and writes them once", () => {
   // The report limiter, simulation clock, combat clock and kill-rate watch share one row.
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15 });
@@ -43,6 +43,6 @@ it("reads the account's clocks once per kill report and writes them twice", () =
     f.run(server.reportEnemyDefeats, { streamId: "read-count-stream-02", sequence: 1n, mapId: MAP, simulatedMillis: 30_000, enemies: [{ enemy: ENEMY, count: 5 }] });
   });
   expect(reads).toBe(1);
-  expect(update.mock.calls.length + insert.mock.calls.length).toBe(2);
+  expect(update.mock.calls.length + insert.mock.calls.length).toBe(1);
   expect(clocks.identity.find(f.ctx.sender)).toMatchObject({ reportAt: 10_000_000n, simAt: 10_000_000n, combatAt: 10_000_000n, rateAt: 10_000_000n });
 });

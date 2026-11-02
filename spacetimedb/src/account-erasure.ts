@@ -63,6 +63,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "duelWideStats", columns: ["challenger"], pk: "duelId", mode: "scan" },
   { table: "endlessTravelAccess", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "enemyDefeatBudget", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
+  { table: "enemyDefeatBank", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerDefeatClock", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerMapDeparture", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "gemCommerceConfig", columns: ["verifier"], pk: "id", mode: "scan" },

@@ -48,9 +48,9 @@ export function reportEnemy(f: any, enemy?: string, count = 1, simulatedMillis?:
 export function fillDefeatBudget(f: any, mapId: string, enemy: string) {
   const definition = enemyDefeatDefinition(mapId, enemy)!;
   const { capacity } = defeatBudget(definition.population);
-  f.seed("enemyDefeatBudget", {
-    key: `${f.ctx.sender.toHexString()}:${mapId}:${enemy}`,
-    identity: f.ctx.sender, tokens: capacity,
-    updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch,
-  });
+  const key = `${f.ctx.sender.toHexString()}:${mapId}`, updatedAtMicros = f.ctx.timestamp.microsSinceUnixEpoch;
+  const bank = f.db.enemyDefeatBank.key.find(key);
+  const buckets = [...(bank?.buckets ?? []).filter((bucket: any) => bucket.enemy !== enemy), { enemy, tokens: capacity, updatedAtMicros }];
+  if (bank) f.db.enemyDefeatBank.key.update({ ...bank, buckets, updatedAtMicros });
+  else f.seed("enemyDefeatBank", { key, identity: f.ctx.sender, buckets, updatedAtMicros });
 }

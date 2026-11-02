@@ -15,6 +15,8 @@ import { cardStatFactors, type CardTotals } from "../../shared/card-effects";
 import { serverBoostRewardMultiplier } from "./server-boost-tables";
 import { luckInPlay } from "./luck-research";
 import { questStandingFor } from "./daily-quests";
+import { guildHallLevelsOf } from "./guild-hall-bonus";
+import { guildHallBonus, type GuildHallPart } from "../../shared/guild-hall";
 import { createCombatProfiles } from "./combat-profile";
 import { syncCardAttackCapFor } from "./card-attack-cap";
 import type { LuckRanks } from "../../shared/luck-research";
@@ -168,7 +170,7 @@ export function createCombatReport(deps: CombatReportDeps) {
     let loaded: ReturnType<typeof load> | undefined;
     let power: ReturnType<typeof powerStatsFrom> | undefined;
     // Rows the rest of the report reads too, each read once on first use. Nothing in a report writes them.
-    let rows: BonusRows | undefined, boostRead: number | undefined;
+    let rows: BonusRows | undefined, boostRead: number | undefined, hall: { levels: ReturnType<typeof guildHallLevelsOf> } | undefined;
     const worn = profile.worn;
     const researchRow = () => profile.rows.research;
     const bonuses = () => (rows ??= { ...profile.rows, quest: questStandingFor(ctx, ctx.sender) });
@@ -314,6 +316,11 @@ export function createCombatReport(deps: CombatReportDeps) {
       },
       commit: (reward: EnemyStatReward) => report().earned?.commit(reward),
       research: researchRow, bonuses, serverBoost,
+      /** The guild hall's bonus for one part, from the guild the quest standing already read. */
+      hallBonus: (part: GuildHallPart) => {
+        const { levels } = hall ??= { levels: guildHallLevelsOf(ctx, bonuses().quest.guild?.id) };
+        return levels ? guildHallBonus(levels, part) : 0;
+      },
       /** Luck as drops read it, for the report's card and gold rolls. */
       luck: () => (profile.luck ??= luckInPlay(ctx, ctx.sender, profile.rows.off)),
       /** Either challenge under way (prestige-challenge.ts challengeActive). */

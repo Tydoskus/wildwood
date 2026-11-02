@@ -277,6 +277,13 @@ export const DailyGemBonus = __t.object("DailyGemBonus", {
 });
 export type DailyGemBonus = __Infer<typeof DailyGemBonus>;
 
+export const DefeatBucket = __t.object("DefeatBucket", {
+  enemy: __t.string(),
+  tokens: __t.f64(),
+  updatedAtMicros: __t.u64(),
+});
+export type DefeatBucket = __Infer<typeof DefeatBucket>;
+
 export const DefeatSessionRestriction = __t.object("DefeatSessionRestriction", {
   identity: __t.identity(),
   revokedAtMicros: __t.u64(),
@@ -492,6 +499,16 @@ export const EnemyDefeat = __t.object("EnemyDefeat", {
   count: __t.u16(),
 });
 export type EnemyDefeat = __Infer<typeof EnemyDefeat>;
+
+export const EnemyDefeatBank = __t.object("EnemyDefeatBank", {
+  key: __t.string(),
+  identity: __t.identity(),
+  get buckets() {
+    return __t.array(DefeatBucket);
+  },
+  updatedAtMicros: __t.u64(),
+});
+export type EnemyDefeatBank = __Infer<typeof EnemyDefeatBank>;
 
 export const EnemyDefeatBudget = __t.object("EnemyDefeatBudget", {
   key: __t.string(),

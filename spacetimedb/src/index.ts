@@ -17,7 +17,7 @@ import { isValidProfileIcon } from "../../shared/profile-icons";
 import { releaseNotice, releaseAcknowledgement, writeReleaseWindow, acknowledgeReleaseWindow, announceClientUpdate as announceClientUpdateWindow } from "./release-control";
 import { recordBossGateClear } from "./boss-gates";
 import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multiplayer-preference";
-import { enemyDefeatBudget, playerDefeatClock, playerMapDeparture, acceptEnemyDefeats, permittedDefeatMaps, pruneIdleDefeatBudgets, throttleKillReports, type DefeatClocks, type EnemyDefeatBatch } from "./enemy-defeats";
+import { enemyDefeatBank, enemyDefeatBudget, playerDefeatClock, playerMapDeparture, acceptEnemyDefeats, permittedDefeatMaps, pruneIdleDefeatBudgets, throttleKillReports, type EnemyDefeatBatch, type ThrottledClocks } from "./enemy-defeats";
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, collectOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
 import { offlineGatherChoice, playerGatherPicks, registerGatherPicks } from "./offline-gathering";
@@ -1432,7 +1432,7 @@ const spacetimedb = schema({
   playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerWornStaffSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
-  regularEnemyLootCursor, regularEnemyStream, enemyDefeatBudget, playerDefeatClock, playerMapDeparture,
+  regularEnemyLootCursor, regularEnemyStream, enemyDefeatBudget, enemyDefeatBank, playerDefeatClock, playerMapDeparture,
   playerMultiplayerPreference,
   chatReaction, chatHeartAllowance, chatReactionCooldown, chatReactionSummary, chatReactionUnlock, chatModerator, playerChatHearts,
   playerUpgradeBench,
@@ -2881,6 +2881,7 @@ export const devRollbackPlayerProgression = spacetimedb.reducer(
         else ctx.db.playerLastLocation.insert(location);
       }
       for (const row of ctx.db.enemyDefeatBudget.identity.filter(args.identity)) ctx.db.enemyDefeatBudget.key.delete(row.key); ctx.db.playerDefeatClock.identity.delete(args.identity);
+      for (const row of [...ctx.db.enemyDefeatBank.identity.filter(args.identity)]) ctx.db.enemyDefeatBank.key.delete(row.key);
       // Keep accepted report cursors so old batches cannot award the same loot twice.
       refreshLeaderboard(ctx);
     },
@@ -3262,7 +3263,7 @@ export const recordPlayerDeath = spacetimedb.reducer(
 const EnemyDefeatEntry = t.object("EnemyDefeat", { enemy: t.string(), count: t.u16() });
 // Plus the milliseconds the client simulated since its previous report (0 when it cannot say); see simulationClock.
 const enemyDefeatReportArgs = { streamId: t.string(), sequence: t.u64(), mapId: t.string(), simulatedMillis: t.u32(), enemies: t.array(EnemyDefeatEntry) };
-function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: DefeatClocks) {
+function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: ThrottledClocks) {
     // Only the map and power are read here; the position is worked out below if the row is written.
     const player = requireControllingPlayerRow(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
@@ -3305,14 +3306,15 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: Defea
     if (gate) touchCombatProfile(ctx, ctx.sender);
     awardCardDrops(ctx, ctx.sender, batch.mapId, accepted.kills, accepted.bossCleared ? 1 : 0, 1, worn, combat.luck);
     awardWeaponMastery(ctx, ctx.sender, (base ?? gate?.previousProgress ?? combat.savedProgress())?.equippedRightHand, accepted.count, Boolean(gate),
-      combat.inChallenge);
+      combat.inChallenge, () => combat.hallBonus("banners"));
     // New regular loot goes on when it beats the slot. A gate clear wrote the save again after the loot.
     autoEquip.equipNewUpgrades(ctx, ctx.sender, base ?? gate?.previousProgress, gate ? undefined : rewarded);
     if (accepted.count) {
       const lifetime = ensurePlayerLifetime(ctx);
       const enemyKills = lifetime.enemyKills + BigInt(accepted.count);
       ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills });
-      recordAnalyticsMilestone(ctx, "kill");
+      // Only an account's first kills can be its first kill day.
+      if (lifetime.enemyKills === 0n) recordAnalyticsMilestone(ctx, "kill");
       killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
       recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills, combat.bonuses().quest); noteEnemyDefeats(ctx, batch.mapId, accepted.rewards);
     }

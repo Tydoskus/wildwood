@@ -2,6 +2,7 @@ import { Timestamp } from "spacetimedb";
 import { expect, it, vi } from "vitest";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { DEFEAT_BUDGET_IDLE_MICROS, DEFEAT_BUDGET_PRUNE_BATCH, pruneIdleDefeatBudgets } from "./enemy-defeats";
+import { reportEnemy } from "../../tests/helpers/enemy-defeat";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const HOUR = 3_600_000_000n;
@@ -45,4 +46,16 @@ it("runs in the five-minute maintenance sweep", () => {
   seedBudget(f, "b:tutorial_forest:Bramble", 0n);
   f.run(server.runMaintenanceSweep, { maintenance: {} });
   expect(keys(f)).toEqual(["b:tutorial_forest:Bramble"]);
+});
+
+it("carries a species' old budget row into the map's bank, spent as it was", () => {
+  const f = crystalFixture();
+  const mapId = f.db.player.identity.find(f.ctx.sender).mapId;
+  const enemy = "Shard Hopper", old = `${f.ctx.sender.toHexString()}:${mapId}:${enemy}`;
+  f.seed("enemyDefeatBudget", { key: old, identity: f.ctx.sender, tokens: 0, updatedAtMicros: f.ctx.timestamp.microsSinceUnixEpoch });
+  reportEnemy(f, enemy, 5);
+  // An empty bucket pays nothing; a fresh one would have paid the arrival bank.
+  expect(f.db.playerLifetime.identity.find(f.ctx.sender)?.enemyKills ?? 0n).toBe(0n);
+  expect(f.db.enemyDefeatBudget.key.find(old)).toBeFalsy();
+  expect(f.db.enemyDefeatBank.key.find(`${f.ctx.sender.toHexString()}:${mapId}`)?.buckets.map((bucket: any) => bucket.enemy)).toEqual([enemy]);
 });

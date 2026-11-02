@@ -8,6 +8,7 @@ import { activeCardTotalsFor } from "./active-cards";
 import { luckInPlay } from "./luck-research";
 import { serverBoostRewardMultiplier } from "./server-boost-tables";
 import { guildHallBonusFor } from "./guild-hall-bonus";
+import type { GuildHallPart } from "../../shared/guild-hall";
 
 /** Each player's gold (shared/gold.ts). Private; the player reads their own through my_gold. */
 export const playerGold = table({ name: "player_gold", public: false }, {
@@ -39,9 +40,9 @@ export function takeGold(ctx: Ctx, identity: Identity, amount: number | bigint) 
 }
 
 /** What Treasure cards in the worn gear, Gold Luck (the gearLuck rank) and the guild's Great Table multiply the gold drop chance by. `cards` saves a reread. */
-export function goldChanceMultiplier(ctx: Ctx, identity: Identity, cards?: CardTotals, luck?: LuckRanks) {
+export function goldChanceMultiplier(ctx: Ctx, identity: Identity, cards?: CardTotals, luck?: LuckRanks, table = guildHallBonusFor(ctx, identity, "table")) {
   const treasure = 1 + cardStatFactors(cards ?? activeCardTotalsFor(ctx, identity)).treasure;
-  return treasure * luckMultiplier("gearLuck", (luck ?? luckInPlay(ctx, identity)).gearLuck) * (1 + guildHallBonusFor(ctx, identity, "table"));
+  return treasure * luckMultiplier("gearLuck", (luck ?? luckInPlay(ctx, identity)).gearLuck) * (1 + table);
 }
 
 /**
@@ -49,9 +50,10 @@ export function goldChanceMultiplier(ctx: Ctx, identity: Identity, cards?: CardT
  * client's claim, so a repeat pays nothing.
  */
 export function awardKillGold(ctx: Ctx, identity: Identity, kills: number, firstBossClear: boolean, cards?: CardTotals,
-  read?: { luck: () => LuckRanks; serverBoost: () => number }) {
-  const chance = kills > 0 ? goldChanceMultiplier(ctx, identity, cards, read?.luck()) : 1;
-  const boss = firstBossClear ? rollBossGold(() => ctx.random()) + guildHallBonusFor(ctx, identity, "trophies") : 0;
+  read?: { luck: () => LuckRanks; serverBoost: () => number; hallBonus: (part: GuildHallPart) => number }) {
+  const hall = (part: GuildHallPart) => read ? read.hallBonus(part) : guildHallBonusFor(ctx, identity, part);
+  const chance = kills > 0 ? goldChanceMultiplier(ctx, identity, cards, read?.luck(), hall("table")) : 1;
+  const boss = firstBossClear ? rollBossGold(() => ctx.random()) + hall("trophies") : 0;
   const gold = rollKillGold(kills, () => ctx.random(), chance) + boss;
   addGold(ctx, identity, gold * (read ? read.serverBoost() : serverBoostRewardMultiplier(ctx)));
 }

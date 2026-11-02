@@ -295,7 +295,8 @@ export function recordDailyQuestKills(ctx: Ctx, identity: any, mapId: string, ki
   }
   // Without a guild the row shows the player's own solo count, from the updated list.
   if (completed && !member) guildPoints = soloQuestsFor(ctx, identity, questWeek(row.day), quests);
-  const questsJson = JSON.stringify(quests);
+  // A quest no kill moved keeps its object, so most reports have nothing to write.
+  const questsJson = quests.some((quest, index) => quest !== list[index]) ? JSON.stringify(quests) : row.questsJson;
   if (questsJson !== row.questsJson || guildPoints !== row.guildPoints) ctx.db.playerDailyQuest.identity.update({ ...row, questsJson, guildPoints });
   return completed;
 }
