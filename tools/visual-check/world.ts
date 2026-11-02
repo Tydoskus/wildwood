@@ -8,7 +8,7 @@ import { createActorRenderer } from "../../src/game/runtime/render/actor-rendere
 import { createPlayerIdentityRenderer } from "../../src/game/runtime/render/player-identity-renderer";
 import { platePixels, plateSize } from "../../src/game/runtime/render/nameplate-scale";
 import { WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "../../src/game/runtime/game-settings";
-import { playerGenderIconPath } from "../../src/ui/player-gender";
+import { playerGenderIconPath } from "../../src/game/player-gender-icon";
 import { bindPlayerNameTags } from "../../src/app/player-name-tags";
 import { DEFAULT_SKIN_TONE, drawStartingPlayer, equipmentSprite, loadPlayerAppearanceAssets, type PlayerAppearanceAssets } from "../../src/game/player-appearance";
 import { createMapScopedEnemySpriteAssets, ENEMY_TYPES, loadActorShadowSprite, type EnemyDefinition, type EnemyKind, type EnemySpriteSource, type LoadedEnemySprite } from "../../src/game/enemies";

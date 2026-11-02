@@ -12,7 +12,7 @@ import type { Camera } from "./camera";
 import { createEnemyOverheadPlates } from "./enemy-overhead-plate";
 import type { TextSegment } from "../../canvas";
 import type { RewardLabelContext } from "../reward-labels";
-import { ownNamePlateEnabled } from "../../../ui/name-plate-setting";
+import { ownNamePlateEnabled } from "../name-plate-setting";
 import { headArtTopOffsetY } from "./overhead-plate";
 import { GENERATED_BOSS_SIZE } from "../../procedural-maps";
 import { attackPoseItem } from "../../../../shared/equipment-appearance";

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { createPlayerInputController, JOYSTICK_DEAD_ZONE, JOYSTICK_MAXIMUM, radialJoystickInput, setAnalogMovementSource, swallowsGameKeys } from "./player-input-controller";
-import { defaultBindings, setControlBindings, withKey } from "../../ui/control-bindings";
+import { defaultBindings, setControlBindings, withKey } from "./control-bindings";
 
 describe("radial touch joystick", () => {
   it("filters finger noise inside the dead zone", () => {

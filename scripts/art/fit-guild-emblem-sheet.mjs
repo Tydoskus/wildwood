@@ -4,7 +4,7 @@
  * badges show as large as guild-emblems-v3's: each badge is found by the
  * empty space around it, scaled to v3's badge height (a wide one less, so it
  * still fits its frame), and centred in the same 300px frames v3 uses
- * (src/ui/guild-emblems.ts).
+ * (src/game/guild-emblems.ts).
  *
  *   node scripts/art/fit-guild-emblem-sheet.mjs <generated.png> public/assets/wildstat/guild-emblems-vN.webp
  */

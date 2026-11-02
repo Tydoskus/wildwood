@@ -2,10 +2,10 @@ import { renderBooleanSetting } from "./settings";
 import { setNumberNotation } from "../../shared/compact-number";
 import { setStatPopupsEnabled } from "./stat-popup-setting";
 import { setChatTimestampsEnabled } from "./chat-timestamp-setting";
-import { setEnemyHpNumbersEnabled } from "./enemy-hp-setting";
-import { setDamageNumbersEnabled } from "./damage-number-setting";
+import { setEnemyHpNumbersEnabled } from "../game/runtime/enemy-hp-setting";
+import { setDamageNumbersEnabled } from "../game/runtime/damage-number-setting";
 import { setCardFoundPopupsEnabled } from "./card-found-setting";
-import { setOwnNamePlateEnabled } from "./name-plate-setting";
+import { setOwnNamePlateEnabled } from "../game/runtime/name-plate-setting";
 import { setGuildTagsVisible } from "../app/player-name-tags";
 
 const TOOLBAR_HAPTICS_KEY = "wildwood-toolbar-haptics-enabled-v1";

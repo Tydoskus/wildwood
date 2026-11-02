@@ -3,7 +3,7 @@
 Generated with the built-in image_gen tool. Concept: compact-guild.png.
 Runtime sheet: public/assets/wildstat/guild-emblems-v3.png (1254 × 1254 RGBA).
 Earlier flat version: art-source/generated/guilds/guild-emblems-v1.png.
-Frame coordinates are in src/ui/guild-emblems.ts. Use the measured frame bounds rather than blindly dividing the generated sheet into equal quarters.
+Frame coordinates are in src/game/guild-emblems.ts. Use the measured frame bounds rather than blindly dividing the generated sheet into equal quarters.
 
 The local implementation retains the existing WildStat banner and Back button. Emblems currently use consistent defaults derived from guild names; no saved emblem-selection field is introduced.
 

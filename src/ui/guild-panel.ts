@@ -2,7 +2,7 @@ import { renderGuildMemberName } from "./guild-member-name";
 import { formatCompactNumber, formatPercentMultiplier } from "./number-format";
 import { guildMemberPresence } from './guild-presence';
 import { createGuildBattleReplay, type GuildReplayAssets } from "./guild-battle-replay";
-import { createGuildEmblem } from './guild-emblems';
+import { createGuildEmblem } from '../game/guild-emblems';
 import { GUILD_CREATION_MIN_POWER, GUILD_EMBLEMS, GUILD_MEMBER_LIMIT, type GuildSnapshot, type GuildReport } from "../../shared/guilds";
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
 import { applyProfileIcon } from "../app/profile-icons";

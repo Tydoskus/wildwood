@@ -5,7 +5,7 @@ import { SOUL_ATLAS_SOURCE, SOUL_INTERIORS_SOURCE, TOWN_VILLAGE_GROUND_SOURCE, T
 import { isProceduralMap } from "../../../../shared/procedural-maps";
 import { isGuildHallMap } from "../../../../shared/guild-hall";
 import { GUILD_HALL_GROUND_SOURCE, GUILD_HALL_PROPS_SOURCE, GUILD_HALL_ROOMS_SOURCE } from "../../guild-hall";
-import { GUILD_EMBLEM_SHEET_SOURCES } from "../../../ui/guild-emblems";
+import { GUILD_EMBLEM_SHEET_SOURCES } from "../../guild-emblems";
 import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../../duel";
 import { requiredCanvasContext } from "../dom";
 import { scheduleBackgroundTask, yieldToUser } from "../scheduler";

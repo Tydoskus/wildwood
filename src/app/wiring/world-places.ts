@@ -5,13 +5,13 @@ import { createQuestTrackerSetting } from "../../ui/quest-tracker";
 import type { MapId, SpawnSite } from "../../game/world";
 import type { CoopAccess } from "../../game/runtime/coop-access";
 import type { createGameBootstrap } from "../../game/runtime/game-bootstrap";
-import { createGuildHall } from "../../game/runtime/guild-hall/guild-hall";
+import { createGuildHall } from "./guild-hall";
 import type { createMapController } from "../../game/runtime/map-controller";
 import type { PlayerCombatController } from "../../game/runtime/player-combat-controller";
 import type { createPlayerInputController } from "../../game/runtime/player-input-controller";
 import type { Camera } from "../../game/runtime/render/camera";
 import type { createResearchController } from "../../game/runtime/research-controller";
-import { createSoulDimension } from "../../game/runtime/soul/soul-dimension";
+import { createSoulDimension } from "./soul-dimension";
 
 type RuntimeHud = ReturnType<typeof createGameRuntimeHud>;
 type FadeToWorld = (action: () => void | Promise<void>, durationMs?: number) => void;

@@ -7,7 +7,7 @@ import { POWER_STEPS, powerLabel } from '../game/runtime/auto-farm/auto-farm-pla
 import { aggroPicksNeeded, readAggroPicks, writeAggroPicks } from '../game/runtime/auto-farm/aggro-picks';
 import { createAggroPickPrompt } from './aggro-pick-prompt';
 import { topBackButton } from './desktop-hotkeys';
-import { actionForKey, onControlAction } from './control-bindings';
+import { actionForKey, onControlAction } from '../game/runtime/control-bindings';
 import { installMovableHudCard } from './movable-hud-card';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
 import type { RewardType } from '../game/enemies';

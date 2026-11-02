@@ -1,4 +1,4 @@
-import { actionForKey, controlBindings, keyLabel, onControlAction, onControlBindingsChange, type ControlAction } from "./control-bindings";
+import { actionForKey, controlBindings, keyLabel, onControlAction, onControlBindingsChange, type ControlAction } from "../game/runtime/control-bindings";
 
 /**
  * Keyboard shortcuts for PC players, on the keys the Controls tab binds. Each one does exactly what

@@ -2,7 +2,7 @@ import type { DuelSkillEffects } from "./duel-skill-effects";
 import { appendPlayerNameTags } from "../../../app/player-name-tags";
 import { createDuelPresentation, type DuelReplayTitle } from "./duel-presentation";
 import type { RuntimeDuelReplay, RuntimeDuelState } from "../types";
-import { appendPlayerGenderIcon } from "../../../ui/player-gender";
+import { appendPlayerGenderIcon } from "../../player-gender-icon";
 
 export function createDuelRuntime(hooks: {
   skillEffects?: DuelSkillEffects;

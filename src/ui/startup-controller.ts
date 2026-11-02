@@ -1,5 +1,5 @@
 import { requiredElement } from "../game/runtime/dom";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerGenderIcon } from "../game/player-gender-icon";
 import type { PlayerGender } from "../../shared/player-gender";
 import { createLegalGateController } from "./legal-gate";
 import { createLoadingProgress } from "./loading-progress";

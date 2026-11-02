@@ -1,7 +1,7 @@
 import {
   BINDABLE_PAD_BUTTONS, CONTROL_ACTIONS, RESERVED_KEYS, controlBindings, defaultBindings, keyLabel, onControlBindingsChange,
   padLabel, setControlBindings, withKey, withPadButton, type ControlAction,
-} from "./control-bindings";
+} from "../game/runtime/control-bindings";
 import { captureNextPadButton, connectedGamepad, onGamepadChange } from "./gamepad-controls";
 
 /**

@@ -1,5 +1,5 @@
 import { appendPlayerNameTags, appendPrestigeBadge } from "../app/player-name-tags";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerGenderIcon } from "../game/player-gender-icon";
 import type { PlayerGender } from "../../shared/player-gender";
 import { formatCompactNumber } from "./number-format";
 import { nameColorHex } from "../../shared/name-colors";

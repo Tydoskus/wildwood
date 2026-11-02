@@ -1,6 +1,6 @@
 import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../../../shared/player-gender";
 import { isDeveloperIdentity } from "../developer";
-import { playerGenderIconPath } from "../../ui/player-gender";
+import { playerGenderIconPath } from "../../game/player-gender-icon";
 import type { CoopAccess } from "../../game/runtime/coop-access";
 import { WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "../../game/runtime/game-settings";
 import { platePixels, plateSize } from "../../game/runtime/render/nameplate-scale";

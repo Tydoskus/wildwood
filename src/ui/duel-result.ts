@@ -1,5 +1,5 @@
 import { formatCompactNumber } from "./number-format";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerGenderIcon } from "../game/player-gender-icon";
 import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gender";
 
 export type DuelResultStatSummary = {

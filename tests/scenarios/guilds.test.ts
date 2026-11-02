@@ -7,7 +7,7 @@ const guildCalls = (world: ScenarioWorld, reducer: string) => { const seen: unkn
 import { scenarioWorld, type ScenarioPlayer, type ScenarioWorld } from "./harness/server";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
 import { GUILD_CREATION_MIN_POWER, GUILD_DAY_MICROS, GUILD_EMBLEMS, GUILD_MEMBER_LIMIT, GUILD_RANKING_LIMIT } from "../../shared/guilds";
-import { guildEmblemCell, guildEmblemFor } from "../../src/ui/guild-emblems";
+import { guildEmblemCell, guildEmblemFor } from "../../src/game/guild-emblems";
 import { migrateGuildTags } from "../../spacetimedb/src/player-name-tags";
 import { EMPTY_GUILD_HALL_LEVELS, GUILD_HALL_ARRIVAL, GUILD_HALL_DOOR, GUILD_HALL_FEET_OFFSET, GUILD_HALL_PARTS, GUILD_HALL_TABLE_SEATS, GUILD_HALL_WORLD,
   GUILD_HALL_YARD, guildHallMapId, guildHallRoom, parseGuildHallLevels, type GuildHallLevels } from "../../shared/guild-hall";

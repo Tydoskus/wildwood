@@ -1,4 +1,4 @@
-import { replaceChildrenIfChanged } from "../../../ui/replace-children-if-changed";
+import { replaceChildrenIfChanged } from "../../replace-children-if-changed";
 import { drawPlayerPowerLabel } from "../player-power-label";
 import { residentImage } from "./resident-image";
 import { applyProfileIcon, createProfileIconCanvasPainter } from "../../../app/profile-icons";
@@ -18,7 +18,7 @@ import {
   type PlayerGender,
 } from "../../../../shared/player-gender";
 import { formatCompactNumber } from "../../../../shared/compact-number";
-import { appendPlayerGenderIcon } from "../../../ui/player-gender";
+import { appendPlayerGenderIcon } from "../../player-gender-icon";
 import type { ChatMessage } from "../../../wildstat-coop";
 import { clamp } from "../../math";
 import type { Camera } from "./camera";

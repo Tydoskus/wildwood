@@ -3,7 +3,7 @@ import { appendPlayerNameTags, appendPrestigeBadge, playerPrestigeLevel } from "
 import { LEADERBOARD_TABS, type LeaderboardBoard, type LeaderboardStat } from "../../shared/leaderboard-window";
 import { formatCompactNumber } from "./number-format";
 import type { LeaderboardEntry } from "../wildstat-coop";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerGenderIcon } from "../game/player-gender-icon";
 import { formatPlayedTime } from "./profile";
 
 export type { LeaderboardStat };

@@ -1,4 +1,4 @@
-import { actionForKey, onControlAction, type ControlAction } from "./control-bindings";
+import { actionForKey, onControlAction, type ControlAction } from "../game/runtime/control-bindings";
 
 const BUILD_ACTIONS: readonly ControlAction[] = ["build1", "build2", "build3", "build4", "build5", "build6", "build7", "build8", "build9", "build10"];
 

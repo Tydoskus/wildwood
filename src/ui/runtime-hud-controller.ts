@@ -4,7 +4,7 @@ import type { AttackCapArg } from "../../shared/stat-rating";
 import type { PlayerState, RuntimeDuelReplay, RuntimeDuelState } from "../game/runtime/types";
 import { createDuelResultStatRow } from "./duel-result";
 import { renderPlayerHud } from "./hud";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerGenderIcon } from "../game/player-gender-icon";
 import {
   createItemDropReveal,
   ITEM_DROP_REVEAL_DURATION_MS,
@@ -25,7 +25,7 @@ import {
 import type { PlayerGender } from "../../shared/player-gender";
 import { statPopupsEnabled } from "./stat-popup-setting";
 import { setHidden, setText } from "./dom-write";
-import { replaceChildrenIfChanged } from "./replace-children-if-changed";
+import { replaceChildrenIfChanged } from "../game/replace-children-if-changed";
 
 
 const GEM_DROP_ART = "assets/wildstat/gems/gem-icon-v2.webp";

@@ -3,7 +3,7 @@ import { FROST_NOVA_EFFECT_SECONDS, METEOR_BLAST_SECONDS, STAFF_BURST_SECONDS, d
 import { TAU } from "../constants";
 import { clamp, rand, randi } from "../math";
 import { formatCompactNumber } from "../../../shared/compact-number";
-import { damageNumbersEnabled } from "../../ui/damage-number-setting";
+import { damageNumbersEnabled } from "./damage-number-setting";
 import { drawScreenSpaceAt, snapWorldRenderCoordinate } from "./render/render-space";
 import { outlinedGlyphs } from "./render/outlined-glyphs";
 

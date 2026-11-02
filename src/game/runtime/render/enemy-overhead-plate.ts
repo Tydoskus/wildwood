@@ -5,7 +5,7 @@ import { REWARD_DATA, rewardAmountLabel, rewardStatLabel, type EnemyDefinition }
 import { clamp } from "../../math";
 import type { TextSegment } from "../../canvas";
 import { ENEMY_HP_LOSS_FLASH_SECONDS } from "../../constants";
-import { enemyHpNumbersEnabled } from "../../../ui/enemy-hp-setting";
+import { enemyHpNumbersEnabled } from "../enemy-hp-setting";
 import { liveRewardText, soulRewardCapped, type RewardLabelContext } from "../reward-labels";
 import { ENEMY_HEALTH_BAR_HEIGHT, ENEMY_HEALTH_FILL, ENEMY_NAME_GAP, createEnemyStatusPlates, drawPillImage, fillPill } from "../enemies/enemy-status-plate";
 import type { EnemyState } from "../types";

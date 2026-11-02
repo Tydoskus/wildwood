@@ -1,10 +1,10 @@
 import { NAME_COLORS, NAME_COLOR_AUTO, nameColorHex } from "../../shared/name-colors";
 import { PLAYER_GENDER_UNSET, isSelectedPlayerGender, playerGenderLabel, type PlayerGender } from "../../shared/player-gender";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerGenderIcon } from "../game/player-gender-icon";
 import type { NameChangeStatus } from "../../shared/name-change";
 import { appendPlayerIdentity, autoNameColor } from "./player-identity";
 import { createProfileNameEditor } from "./profile-name-editor";
-import { replaceChildrenIfChanged } from "./replace-children-if-changed";
+import { replaceChildrenIfChanged } from "../game/replace-children-if-changed";
 
 type Result = Promise<{ ok?: boolean; error?: string } | undefined>;
 

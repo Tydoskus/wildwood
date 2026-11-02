@@ -15,7 +15,6 @@ import type { MapPortal } from "../map-controller";
 import type { EnemyState, PlayerState } from "../types";
 import { createSoulDefenseForce } from "./soul-defense-force";
 import { type AttackCapArg } from "../../../../shared/stat-rating";
-import { gameConfirm } from "../../../ui/confirm-dialog";
 
 /** Long enough for any kill report to come back: soul kills the server has not counted by then never will be. */
 const PENDING_SOUL_KILL_MS = 15_000;
@@ -72,12 +71,14 @@ export function createSoulDimensionRuntime(deps: {
   researchCritMultiplier?: (soulCritDamage: number) => number;
   /** The server has raised the Soul Level. */
   levelUp?: (level: number, multiplier: number) => void;
+  /** A message the player must dismiss, such as the Soul Defense Force's defeat. */
+  notice?: (text: string) => void;
 }) {
   let filledTier = -1;
   const defenseForce = createSoulDefenseForce({ identity: () => deps.source()?.localIdentity?.(), player: deps.player, enemies: deps.enemies,
     strength: deps.strength, fullDps: deps.fullDps, spawnFromSite: deps.spawnFromSite, damagePlayer: deps.damagePlayer, message: deps.message, burst: deps.burst, sendToTown: deps.sendToTown,
     critMultiplier: deps.researchCritMultiplier && (() => deps.researchCritMultiplier!(inPlay().critDamage)),
-    notice: text => { void gameConfirm({ message: text, confirmLabel: "OK", cancelLabel: "" }); } });
+    notice: deps.notice });
   let strengthClock = 0;
   /** Soul kills this client has made since the server's soul row last changed: shown and fought with at once. */
   let pending: SoulStats = cleanSoulStats(null);

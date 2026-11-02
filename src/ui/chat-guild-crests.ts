@@ -1,4 +1,4 @@
-import { createGuildEmblem } from "./guild-emblems";
+import { createGuildEmblem } from "../game/guild-emblems";
 
 type Badges = { name: string; emblem: number }[];
 

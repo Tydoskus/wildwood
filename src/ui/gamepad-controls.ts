@@ -1,4 +1,4 @@
-import { actionForPadButton, dispatchControlAction, PAD } from "./control-bindings";
+import { actionForPadButton, dispatchControlAction, PAD } from "../game/runtime/control-bindings";
 import { clickable, topBackButton } from "./desktop-hotkeys";
 import { setAnalogMovementSource } from "../game/runtime/player-input-controller";
 

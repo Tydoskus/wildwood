@@ -1,11 +1,11 @@
-import { EMPTY_GUILD_HALL_LEVELS, guildHallMapId, isGuildHallMap, type GuildHallPart } from "../../../../shared/guild-hall";
-import type { GuildSnapshot } from "../../../../shared/guilds";
-import { guildEmblemFor } from "../../../ui/guild-emblems";
-import { createGuildHallWindow } from "../../../ui/guild-hall-window";
-import type { MapId } from "../../world";
-import { guildHallCameraRegion } from "../../guild-hall";
-import type { Camera } from "../render/camera";
-import { createGuildHallRuntime, type GuildHallSource } from "./guild-hall-runtime";
+import { EMPTY_GUILD_HALL_LEVELS, guildHallMapId, isGuildHallMap, type GuildHallPart } from "../../../shared/guild-hall";
+import type { GuildSnapshot } from "../../../shared/guilds";
+import { guildEmblemFor } from "../../game/guild-emblems";
+import { createGuildHallWindow } from "../../ui/guild-hall-window";
+import type { MapId } from "../../game/world";
+import { guildHallCameraRegion } from "../../game/guild-hall";
+import type { Camera } from "../../game/runtime/render/camera";
+import { createGuildHallRuntime, type GuildHallSource } from "../../game/runtime/guild-hall/guild-hall-runtime";
 
 export type GuildHallCoop = GuildHallSource & {
   localIdentity?: () => string | undefined;

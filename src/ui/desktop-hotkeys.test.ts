@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { installDesktopHotkeys, pressTopBack } from "./desktop-hotkeys";
-import { defaultBindings, dispatchControlAction, setControlBindings, withKey } from "./control-bindings";
+import { defaultBindings, dispatchControlAction, setControlBindings, withKey } from "../game/runtime/control-bindings";
 
 /** linkedom has no layout: each element gets a box, and a hit test returns the topmost listed box. */
 function setup(html: string) {

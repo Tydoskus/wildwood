@@ -1,4 +1,4 @@
-import { replaceChildrenIfChanged } from "./replace-children-if-changed";
+import { replaceChildrenIfChanged } from "../game/replace-children-if-changed";
 import { createProfileEditor, type ProfileEditorElements } from "./profile-editor";
 import { createProfileLoading } from "./profile-loading";
 import type { NameChangeStatus } from "../../shared/name-change";

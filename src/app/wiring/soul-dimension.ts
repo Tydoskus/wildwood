@@ -1,12 +1,13 @@
-import { isSoulMap, SOUL_MAP_ID } from "../../../../shared/soul-dimension";
-import { isDeveloperIdentity } from "../../../app/developer";
-import { createSoulDimensionWindow } from "../../../ui/soul-dimension-window";
-import type { MapId } from "../../world";
-import type { EnemyState } from "../types";
-import { createSoulDimensionRuntime } from "./soul-dimension-runtime";
-import { createTownRuntime } from "../town/town-runtime";
-import { createDpsDummy } from "../town/dps-dummy";
-import { createSoulLevelHud } from "../../../ui/soul-level-hud";
+import { isSoulMap, SOUL_MAP_ID } from "../../../shared/soul-dimension";
+import { isDeveloperIdentity } from "../developer";
+import { createSoulDimensionWindow } from "../../ui/soul-dimension-window";
+import type { MapId } from "../../game/world";
+import type { EnemyState } from "../../game/runtime/types";
+import { createSoulDimensionRuntime } from "../../game/runtime/soul/soul-dimension-runtime";
+import { createTownRuntime } from "../../game/runtime/town/town-runtime";
+import { createDpsDummy } from "../../game/runtime/town/dps-dummy";
+import { createSoulLevelHud } from "../../ui/soul-level-hud";
+import { gameConfirm } from "../../ui/confirm-dialog";
 
 /**
  * The Town and the Soul Dimension its bottom road leads to, as the
@@ -17,7 +18,7 @@ import { createSoulLevelHud } from "../../../ui/soul-level-hud";
 export function createSoulDimension(deps: Parameters<typeof createSoulDimensionRuntime>[0] & Parameters<typeof createTownRuntime>[0] & {
   travel: (mapId: MapId) => Promise<boolean>;
 }) {
-  const runtime = createSoulDimensionRuntime(deps);
+  const runtime = createSoulDimensionRuntime({ ...deps, notice: text => { void gameConfirm({ message: text, confirmLabel: "OK", cancelLabel: "" }); } });
   const town = createTownRuntime(deps);
   const dummy = createDpsDummy(deps);
   const window = createSoulDimensionWindow({

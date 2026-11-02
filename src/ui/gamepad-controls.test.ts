@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseHTML } from "linkedom";
 import { installGamepadControls, nearestInDirection, stickVector } from "./gamepad-controls";
-import { CONTROL_EVENT } from "./control-bindings";
+import { CONTROL_EVENT } from "../game/runtime/control-bindings";
 
 const rect = (left: number, top: number, width = 10, height = 10) => ({ left, top, width, height, right: left + width, bottom: top + height }) as DOMRect;
 

@@ -1,6 +1,6 @@
 import { formatCompactNumber } from "./number-format";
 import { renderGuildMemberName } from "./guild-member-name";
-import { createGuildEmblem } from './guild-emblems';
+import { createGuildEmblem } from '../game/guild-emblems';
 import { guildMemberPresence } from './guild-presence';
 import { GUILD_MEMBER_LIMIT, type GuildPreview } from '../../shared/guilds';
 import { applyProfileIcon } from '../app/profile-icons';

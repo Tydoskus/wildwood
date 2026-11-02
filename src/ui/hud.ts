@@ -7,7 +7,7 @@ import { REFINE_ORES, type OreId } from "../../shared/refine";
 import { cosmeticInventoryStacks, bagInventoryStacks, isStarterLook, ITEM_DEFINITIONS, type EquipmentSlot } from "../game/inventory";
 import { itemArtMarkup } from "../game/item-presentation";
 import { formatCompactNumber } from "./number-format";
-import { appendPlayerGenderIcon } from "./player-gender";
+import { appendPlayerGenderIcon } from "../game/player-gender-icon";
 import { PLAYER_GENDER_UNSET, type PlayerGender } from "../../shared/player-gender";
 import { isHiddenCosmeticItem } from "../../shared/equipment-appearance";
 import { type ItemSlot, itemDefinition, isCosmeticOnlyItem, itemDisplayName, normalizeItemUpgradeLevel } from "../../shared/items";

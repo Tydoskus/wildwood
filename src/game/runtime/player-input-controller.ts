@@ -1,5 +1,5 @@
 import { createDesktopMovement, type DesktopMovementOptions } from "./desktop-movement";
-import { ARROW_FOR, controlBindings, type ControlAction } from "../../ui/control-bindings";
+import { ARROW_FOR, controlBindings, type ControlAction } from "./control-bindings";
 
 /**
  * A controller's stick, as an analog vector the touch joystick would give; installed by the gamepad

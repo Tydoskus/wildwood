@@ -1,5 +1,5 @@
 import type { GuildSnapshot } from "../../shared/guilds";
-import { createGuildEmblem } from "./guild-emblems";
+import { createGuildEmblem } from "../game/guild-emblems";
 
 export type KnownGuild = { id: string; name: string; emblem?: number };
 type HubPages = { loadGuild: (afterId?: string) => Promise<GuildSnapshot> };

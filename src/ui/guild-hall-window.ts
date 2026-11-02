@@ -1,5 +1,5 @@
 import { GUILD_HALL_BONUSES, GUILD_HALL_PARTS, GUILD_HALL_TABLE_SEATS, guildHallUpgradeCost, type GuildHallLevels, type GuildHallPart } from "../../shared/guild-hall";
-import { createGuildEmblem } from "./guild-emblems";
+import { createGuildEmblem } from "../game/guild-emblems";
 
 export type GuildHallWindowState = {
   /** Null without a guild. */

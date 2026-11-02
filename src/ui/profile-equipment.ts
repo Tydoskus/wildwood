@@ -1,4 +1,4 @@
-import { replaceChildrenIfChanged } from "./replace-children-if-changed";
+import { replaceChildrenIfChanged } from "../game/replace-children-if-changed";
 import { appendItemTierLabel } from "./item-tier-label";
 import { appendRefineBadge, withRefineStars } from "./refine-badge";
 import { setTileGrade } from "./bag-item-tile";

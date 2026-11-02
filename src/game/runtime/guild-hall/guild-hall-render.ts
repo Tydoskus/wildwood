@@ -1,5 +1,5 @@
 import { GUILD_HALL_FEET_OFFSET } from "../../../../shared/guild-hall";
-import { guildEmblemCell } from "../../../ui/guild-emblems";
+import { guildEmblemCell } from "../../guild-emblems";
 import {
   guildHallRoomPicture, guildHallSeatAt, guildHallShown, type GuildHallSeat,
 } from "../../guild-hall";
