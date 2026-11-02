@@ -69,7 +69,7 @@ export const SCHOOL_DETAILS: Readonly<Record<WeaponSchool, {
 }>> = {
   archery: {
     building: "Archery Range", door: 2,
-    passive: "Range", passivePerLevel: "+0.4 attack range a level",
+    passive: "Range", passivePerLevel: "+0.4 attack range a level, +10 more at level 50",
     techniques: [
       { id: "steadyAim", level: 10, name: "Steady Aim", text: "Every 6th arrow is a critical hit." },
       { id: "volley", level: 20, name: "Volley", text: "Split Shot arrows deal 15% more." },
@@ -107,6 +107,8 @@ export const techniquesAt = (school: WeaponSchool, level: number) => SCHOOL_DETA
 
 /** Each school's passive a level: Archery's attack range, Swordplay's share of damage taken away, Sorcery's bolt blast size. */
 export const ARCHERY_RANGE_PER_LEVEL = 0.4;
+/** Archery's extra range on reaching the top level, on top of every level's. */
+export const ARCHERY_MAX_LEVEL_RANGE = 10;
 export const SWORDPLAY_GUARD_PER_LEVEL = 0.002;
 export const SORCERY_BLAST_PER_LEVEL = 0.005;
 const PASSIVE_PER_LEVEL: Readonly<Record<WeaponSchool, number>> = {
@@ -114,7 +116,8 @@ const PASSIVE_PER_LEVEL: Readonly<Record<WeaponSchool, number>> = {
 };
 const clampLevel = (level: number) => Math.max(0, Math.min(MASTERY_MAX_LEVEL, Math.floor(Number.isFinite(level) ? level : 0)));
 /** A school's passive at `level`: attack range for Archery, fractions (0.02 is 2%) for Swordplay and Sorcery. */
-export const schoolPassiveValue = (school: WeaponSchool, level: number) => PASSIVE_PER_LEVEL[school] * clampLevel(level);
+export const schoolPassiveValue = (school: WeaponSchool, level: number) => PASSIVE_PER_LEVEL[school] * clampLevel(level)
+  + (school === "archery" && clampLevel(level) === MASTERY_MAX_LEVEL ? ARCHERY_MAX_LEVEL_RANGE : 0);
 
 /** Skill Proficiency: the weapon's own skill chances, 1% of themselves more a level. */
 export const SKILL_PROFICIENCY_PER_LEVEL = 0.01;

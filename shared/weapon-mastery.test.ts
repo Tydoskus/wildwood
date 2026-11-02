@@ -45,7 +45,8 @@ describe("weapon mastery", () => {
     expect(schoolPassiveValue("swordplay", 10)).toBeCloseTo(0.02);
     expect(schoolPassiveValue("sorcery", 10)).toBeCloseTo(0.05);
     expect(schoolPassiveValue("archery", 0)).toBe(0);
-    expect(schoolPassiveValue("archery", 99)).toBeCloseTo(20);
+    expect(schoolPassiveValue("archery", 49)).toBeCloseTo(19.6);
+    expect(schoolPassiveValue("archery", 99)).toBeCloseTo(30);
     expect(skillProficiency(25)).toBeCloseTo(0.25);
     expect(skillProficiency(NaN)).toBe(0);
   });
@@ -82,7 +83,7 @@ describe("weapon mastery in combat", () => {
   it("gives each school's passive only with its own weapon", () => {
     const archery = masteryInPlay(points, IRON_BOW), swordplay = masteryInPlay(points, WOODEN_SWORD);
     const sorcery = masteryInPlay({ sorcery: LEVEL_50 }, STARTER_STAFF);
-    expect(masteryAttackRange(archery)).toBeCloseTo(20);
+    expect(masteryAttackRange(archery)).toBeCloseTo(30);
     expect(masteryAttackRange(swordplay)).toBe(0);
     expect(masteryDamageTaken(swordplay)).toBeCloseTo(0.98);
     expect(masteryDamageTaken(archery)).toBe(1);

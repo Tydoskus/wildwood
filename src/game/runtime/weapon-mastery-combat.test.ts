@@ -145,9 +145,9 @@ describe("Archery's range", () => {
     return state.player.attackRange;
   }
 
-  it("adds 0.4 a level on top of the saved range and cards while a bow or the stone is in the right hand", () => {
+  it("adds 0.4 a level, and 10 more at level 50, on top of the saved range and cards while a bow or the stone is in the right hand", () => {
     expect(rangeWith("starter_stone", undefined)).toBeCloseTo(205);
-    expect(rangeWith("starter_stone", ALL_50)).toBeCloseTo(225);
+    expect(rangeWith("starter_stone", ALL_50)).toBeCloseTo(235);
     expect(rangeWith("wooden_sword", ALL_50)).toBeCloseTo(205);
     expect(rangeWith("starter_stone", masteryPointsInPlay(ALL_50, true))).toBeCloseTo(205);
   });
