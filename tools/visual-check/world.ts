@@ -172,7 +172,7 @@ export function createIdentity(ctx: CanvasRenderingContext2D, camera: Camera, vi
 }
 
 /**
- * The world renderers as the game builds them (world-render-runtime.ts, player-identity-wiring.ts), with fake
+ * The world renderers as the game builds them (world-render-runtime.ts, app/wiring/player-identity-wiring.ts), with fake
  * players behind the identity lookups. Draws in world space: callers scale the context by `camera.zoom`.
  */
 export async function createWorld(ctx: CanvasRenderingContext2D, options: {

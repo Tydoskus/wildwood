@@ -1,12 +1,12 @@
-import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../../../../shared/player-gender";
-import { isDeveloperIdentity } from "../../../app/developer";
-import { playerGenderIconPath } from "../../../ui/player-gender";
-import type { CoopAccess } from "../coop-access";
-import { WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "../game-settings";
-import { platePixels, plateSize } from "./nameplate-scale";
-import type { createCamera } from "./camera";
-import type { createCanvasRuntime } from "./canvas-runtime";
-import { createPlayerIdentityRenderer } from "./player-identity-renderer";
+import { PLAYER_GENDER_FEMALE, PLAYER_GENDER_MALE } from "../../../shared/player-gender";
+import { isDeveloperIdentity } from "../developer";
+import { playerGenderIconPath } from "../../ui/player-gender";
+import type { CoopAccess } from "../../game/runtime/coop-access";
+import { WORLD_HEALTH_BAR_HEIGHT, WORLD_HEALTH_BAR_RADIUS } from "../../game/runtime/game-settings";
+import { platePixels, plateSize } from "../../game/runtime/render/nameplate-scale";
+import type { createCamera } from "../../game/runtime/render/camera";
+import type { createCanvasRuntime } from "../../game/runtime/render/canvas-runtime";
+import { createPlayerIdentityRenderer } from "../../game/runtime/render/player-identity-renderer";
 
 function loadedImage(src: string) {
   const image = new Image();

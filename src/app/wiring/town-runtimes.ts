@@ -13,11 +13,11 @@ import {
   TOWN_SMITH_SERVER_REACH, TOWN_WEAPON_SELLER_POSITION, TOWN_DOORS, TOWN_RESEARCH_POSITION, townRoomAt,
   TOWN_ARRIVAL, inTownGrove, inTownHills,
 } from "../../../shared/town";
-import { TUTORIAL_FOREST_MAP_ID, SLOT_UPGRADES_POSITION, type MapId } from "../world";
-import type { CoopAccess } from "./coop-access";
-import type { MapController } from "./map-controller";
-import type { createGameBootstrap } from "./game-bootstrap";
-import type { PlayerState } from "./types";
+import { TUTORIAL_FOREST_MAP_ID, SLOT_UPGRADES_POSITION, type MapId } from "../../game/world";
+import type { CoopAccess } from "../../game/runtime/coop-access";
+import type { MapController } from "../../game/runtime/map-controller";
+import type { createGameBootstrap } from "../../game/runtime/game-bootstrap";
+import type { PlayerState } from "../../game/runtime/types";
 
 export type TownRuntimeDeps = {
   /** The item window, for gear on the Trade Chrysanthemum: its stats, skills and refine before buying. */

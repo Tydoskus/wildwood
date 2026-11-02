@@ -1,12 +1,12 @@
-import type { createGameElements } from "../../../ui/game-elements";
-import type { createCombatEffects } from "../combat-effects";
-import type { CoopAccess } from "../coop-access";
-import type { createGameSessionController } from "../game-session-controller";
-import type { PlayerController } from "../player-controller";
-import type { createCamera } from "../render/camera";
-import type { DuelScene, PlayerState } from "../types";
-import { createDuelRuntime } from "./duel-runtime";
-import { createDuelSessionController } from "./duel-session-controller";
+import type { createGameElements } from "../../ui/game-elements";
+import type { createCombatEffects } from "../../game/runtime/combat-effects";
+import type { CoopAccess } from "../../game/runtime/coop-access";
+import type { createGameSessionController } from "../../game/runtime/game-session-controller";
+import type { PlayerController } from "../../game/runtime/player-controller";
+import type { createCamera } from "../../game/runtime/render/camera";
+import type { DuelScene, PlayerState } from "../../game/runtime/types";
+import { createDuelRuntime } from "../../game/runtime/duel/duel-runtime";
+import { createDuelSessionController } from "../../game/runtime/duel/duel-session-controller";
 
 type DuelRuntime = ReturnType<typeof createDuelRuntime>;
 type GameSession = Pick<ReturnType<typeof createGameSessionController>, "fadeToWorld" | "leaveDuelResult" | "isRunning">;
