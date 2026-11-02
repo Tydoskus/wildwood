@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.917.49": [
+    "Upgrades show their power jump: the number counts up and the gain pops above it",
+  ],
   "0.917.48": [
     "Archery Mastery 50 gives +10 more attack range",
   ],
@@ -4108,6 +4111,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.917.49": "2026-11-02",
   "0.917.48": "2026-11-02",
   "0.917.47": "2026-11-02",
   "0.917.46": "2026-11-02",

@@ -666,7 +666,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     coop: coopAccess, e: gameElements, player, duelSession, applyProfileIcon, playerPower, playerShield: () => playerCombat?.cardShield(),
     setDeveloperAccess: devPanel.setDeveloperAccess, applyVitalityResearch, techTree, appShell,
     updateProfileDuelButton: profileWindow.updateDuelButton, mapMusic, setGameplayPause, inTown: () => currentMapId === "town", showMessage,
-    goToResearch: town.goToResearch,
+    goToResearch: town.goToResearch, powerJump: powerForEquipment.watchJumps(inventory),
   });
 
   function showCurrentUpdateNotice() {

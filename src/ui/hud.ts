@@ -103,8 +103,11 @@ export function renderPlayerHud(
       powerValue.className = "power-value";
       elements.playerPower.replaceChildren(powerValue, powerIcon);
     }
-    powerValue.textContent = powerText;
-    elements.playerPower.dataset.renderedPower = powerText;
+    // An upgrade's count-up (power-jump-effect.ts) owns the number until it lands.
+    if (!elements.playerPower.dataset.powerCounting) {
+      powerValue.textContent = powerText;
+      elements.playerPower.dataset.renderedPower = powerText;
+    }
   }
   // One database today; named as a numbered server so more can join the list later.
   const status = `Server 1: ${playerCount} Online`;

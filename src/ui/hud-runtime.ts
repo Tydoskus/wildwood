@@ -13,6 +13,7 @@ import { createHudTimerColumn } from "./hud-timer-column";
 import { createItemGiftController } from "./item-gift-controller";
 import { installServerBoostHud } from "./server-boost-hud";
 import { installMysteriousOreTimer } from "./mysterious-ore-timer";
+import type { PowerJump } from "../game/runtime/power-jump";
 
 type GameElements = ReturnType<typeof createGameElements>;
 type IdentityRenderer = ReturnType<typeof createPlayerIdentityRenderer>;
@@ -24,6 +25,8 @@ export type HudRuntimeDeps = {
   duelSession: Pick<ReturnType<typeof createDuelSessionController>, "activeDuel" | "duelOpponentName">;
   applyProfileIcon: IdentityRenderer["applyProfileIcon"];
   playerPower: IdentityRenderer["playerPower"];
+  /** Rises in the HUD's power an upgrade made (power-jump.ts). */
+  powerJump?: () => PowerJump | null;
   playerShield: () => ReturnType<PlayerCombatController["cardShield"]> | undefined;
   setDeveloperAccess: (developer: boolean) => void;
   applyVitalityResearch: () => void;
@@ -45,7 +48,7 @@ export function createHudRuntime(deps: HudRuntimeDeps) {
   const runtimeHud = createGameRuntimeHud({
     e, coop: client, player: deps.player,
     activeDuel: deps.duelSession.activeDuel, duelOpponentName: deps.duelSession.duelOpponentName,
-    applyProfileIcon: deps.applyProfileIcon, playerPower: deps.playerPower, playerShield: deps.playerShield,
+    applyProfileIcon: deps.applyProfileIcon, playerPower: deps.playerPower, powerJump: deps.powerJump, playerShield: deps.playerShield,
     setDeveloperAccess: deps.setDeveloperAccess, applyVitalityResearch: deps.applyVitalityResearch,
     updateTechNotice: deps.techTree.updateNotice, tickTechTree: deps.techTree.tick,
     refreshAppStatus: appShell.refreshStatus, updateProfileDuelButton: deps.updateProfileDuelButton,

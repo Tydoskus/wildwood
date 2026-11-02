@@ -4,6 +4,7 @@ import type { CoopAccess } from "./coop-access";
 import { displayedPlayerPowerProgress } from "./render/player-identity-renderer";
 import type { createResearchController } from "./research-controller";
 import type { PlayerState } from "./types";
+import { createPowerJumpWatch, type PowerBase } from "./power-jump";
 
 type Research = Pick<ReturnType<typeof createResearchController>, "ranks" | "criticalChance" | "criticalDamageMultiplier">;
 
@@ -18,15 +19,12 @@ export function createDisplayedPower(deps: {
   soulCritDamage: () => number;
 }) {
   const { coop, player } = deps;
-  return function powerForEquipment(equipment: InventoryState, compare = false) {
+  const playerBase = (): PowerBase => ({ maxHp: player.baseMaxHp, damage: player.damage, attackRate: player.attackRate, armor: player.armor, regen: player.regen });
+  function powerForEquipment(equipment: InventoryState, compare = false, base = playerBase()) {
     const research = deps.research();
     const power = equipComparisonPower(
       displayedPlayerPowerProgress({
-        maxHp: player.baseMaxHp,
-        damage: player.damage,
-        attackRate: player.attackRate,
-        armor: player.armor,
-        regen: player.regen,
+        ...base,
         critChance: research.criticalChance(),
         critMultiplier: research.criticalDamageMultiplier(deps.soulCritDamage()),
       }, {
@@ -42,5 +40,8 @@ export function createDisplayedPower(deps: {
       compare ? coop.weaponSkills : undefined,
     );
     return compare ? power : Math.round(power);
-  };
+  }
+  /** Rises in the HUD's power that an upgrade made rather than kills (power-jump.ts). */
+  const watchJumps = (equipment: InventoryState) => createPowerJumpWatch(base => powerForEquipment(equipment, false, base), playerBase);
+  return Object.assign(powerForEquipment, { watchJumps });
 }

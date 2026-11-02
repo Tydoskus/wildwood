@@ -26,6 +26,8 @@ import type { PlayerGender } from "../../shared/player-gender";
 import { statPopupsEnabled } from "./stat-popup-setting";
 import { setHidden, setText } from "./dom-write";
 import { replaceChildrenIfChanged } from "../game/replace-children-if-changed";
+import { playPowerJump } from "./power-jump-effect";
+import type { PowerJump } from "../game/runtime/power-jump";
 
 
 const GEM_DROP_ART = "assets/wildstat/gems/gem-icon-v2.webp";
@@ -69,6 +71,8 @@ type RuntimeHudDependencies = {
   profileIcon: () => number;
   applyProfileIcon: (target: HTMLElement, icon: number, identity?: string) => void;
   playerPower: (player: PlayerState) => number;
+  /** A rise in that power an upgrade made, not kills (power-jump.ts); asked once a HUD update. */
+  powerJump?: () => PowerJump | null;
   /** A card shield in play (card-combat.ts), shown on the health bar. */
   playerShield?: () => { amount: number } | null | undefined;
   setDeveloperAccess: (enabled: boolean) => void;
@@ -434,6 +438,9 @@ export function createRuntimeHudController(dependencies: RuntimeHudDependencies)
       identity,
       dependencies.isGuest(identity),
     );
+    // A duel shows the duel's own stats; its end is no upgrade.
+    const jump = dependencies.powerJump?.();
+    if (jump && !document.body.classList.contains("is-dueling")) playPowerJump(elements.playerPower, jump);
     dependencies.refreshAppStatus();
     dependencies.tickTechTree(now);
     return true;

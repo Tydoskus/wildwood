@@ -359,6 +359,15 @@
   }
   .power-icon { display: inline-block; flex: 0 0 auto; object-fit: contain; }
   .power-icon-hud { width: 18px; height: 18px; }
+  /* An upgrade's power jump (power-jump-effect.ts): the number glows and the gain rises above it. */
+  #playerPower { position: relative; }
+  #playerPower.is-power-jump .power-value { animation: power-jump-glow 1.1s ease-out; }
+  .power-jump-gain { position: fixed; z-index: 60; transform-origin: right center; color: #fff; font-size: 15px; font-weight: 900; white-space: nowrap;
+    -webkit-text-stroke: 3px #000; paint-order: stroke fill; pointer-events: none; animation: power-jump-rise 1.6s ease-out forwards; }
+  @keyframes power-jump-glow { 0%, 40% { text-shadow: 0 0 8px #fff, 0 0 2px #fff; transform: scale(1.18); } 100% { text-shadow: none; transform: none; } }
+  @keyframes power-jump-rise { 0% { opacity: 0; transform: translateY(4px) scale(.9); } 15% { opacity: 1; transform: translateY(-2px) scale(1.1); }
+    70% { opacity: 1; transform: translateY(-18px); } 100% { opacity: 0; transform: translateY(-30px); } }
+  @media (prefers-reduced-motion: reduce) { #playerPower.is-power-jump .power-value { animation: none; } .power-jump-gain { animation-duration: 2.4s; } }
   .player-hud-card { --prestige-badge-size: 18px; }
 
   .settings-wrap {
