@@ -1,5 +1,5 @@
 /** Only operational fields cross this boundary; never credentials or full URLs. */
-export const CONNECTION_EVENT_KINDS = ["socket-close", "socket-error", "connect-error", "decompression-error", "lifecycle-failure", "reconnected", "session-blocked", "title-screen", "update-reload", "user-sign-out", "map-retry", "page-hidden", "page-visible", "page-exit", "offline", "online", "connection-reset", "portal-start", "portal-complete", "portal-failed", "wake-resume", "wake-reconnect", "rewards-discarded", "rewards-throttled", "rewards-stalled", "autofarm-death", "latency-spike", "app-update", "graphics", "canvas-purge"] as const;
+export const CONNECTION_EVENT_KINDS = ["socket-close", "socket-error", "connect-error", "decompression-error", "lifecycle-failure", "reconnected", "session-blocked", "title-screen", "update-reload", "user-sign-out", "map-retry", "page-hidden", "page-visible", "page-exit", "offline", "online", "connection-reset", "portal-start", "portal-complete", "portal-failed", "wake-resume", "wake-reconnect", "rewards-discarded", "rewards-throttled", "rewards-stalled", "autofarm-death", "latency-spike", "app-update", "graphics", "canvas-purge", "subscription-error"] as const;
 export type ConnectionEventKind = typeof CONNECTION_EVENT_KINDS[number];
 export type ConnectionDiagnostic = {
   eventId: string; kind: ConnectionEventKind; occurredAtMs: number;
