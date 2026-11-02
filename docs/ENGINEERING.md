@@ -6,6 +6,8 @@ Realtime ownership and sequencing are diagrammed in `docs/realtime-data-flow.md`
 
 ## Client structure
 
+The client has four layers, lowest first: `shared/` (browser- and server-safe rules), `src/game` (simulation, runtimes, rendering), `src/ui` (windows, HUD, DOM controllers) and `src/app` (`src/main.ts`, app services in `src/app/`, and `src/app/wiring/`, the factories that put game runtimes and UI windows together). A layer imports only from layers below it. `src/coop` is the multiplayer layer and imports neither `src/game` nor `src/ui`. When a game runtime needs a window or dialog, the wiring builds it and passes it in. `npm run check:code-health` enforces the direction; its `LAYER_EXCEPTIONS` lists today's remaining exceptions and may only shrink.
+
 | Module | Responsibility |
 | --- | --- |
 | `src/main.ts` | Composition root only. It wires controllers; new behavior belongs in a typed runtime or UI module. Its size is held by the ratchets in `scripts/check-code-health.mjs` (see below). |
@@ -37,7 +39,7 @@ Keep static definitions and pure calculations outside `main.ts`. `main.ts` is a 
 - **Line ratchet:** the line count stays below 1,000 and never exceeds its last recorded value.
 - **No long lines:** the count of lines over 160 characters, and over 300, never grows. New code stays under 160 characters per line.
 - **Byte budget:** the file size never grows, so code cannot be packed to dodge the line count.
-- **Import cycles:** the same script fails on any runtime import cycle within `shared/` or within `spacetimedb/src/`; a cycle can leave a module half-initialised at load.
+- **Import cycles:** the same script fails on any runtime import cycle within `shared/`, within `spacetimedb/src/`, or anywhere under `src/`; a cycle can leave a module half-initialised at load.
 
 When wiring does not fit, extract a named module (a factory that takes its dependencies as one typed object) and wire it in one call. Do not lengthen lines, chain statements onto one line, or delete useful comments to make room. Lower the recorded numbers in the same change whenever an extraction frees space.
 

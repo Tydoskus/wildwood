@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Code-health ratchets: size budgets for the three composition roots and the
- * import-cycle checks for shared/ and spacetimedb/src. They hold structure, not
- * behaviour, so they run here (npm run check:code-health, and inside
- * npm run check:release) instead of in the unit suite.
+ * Code-health ratchets: size budgets for the three composition roots, the
+ * client's layer direction, and the import-cycle checks for shared/,
+ * spacetimedb/src and src/. They hold structure, not behaviour, so they run
+ * here (npm run check:code-health, and inside npm run check:release) instead of
+ * in the unit suite.
  *
  * Lower the numbers as extractions land. Never satisfy them by packing code onto
  * longer lines, minifying or deleting useful comments: extract a named module
@@ -11,8 +12,8 @@
  * this script is in `git log -p` on src/main-boundary.test.ts,
  * src/coop/wildstat-coop-boundary.test.ts and spacetimedb/src/index-boundary.test.ts.
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join, posix, resolve } from "node:path";
 import { sharedModuleState } from "./shared-bundle-state.mjs";
 
 const root = resolve(import.meta.dirname, "..");
@@ -127,10 +128,8 @@ function runtimeImports(dir, files, name, pattern) {
   return found;
 }
 
-function importCycles(relativeDir) {
-  const dir = join(root, relativeDir);
-  const files = readdirSync(dir).filter(name => name.endsWith(".ts") && !name.endsWith(".test.ts") && !name.endsWith(".d.ts"));
-  const edges = new Map(files.map(name => [name, runtimeImports(dir, files, name, IMPORT_PATTERNS[relativeDir])]));
+// Each cycle in a module graph (Map of module to the Set it imports), as "a -> b -> a".
+function findCycles(edges) {
   const cycles = [];
   const state = new Map();
   const stack = [];
@@ -144,8 +143,15 @@ function importCycles(relativeDir) {
     stack.pop();
     state.set(name, "done");
   };
-  for (const name of files) if (!state.has(name)) visit(name);
-  return { edges, cycles };
+  for (const name of edges.keys()) if (!state.has(name)) visit(name);
+  return cycles;
+}
+
+function importCycles(relativeDir) {
+  const dir = join(root, relativeDir);
+  const files = readdirSync(dir).filter(name => name.endsWith(".ts") && !name.endsWith(".test.ts") && !name.endsWith(".d.ts"));
+  const edges = new Map(files.map(name => [name, runtimeImports(dir, files, name, IMPORT_PATTERNS[relativeDir])]));
+  return { edges, cycles: findCycles(edges) };
 }
 
 for (const dir of ["shared", "spacetimedb/src"]) {
@@ -156,6 +162,208 @@ for (const dir of ["shared", "spacetimedb/src"]) {
       "expected player-power.ts to import player-join-date.ts");
   }
   check(`${dir}: imports one another without cycles`, cycles.length === 0,
+    `found ${cycles.length} import cycle(s):\n    ${cycles.join("\n    ")}`);
+}
+
+// Layer direction, lowest first: shared/ <- src/game <- src/ui <- src/app (src/main.ts,
+// src/app/ and src/app/wiring/). src/coop is the multiplayer layer and reads neither src/game
+// nor src/ui. src/wildstat-coop.ts is the coop bundle's own composition root, like main.ts.
+// Type-only and dynamic imports count; tests and benches may reach across.
+const LAYER_OF = [["shared/", "shared"], ["src/game/", "game"], ["src/ui/", "ui"], ["src/coop/", "coop"], ["src/app/", "app"], ["src/main.ts", "app"]];
+const layerOf = path => LAYER_OF.find(([prefix]) => path.startsWith(prefix))?.[1];
+const FORBIDDEN = {
+  shared: { what: "src/ or spacetimedb/", hit: to => to.startsWith("src/") || to.startsWith("spacetimedb/") },
+  game: { what: "src/ui or src/app", hit: to => ["ui", "app"].includes(layerOf(to)) },
+  ui: { what: "src/app", hit: to => layerOf(to) === "app" },
+  coop: { what: "src/game or src/ui", hit: to => ["game", "ui"].includes(layerOf(to)) },
+};
+const STATIC_IMPORT = /(?:^|\n)\s*(?:import|export)\s+(type\s+)?(?:[^'";]*?\sfrom\s+)?['"](\.{1,2}\/[^'"]+)['"]/g;
+const DYNAMIC_IMPORT = /\bimport\(\s*['"](\.{1,2}\/[^'"]+)['"]\s*\)/g;
+
+function clientModules() {
+  return ["shared", "src"].flatMap(dir => readdirSync(join(root, dir), { recursive: true }).map(name => `${dir}/${name}`))
+    .filter(path => /\.(ts|mts|mjs|js)$/.test(path) && !/\.(test|bench)\.ts$|\.d\.m?ts$/.test(path));
+}
+
+// The repo path an import names, with the extension it resolves to.
+function resolveImport(from, specifier) {
+  const target = posix.normalize(posix.join(posix.dirname(from), specifier.replace(/\?.*$/, "")));
+  const candidates = [target, target.replace(/\.js$/, ".ts"), `${target}.ts`, `${target}.mts`, `${target}/index.ts`];
+  return candidates.find(path => existsSync(join(root, path)) && !statSync(join(root, path)).isDirectory()) ?? target;
+}
+
+// Every module's imports: { to, runtime }, where runtime means a static, non-type import.
+function clientImports() {
+  const graph = new Map();
+  for (const path of clientModules()) {
+    const source = readFileSync(join(root, path), "utf8");
+    const found = [];
+    for (const match of source.matchAll(STATIC_IMPORT)) found.push({ to: resolveImport(path, match[2]), runtime: !match[1] });
+    for (const match of source.matchAll(DYNAMIC_IMPORT)) found.push({ to: resolveImport(path, match[1]), runtime: false });
+    graph.set(path, found);
+  }
+  return graph;
+}
+
+{
+  // Today's imports against the direction, by the module imported. This list may only shrink:
+  // fix an import and delete its line here in the same change.
+  const LAYER_EXCEPTIONS = {
+    // The coop bundle's start screen and remote players read these game constants and helpers.
+    "src/game/math.ts": [
+      "src/coop/services/remote-interpolation.ts",
+    ],
+    "src/game/runtime/game-settings.ts": [
+      "src/coop/services/connection-diagnostic-runtime.ts",
+      "src/coop/startup-auth-gate.ts",
+      "src/coop/startup-bootstrap.ts",
+    ],
+    "src/game/runtime/player-death-animation.ts": [
+      "src/coop/services/remote-corpses.ts",
+    ],
+    // The coop bundle builds the start screen before game.js loads.
+    "src/ui/account-audio-sync.ts": [
+      "src/coop/startup-music-toggle.ts",
+    ],
+    "src/ui/discord-link.ts": [
+      "src/coop/startup-auth-gate.ts",
+    ],
+    "src/ui/loading-progress.ts": [
+      "src/coop/startup-auth-gate.ts",
+    ],
+    "src/ui/overlays.ts": [
+      "src/coop/startup-release-notes.ts",
+    ],
+    "src/ui/release-notes-unread.ts": [
+      "src/coop/startup-release-notes.ts",
+    ],
+    // Services that live in src/app but sit below the UI and game. Each would move down to retire its lines.
+    "src/app/after-entry.ts": [
+      "src/game/runtime/audio.ts",
+      "src/game/runtime/game-bootstrap.ts",
+      "src/game/runtime/game-session-controller.ts",
+    ],
+    "src/app/app-update-notice.ts": [
+      "src/ui/game-ui-runtime.ts",
+    ],
+    "src/app/auto-farm-resume.ts": [
+      "src/game/runtime/auto-farm/auto-farm-controller.ts",
+      "src/game/runtime/auto-farm/auto-farm-wiring.ts",
+    ],
+    "src/app/avatar-frame-glow.ts": [
+      "src/ui/avatar-frame-picker.ts",
+      "src/ui/gem-shop-controller.ts",
+    ],
+    "src/app/avatar-frames.ts": [
+      "src/ui/chat-channels.ts",
+      "src/ui/chat.ts",
+      "src/ui/leaderboard.ts",
+      "src/ui/profile-window-controller.ts",
+      "src/ui/runtime-hud-controller.ts",
+    ],
+    "src/app/canvas-purge-recovery.ts": [
+      "src/ui/startup-runtime.ts",
+    ],
+    "src/app/changelog.ts": [
+      "src/ui/game-mailbox.ts",
+      "src/ui/game-ui-runtime.ts",
+    ],
+    "src/app/developer.ts": [
+      "src/game/runtime/soul/soul-dimension-runtime.ts",
+      "src/ui/game-panels.ts",
+      "src/ui/game-ui-runtime.ts",
+    ],
+    "src/app/moving-canvases.ts": [
+      "src/game/runtime/diamond-look-preview.ts",
+      "src/game/runtime/leaderboard-podium-preview.ts",
+      "src/ui/guild-battle-replay.ts",
+    ],
+    "src/app/native-ads.ts": [
+      "src/ui/hud-runtime.ts",
+      "src/ui/rewarded-gem-ad-controller.ts",
+    ],
+    "src/app/native-preview.ts": [
+      "src/game/runtime/auto-farm/auto-gather.ts",
+      "src/ui/gem-shop-controller.ts",
+    ],
+    "src/app/native-purchases.ts": [
+      "src/ui/gem-shop-controller.ts",
+    ],
+    "src/app/native-updates.ts": [
+      "src/ui/ota-panel.ts",
+    ],
+    "src/app/player-name-tags.ts": [
+      "src/game/runtime/duel/duel-runtime.ts",
+      "src/game/runtime/render/player-identity-renderer.ts",
+      "src/ui/chat.ts",
+      "src/ui/feedback-settings.ts",
+      "src/ui/hud.ts",
+      "src/ui/leaderboard-controller.ts",
+      "src/ui/leaderboard.ts",
+      "src/ui/player-identity.ts",
+      "src/ui/profile-runtime.ts",
+    ],
+    "src/app/profile-icons.ts": [
+      "src/game/runtime/render/player-identity-renderer.ts",
+      "src/ui/chat-channels.ts",
+      "src/ui/chat-guild-requests.ts",
+      "src/ui/chat.ts",
+      "src/ui/gem-shop-controller.ts",
+      "src/ui/guild-panel.ts",
+      "src/ui/guild-preview.ts",
+    ],
+    "src/app/profile-snapshot-portraits.ts": [
+      "src/game/runtime/game-bootstrap.ts",
+      "src/game/runtime/profile-snapshot-render.ts",
+      "src/game/runtime/render/player-identity-renderer.ts",
+      "src/ui/game-ui-runtime.ts",
+    ],
+    "src/app/screen-wake-lock.ts": [
+      "src/ui/keep-screen-on-settings.ts",
+    ],
+    "src/app/trusted-clock.ts": [
+      "src/game/runtime/auto-farm/auto-farm-brain.ts",
+      "src/game/runtime/auto-farm/auto-farm-controller.ts",
+      "src/game/runtime/auto-farm/auto-gather.ts",
+      "src/game/runtime/boss/boss-controller.ts",
+      "src/game/runtime/boss/boss-fight-memory.ts",
+      "src/game/runtime/boss/personal-bosses.ts",
+      "src/game/runtime/game-bootstrap.ts",
+      "src/game/runtime/game-session-controller.ts",
+      "src/game/runtime/respawn-memory.ts",
+      "src/ui/death-screen-controller.ts",
+    ],
+    "src/app/version.ts": [
+      "src/ui/refused-session-recovery.ts",
+      "src/ui/scheduled-update-controller.ts",
+      "src/ui/startup-coordinator.ts",
+      "src/ui/startup-runtime.ts",
+    ],
+  };
+  const graph = clientImports();
+  const at = "client layers (shared/, src/game, src/ui, src/coop, src/app)";
+  // Proves the import reader still follows imports up and down the folders.
+  check(`${at}: reads the composition's imports`, graph.get("src/app/wiring/world-places.ts")?.some(({ to }) => to === "src/ui/travel-controller.ts"),
+    "expected src/app/wiring/world-places.ts to import src/ui/travel-controller.ts");
+  const against = new Map();
+  for (const [from, imports] of graph) {
+    const rule = FORBIDDEN[layerOf(from)];
+    for (const { to } of imports) if (rule?.hit(to)) against.set(`${from} -> ${to}`, `${layerOf(from)} must not import ${rule.what}`);
+  }
+  const allowed = new Set(Object.entries(LAYER_EXCEPTIONS).flatMap(([to, froms]) => froms.map(from => `${from} -> ${to}`)));
+  const unlisted = [...against].filter(([edge]) => !allowed.has(edge));
+  check(`${at}: import only downward`, unlisted.length === 0,
+    `move the import's target down a layer, or pass it in from src/app/wiring:\n    ${
+      unlisted.map(([edge, why]) => `${edge} (${why})`).join("\n    ")}`);
+  const stale = [...allowed].filter(edge => !against.has(edge));
+  check(`${at}: list only exceptions that still exist`, stale.length === 0,
+    `remove from LAYER_EXCEPTIONS:\n    ${stale.join("\n    ")}`);
+
+  // Runtime import cycles anywhere under src/, across folders. There are none today.
+  const runtimeEdges = new Map([...graph].filter(([path]) => path.startsWith("src/"))
+    .map(([path, imports]) => [path, new Set(imports.filter(({ runtime, to }) => runtime && to.startsWith("src/")).map(({ to }) => to))]));
+  const cycles = findCycles(runtimeEdges);
+  check("src: imports one another without cycles", cycles.length === 0,
     `found ${cycles.length} import cycle(s):\n    ${cycles.join("\n    ")}`);
 }
 
