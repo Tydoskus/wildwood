@@ -4773,6 +4773,10 @@
 .shop-dev-note h2 { margin: 0; color: #f0d7e7; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
 .shop-dev-note p { margin: 0; color: #e3e6ea; font-size: 14px; font-weight: 700; line-height: 1.45; -webkit-text-stroke: 0; text-shadow: none; }
 .shop-dev-note .shop-dev-sign { color: #f0d7e7; font-weight: 900; }
+.shop-dev-note .shop-perks-title { margin: 8px 0 0; color: #fff; font-size: 15px; }
+.shop-perks { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.shop-perks li { display: grid; gap: 2px; color: #e3e6ea; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.shop-perks strong { color: #fff; font-size: 14px; font-weight: 900; }
 /* Server Boost: what it does, the one running, and the supporter's Start button with its wait. */
 .shop-server-boost { display: grid; gap: 8px; margin: 18px 0 0; padding: 14px 16px; border: 1px solid #ffffff1f; border-radius: 12px; background: #000000b3; color: #fff; text-align: left; }
 .shop-server-boost h2 { margin: 0; color: #fff; font-size: 15px; }

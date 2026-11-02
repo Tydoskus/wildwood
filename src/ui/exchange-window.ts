@@ -27,7 +27,7 @@ export type ExchangeDeps = {
   clearInput?: () => void;
   showMessage: (text: string, color: string) => void;
   identity: () => string;
-  /** Patreon supporters get three slots, everyone else one. */
+  /** Patreon supporters get more slots (exchangeOfferSlots). */
   supporter: () => boolean;
   gold: () => bigint;
   ores: () => Readonly<Partial<Record<OreId, number>>>;

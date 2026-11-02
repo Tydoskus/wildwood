@@ -2,6 +2,8 @@ import { nativeTestPurchases } from '../app/native-purchases';
 import { GEM_PACKS } from '../../shared/gem-packs';
 import { isNativePreview } from '../app/native-preview';
 import { PATREON_PAGE, avatarFrameAsset } from '../../shared/avatar-frames';
+import { SERVER_BOOST_DURATION_MS, SERVER_BOOST_MAX_REMAINING_MS, SERVER_BOOST_MULTIPLIER } from '../../shared/server-boost';
+import { EXCHANGE_FREE_OFFERS, EXCHANGE_SUPPORTER_OFFERS } from '../../shared/exchange';
 import { createAvatarFrameGlow } from '../app/avatar-frame-glow';
 import { applyProfileIcon } from '../app/profile-icons';
 import type { SupporterActions } from './avatar-frame-picker';
@@ -79,7 +81,7 @@ export function createGemShopController(options: {
       // Supporters looking for their frame see this first; the Support button follows.
       support.before(connect);
     }
-    // A note from the dev, in his words, with the three supporter frames under it.
+    // A note from the dev, in his words, with the three supporter frames and every supporter perk under it.
     const note = document.createElement('section');
     note.className = 'shop-dev-note';
     note.setAttribute('aria-labelledby', 'shopDevNoteTitle');
@@ -88,7 +90,16 @@ export function createGemShopController(options: {
       + '<p>It’s still an alpha prototype, so expect changes and the odd bug. Thanks for playing it this early.</p>'
       + '<p>Supporting on Patreon really helps. It covers the servers and lets me spend more time working on the game. More cosmetics for supporters are coming too.</p>'
       + '<p class="shop-dev-sign">- RyMel</p>'
-      + '<div class="shop-frame-tiers" role="list" aria-label="Patreon supporter frames"></div>';
+      + '<div class="shop-frame-tiers" role="list" aria-label="Patreon supporter frames"></div>'
+      + '<h3 class="shop-perks-title">Supporter Perks</h3>'
+      + '<ul class="shop-perks">'
+      + `<li><strong>Server Boost</strong>Once a day, start ${SERVER_BOOST_DURATION_MS / 60_000} minutes of ${SERVER_BOOST_MULTIPLIER}x stats, gold, wood and ore for everyone online. Boosts stack up to ${SERVER_BOOST_MAX_REMAINING_MS / 3_600_000} hours, and chat thanks you by name.</li>`
+      + `<li><strong>${EXCHANGE_SUPPORTER_OFFERS} Trade Slots</strong>Keep ${EXCHANGE_SUPPORTER_OFFERS} offers and listings open at once in Trade, instead of ${EXCHANGE_FREE_OFFERS}.</li>`
+      + '<li><strong>Gems Without Ads</strong>Collect ad Gems with one tap, no ad to watch.</li>'
+      + '<li><strong>Supporter Frame</strong>A Silver, Gold or Diamond frame on your portrait, by tier.</li>'
+      + '<li><strong>Diamond Galaxy Set</strong>Diamond supporters wear the whole set while their tier is active.</li>'
+      + '<li><strong>Your Name in the Ticker</strong>Supporters are thanked in the ticker above chat.</li>'
+      + '</ul>';
     const tiers = note.querySelector('.shop-frame-tiers')!;
     // The Diamond tier also lends the Diamond Galaxy set; a player wearing it stands under that frame.
     // A face in each frame, from the featured portrait sheet, so they read like they do in game.

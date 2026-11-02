@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.917.47": [
+    "The Shop now lists every Patreon supporter perk",
+  ],
   "0.917.45": [
     "Online count now names the server, as in Server 1: 12 Online",
   ],
@@ -4101,6 +4104,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.917.47": "2026-11-02",
   "0.917.46": "2026-11-02",
   "0.917.45": "2026-11-01",
   "0.917.44": "2026-11-01",
