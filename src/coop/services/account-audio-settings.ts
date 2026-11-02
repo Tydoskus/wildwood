@@ -1,4 +1,5 @@
 import { tables, type DbConnection } from "../../module_bindings";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 export type AudioVolumes = { musicVolume: number; sfxVolume: number };
 
@@ -42,14 +43,12 @@ export function createAccountAudioSettings() {
     publish({ loaded: false, volumes: null });
     let applied = false;
     const read = () => {
-      if (!applied || !isCurrent()) return;
+      if (!applied) return;
       const row = [...connection.db.myAudioSettings.iter()][0];
       publish({ loaded: true, volumes: row ? { musicVolume: row.musicVolume, sfxVolume: row.sfxVolume } : null });
     };
-    connection.db.myAudioSettings.onInsert(read);
-    connection.db.myAudioSettings.onUpdate(read);
-    connection.db.myAudioSettings.onDelete(read);
-    connection.subscriptionBuilder().onApplied(() => { applied = true; read(); }).subscribe([tables.myAudioSettings]);
+    onTableChange([connection.db.myAudioSettings], isCurrent, read);
+    subscribeTables(connection, "audio settings", isCurrent, [tables.myAudioSettings], () => { applied = true; read(); });
   }
 
   const api: AccountAudioRemote = {

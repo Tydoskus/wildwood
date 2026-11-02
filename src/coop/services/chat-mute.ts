@@ -1,5 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import type { ChatMuteRecord } from "../../../shared/chat-mute";
+import { watchTables } from "./table-watch";
 
 const millis = (micros: bigint) => Number(micros / 1000n);
 
@@ -16,7 +17,6 @@ export function createChatMute(notify: () => void) {
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     record = null;
     const read = () => {
-      if (!isCurrent()) return;
       const [row] = [...connection.db.myChatMute.iter()];
       record = row ? {
         strikeAtMs: row.strikeAtMicros.map(millis),
@@ -26,10 +26,7 @@ export function createChatMute(notify: () => void) {
       } : null;
       notify();
     };
-    connection.db.myChatMute.onInsert(read);
-    connection.db.myChatMute.onUpdate(read);
-    connection.db.myChatMute.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myChatMute]);
+    watchTables(connection, { what: "chat mute", isCurrent, listen: [connection.db.myChatMute], queries: [tables.myChatMute], read });
   }
 
   return {

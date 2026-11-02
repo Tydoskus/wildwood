@@ -1,6 +1,7 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 export type ExchangeResult = { ok: boolean; error?: string };
 export type ExchangeOfferRow = { id: bigint; identity: string; name: string; nameColor: number; buy: boolean; itemId: string; price: bigint; quantity: number; filled: number; placedAtMs: number };
@@ -38,13 +39,9 @@ export function createExchangeRows(notify: () => void) {
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     target = { connection, isCurrent };
     prices = null; items = null; watchedKey = "";
-    const changed = () => { if (isCurrent()) notify(); };
-    for (const table of [connection.db.myExchangeCollect, connection.db.myExchangeOffers, connection.db.myExchangeListings,
-      connection.db.exchangePrice, connection.db.exchangeOffer, connection.db.exchangeListing]) {
-      table.onInsert(changed); table.onDelete(changed);
-      (table as { onUpdate?: (callback: () => void) => void }).onUpdate?.(changed);
-    }
-    connection.subscriptionBuilder().onApplied(changed).subscribe([tables.myExchangeCollect, tables.myExchangeOffers, tables.myExchangeListings]);
+    onTableChange([connection.db.myExchangeCollect, connection.db.myExchangeOffers, connection.db.myExchangeListings,
+      connection.db.exchangePrice, connection.db.exchangeOffer, connection.db.exchangeListing], isCurrent, () => notify());
+    subscribeTables(connection, "exchange", isCurrent, [tables.myExchangeCollect, tables.myExchangeOffers, tables.myExchangeListings], notify);
   }
 
   async function call(send: (connection: DbConnection) => Promise<unknown>): Promise<ExchangeResult> {
@@ -66,7 +63,7 @@ export function createExchangeRows(notify: () => void) {
       followExchange(on: boolean) {
         const connection = live();
         if (!on || !connection) { prices?.unsubscribe(); prices = null; items?.unsubscribe(); items = null; watchedKey = ""; return; }
-        prices ??= connection.subscriptionBuilder().onApplied(notify).subscribe([tables.exchangePrice]);
+        prices ??= subscribeTables(connection, "exchange prices", target!.isCurrent, [tables.exchangePrice], notify);
       },
       /** Follows the sellers of these items only (a search's matches, or the item opened), replacing the last set. */
       watchExchangeItems(itemIds: readonly string[]) {
@@ -75,9 +72,9 @@ export function createExchangeRows(notify: () => void) {
         if (!connection || key === watchedKey) return;
         items?.unsubscribe(); items = null; watchedKey = key;
         if (!ids.length) return;
-        items = connection.subscriptionBuilder().onApplied(notify).subscribe(ids.flatMap(id => [
+        items = subscribeTables(connection, "exchange items", target!.isCurrent, ids.flatMap(id => [
           tables.exchangeOffer.where(row => row.itemId.eq(id)), tables.exchangeListing.where(row => row.itemId.eq(id)),
-        ]));
+        ]), notify);
       },
       exchangePrices: (): ExchangePriceRow[] => [...(live()?.db.exchangePrice.iter() ?? [])].map(row => ({
         itemId: row.itemId, lowestAsk: orNull(row.lowestAsk), highestBid: orNull(row.highestBid), forSale: row.forSale, lastPrice: orNull(row.lastPrice),

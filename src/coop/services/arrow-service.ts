@@ -1,6 +1,7 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { arrowsSpent, isArrowId, type ArrowId } from "../../../shared/arrows";
 import type { OreId } from "../../../shared/refine";
+import { watchTables } from "./table-watch";
 
 type Ores = Readonly<Partial<Record<OreId, number>>>;
 /** Spent arrows go to the server this often, and when the page hides or before a call that reads the bag. */
@@ -54,15 +55,11 @@ export function createArrowRows(connection: () => DbConnection | null, notify: (
   function watch(current: DbConnection, isCurrent: () => boolean) {
     nocked = null;
     const read = () => {
-      if (!isCurrent()) return;
       const arrowId = [...current.db.myNockedArrow.iter()][0]?.arrowId;
       nocked = isArrowId(arrowId) ? arrowId : null;
       notify();
     };
-    current.db.myNockedArrow.onInsert(read);
-    current.db.myNockedArrow.onUpdate(read);
-    current.db.myNockedArrow.onDelete(read);
-    current.subscriptionBuilder().onApplied(read).subscribe([tables.myNockedArrow]);
+    watchTables(current, { what: "nocked arrow", isCurrent, listen: [current.db.myNockedArrow], queries: [tables.myNockedArrow], read });
   }
 
   /** How many of a kind the bag shows: the server's stack less the arrows fired since. */

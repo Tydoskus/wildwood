@@ -4,6 +4,7 @@ import type { OreId } from "../../../shared/refine";
 import { createGatherQueue, createReportGains, gatherExtras, type GatherClock } from "./gather-queue";
 import { reducerEventMs } from "./reducer-event-time";
 import { boostedYield } from "../../../shared/server-boost";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 type Target = { connection: DbConnection; isCurrent: () => boolean };
 type Ores = Partial<Record<OreId, number>>;
@@ -83,7 +84,6 @@ export function createWoodcuttingRows(notify: () => void, clock?: GatherClock, b
     woodcutting = 0; treesChopped = 0; felled = new Map();
     // A report's reply carries the server's time, which the next report's times are read against.
     const readWoodcutting = (ctx?: unknown) => {
-      if (!isCurrent()) return;
       const serverAt = reducerEventMs(ctx);
       if (serverAt !== null) clock?.observeServerTime?.(serverAt);
       const [row] = [...connection.db.myWoodcutting.iter()];
@@ -92,18 +92,16 @@ export function createWoodcuttingRows(notify: () => void, clock?: GatherClock, b
       notify();
     };
     const readFelled = () => {
-      if (!isCurrent()) return;
       const next = new Map<number, number>();
       for (const row of connection.db.myChoppedTrees.iter()) next.set(row.treeId, toMs(row.choppedAt));
       felled = next;
       notify();
     };
-    connection.db.myWoodcutting.onInsert(readWoodcutting); connection.db.myWoodcutting.onUpdate(readWoodcutting); connection.db.myWoodcutting.onDelete(readWoodcutting);
+    onTableChange([connection.db.myWoodcutting], isCurrent, readWoodcutting);
     gains.watch(connection.db.myOres);
-    connection.db.myChoppedTrees.onInsert(readFelled); connection.db.myChoppedTrees.onUpdate(readFelled); connection.db.myChoppedTrees.onDelete(readFelled);
-    connection.subscriptionBuilder()
-      .onApplied(() => { readWoodcutting(); readFelled(); counted = { base: treesChopped, sent: 0, reported: 0 }; })
-      .subscribe([tables.myWoodcutting, tables.myChoppedTrees]);
+    onTableChange([connection.db.myChoppedTrees], isCurrent, readFelled);
+    subscribeTables(connection, "woodcutting", isCurrent, [tables.myWoodcutting, tables.myChoppedTrees],
+      () => { readWoodcutting(); readFelled(); counted = { base: treesChopped, sent: 0, reported: 0 }; });
   }
 
   return {

@@ -18,7 +18,7 @@ function fakeConnection() {
     isActive: true,
     db: { myItemRefines: view(rows.first), myCopyRefines: view(rows.copies), myCosmeticRefines: view([]), myOres: view(rows.ores), myRefineResult: view(rows.result), myRefinePity: view([]) },
     reducers,
-    subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied.push(callback); return this; }, subscribe: vi.fn() }),
+    subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied.push(callback); return this; }, onError() { return this; }, subscribe: vi.fn() }),
   };
   return { connection: connection as never, rows, reducers, settle: () => applied.forEach(callback => callback()), fire: () => handlers.forEach(handler => handler()) };
 }

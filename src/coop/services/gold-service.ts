@@ -1,4 +1,5 @@
 import { tables, type DbConnection } from "../../module_bindings";
+import { watchTables } from "./table-watch";
 
 /** This account's gold (player_gold, its own row); no row means none. */
 export function createGoldRows(notify: () => void) {
@@ -7,7 +8,6 @@ export function createGoldRows(notify: () => void) {
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     gold = 0n;
     const read = () => {
-      if (!isCurrent()) return;
       let next = 0n;
       for (const row of connection.db.playerGold.iter()) if (row.identity.isEqual(me)) next = row.gold;
       if (next === gold) return;
@@ -15,8 +15,7 @@ export function createGoldRows(notify: () => void) {
       notify();
     };
     const me = connection.identity!;
-    connection.db.playerGold.onInsert(read); connection.db.playerGold.onUpdate(read); connection.db.playerGold.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.playerGold.where(row => row.identity.eq(me))]);
+    watchTables(connection, { what: "gold", isCurrent, listen: [connection.db.playerGold], queries: [tables.playerGold.where(row => row.identity.eq(me))], read });
   }
 
   return {

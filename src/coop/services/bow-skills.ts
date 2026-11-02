@@ -4,6 +4,7 @@ import { isSkillSword, type SwordSkillRoll } from "../../../shared/sword-skills"
 import { isSkillStaff, type StaffSkillRoll } from "../../../shared/staff-skills";
 import { weaponSkillScore, type WeaponSkillRoll } from "../../../shared/weapon-skills";
 import { createEquipmentCopies } from "./equipment-copies";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 /** A first copy's roll that a duplicate drop upgraded, and the two scores. */
 export type BetterRollKept = { itemId: string; before: number; after: number };
@@ -55,7 +56,6 @@ export function createBowSkills(notify: () => void) {
     // reading means a reading taken between the two cannot hide the change.
     const seen = new Map<string, WeaponSkillRoll>();
     const read = () => {
-      if (!isCurrent()) return;
       const next = new Map<string, WeaponSkillRoll>();
       for (const row of connection.db.myBowSkills.iter()) {
         next.set(row.itemId, { arrowStorm: row.arrowStorm, ricochet: row.ricochet, piercingShot: row.piercingShot });
@@ -73,13 +73,10 @@ export function createBowSkills(notify: () => void) {
       notify();
       for (const entry of kept) betterRollListener?.(entry);
     };
-    for (const view of [connection.db.myBowSkills, connection.db.mySwordSkills]) {
-      view.onInsert(read); view.onUpdate(read); view.onDelete(read);
-    }
-    connection.db.myStaffSkills.onInsert(read); connection.db.myStaffSkills.onUpdate(read); connection.db.myStaffSkills.onDelete(read);
+    onTableChange([connection.db.myBowSkills, connection.db.mySwordSkills, connection.db.myStaffSkills], isCurrent, read);
     // One subscription for both: my_staff_skills carries first copies' rolls here and kept copies' and offers' there.
-    connection.subscriptionBuilder().onApplied(() => { copyRows.applied(); read(); hydrated = true; })
-      .subscribe([...copyRows.tables, tables.myBowSkills, tables.mySwordSkills, tables.myStaffSkills]);
+    subscribeTables(connection, "weapon skills", isCurrent, [...copyRows.tables, tables.myBowSkills, tables.mySwordSkills, tables.myStaffSkills],
+      () => { copyRows.applied(); read(); hydrated = true; });
   }
 
   /** The roll on the first copy of one of this account's weapons, or null when it has none yet. */

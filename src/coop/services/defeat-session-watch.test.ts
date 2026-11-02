@@ -12,7 +12,7 @@ function fixture(authTime?: number) {
   const rows: any[] = [];
   const connection = { db: { myDefeatSessionRestriction: {
     onInsert: (fn: any) => { inserted = fn; }, onUpdate: (fn: any) => { updated = fn; }, iter: () => rows,
-  } }, subscriptionBuilder: () => ({ onApplied: (fn: any) => { hydrated = fn; return { subscribe: vi.fn() }; } }) };
+  } }, subscriptionBuilder: () => ({ onApplied(fn: any) { hydrated = fn; return this; }, onError() { return this; }, subscribe: vi.fn() }) };
   const reject = vi.fn(); let current = true;
   watchDefeatSession(connection as any, token, () => current, reject);
   return { reject, rows, inserted: (row: any) => inserted(null, row), updated: (row: any) => updated(null, null, row),

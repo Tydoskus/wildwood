@@ -15,7 +15,7 @@ function fakeConnection() {
       onDelete: (handler: () => void) => handlers.push(handler),
     } },
     reducers: { claimStarterWeapon },
-    subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied.push(callback); return this; }, subscribe: vi.fn() }),
+    subscriptionBuilder: () => ({ onApplied(callback: () => void) { applied.push(callback); return this; }, onError() { return this; }, subscribe: vi.fn() }),
   };
   return { connection: connection as never, rows, claimStarterWeapon, settle: () => applied.forEach(callback => callback()), fire: () => handlers.forEach(handler => handler()) };
 }

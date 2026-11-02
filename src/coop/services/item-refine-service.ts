@@ -3,6 +3,7 @@ import { REFINE_ORES, normalizeRefineLevel, type OreId } from "../../../shared/r
 import type { ItemLevel } from "../../../shared/items";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 /** What the last refine try did, as the server recorded it (player_refine_result). */
 export type RefineResult = {
@@ -38,7 +39,6 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
     // The standing row on connect is an old try, not one to announce.
     let hydrated = false;
     const readLevels = () => {
-      if (!isCurrent()) return;
       const next = new Map<string, number>();
       for (const row of connection.db.myItemRefines.iter()) next.set(copyKey(row.itemId, 0n), normalizeRefineLevel(row.level));
       for (const row of connection.db.myCopyRefines.iter()) next.set(copyKey(row.itemId, row.copyId), normalizeRefineLevel(row.level));
@@ -46,24 +46,20 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
       notify();
     };
     const readCosmeticLevels = () => {
-      if (!isCurrent()) return;
       cosmeticLevels = new Map([...connection.db.myCosmeticRefines.iter()].map(row => [row.itemId, normalizeRefineLevel(row.level)]));
       notify();
     };
     const readOres = () => {
-      if (!isCurrent()) return;
       const next: Partial<Record<OreId, number>> = {};
       for (const row of connection.db.myOres.iter()) if (isOreId(row.oreId)) next[row.oreId] = row.count;
       ores = next;
       notify();
     };
     const readPity = () => {
-      if (!isCurrent()) return;
       pity = new Map([...connection.db.myRefinePity.iter()].map(row => [copyKey(row.itemId, row.copyId), { level: row.level, fails: row.fails }]));
       notify();
     };
     const readResult = () => {
-      if (!isCurrent()) return;
       const [row] = [...connection.db.myRefineResult.iter()];
       const previous = result;
       result = row ? {
@@ -73,17 +69,14 @@ export function createItemRefineRows(notify: () => void, slotTierFor: (itemId: s
       notify();
       if (hydrated && result && result.attempt !== previous?.attempt) resultListener?.(result);
     };
-    for (const view of [connection.db.myItemRefines, connection.db.myCopyRefines]) {
-      view.onInsert(readLevels); view.onUpdate(readLevels); view.onDelete(readLevels);
-    }
-    const looks = connection.db.myCosmeticRefines;
-    looks.onInsert(readCosmeticLevels); looks.onUpdate(readCosmeticLevels); looks.onDelete(readCosmeticLevels);
-    connection.db.myOres.onInsert(readOres); connection.db.myOres.onUpdate(readOres); connection.db.myOres.onDelete(readOres);
-    connection.db.myRefinePity.onInsert(readPity); connection.db.myRefinePity.onUpdate(readPity); connection.db.myRefinePity.onDelete(readPity);
-    connection.db.myRefineResult.onInsert(readResult); connection.db.myRefineResult.onUpdate(readResult); connection.db.myRefineResult.onDelete(readResult);
-    connection.subscriptionBuilder()
-      .onApplied(() => { readLevels(); readCosmeticLevels(); readOres(); readPity(); readResult(); hydrated = true; })
-      .subscribe([tables.myItemRefines, tables.myCopyRefines, tables.myCosmeticRefines, tables.myOres, tables.myRefineResult, tables.myRefinePity]);
+    onTableChange([connection.db.myItemRefines, connection.db.myCopyRefines], isCurrent, readLevels);
+    onTableChange([connection.db.myCosmeticRefines], isCurrent, readCosmeticLevels);
+    onTableChange([connection.db.myOres], isCurrent, readOres);
+    onTableChange([connection.db.myRefinePity], isCurrent, readPity);
+    onTableChange([connection.db.myRefineResult], isCurrent, readResult);
+    const refineTables = [tables.myItemRefines, tables.myCopyRefines, tables.myCosmeticRefines, tables.myOres, tables.myRefineResult, tables.myRefinePity];
+    subscribeTables(connection, "refine", isCurrent, refineTables,
+      () => { readLevels(); readCosmeticLevels(); readOres(); readPity(); readResult(); hydrated = true; });
   }
 
   return {

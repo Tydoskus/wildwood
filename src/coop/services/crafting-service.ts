@@ -3,6 +3,7 @@ import { CRAFT_SKILLS, type CraftSkill } from "../../../shared/crafting";
 import { craftMaterialsKey, gradeCraftMaterials } from "../../../shared/grade-craft";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { watchTables } from "./table-watch";
 
 export type CraftResult = { ok: boolean; error?: string };
 type Target = { connection: DbConnection; isCurrent: () => boolean };
@@ -19,14 +20,12 @@ export function createCraftingRows(notify: () => void) {
     target = { connection, isCurrent };
     experience = noExperience();
     const read = () => {
-      if (!isCurrent()) return;
       const next = noExperience();
       for (const row of connection.db.myCraftSkills.iter()) if (isCraftSkill(row.skill)) next[row.skill] = row.experience;
       experience = next;
       notify();
     };
-    connection.db.myCraftSkills.onInsert(read); connection.db.myCraftSkills.onUpdate(read); connection.db.myCraftSkills.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myCraftSkills]);
+    watchTables(connection, { what: "craft skills", isCurrent, listen: [connection.db.myCraftSkills], queries: [tables.myCraftSkills], read });
   }
 
   /** Sends a craft or a Reforge with the recipe this client shows, so a changed one is refused rather than charged. */

@@ -4,6 +4,7 @@ import { isSkillStaff } from "../../../shared/staff-skills";
 import { reducerErrorMessage } from "./reducer-errors";
 import { createIgnoredDrops } from "./ignored-drops";
 import { createLootSettings } from "./loot-settings";
+import { onTableChange } from "./table-watch";
 
 /** A copy of an item beyond the first, kept from a duplicate drop. */
 export type EquipmentCopy = { id: bigint; itemId: string; roll: WeaponSkillRoll };
@@ -50,8 +51,7 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
       locks = new Set([...connection.db.myEquipmentLocks.iter()].map(row => `${row.itemId}:${row.copyId}`));
       notify();
     };
-    connection.db.myEquipmentLocks.onInsert(readLocks);
-    connection.db.myEquipmentLocks.onDelete(readLocks);
+    onTableChange([connection.db.myEquipmentLocks], isCurrent, readLocks, ["insert", "delete"]);
     offers = [];
     let staff: StaffRolls = new Map();
     const readCopies = () => {
@@ -76,15 +76,9 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
       staff = next;
       readCopies(); readOffers();
     };
-    connection.db.myStaffSkills.onInsert(readStaff);
-    connection.db.myStaffSkills.onUpdate(readStaff);
-    connection.db.myStaffSkills.onDelete(readStaff);
-    connection.db.myEquipmentCopies.onInsert(readCopies);
-    connection.db.myEquipmentCopies.onUpdate(readCopies);
-    connection.db.myEquipmentCopies.onDelete(readCopies);
-    connection.db.myEquipmentOffers.onInsert(readOffers);
-    connection.db.myEquipmentOffers.onUpdate(readOffers);
-    connection.db.myEquipmentOffers.onDelete(readOffers);
+    onTableChange([connection.db.myStaffSkills], isCurrent, readStaff);
+    onTableChange([connection.db.myEquipmentCopies], isCurrent, readCopies);
+    onTableChange([connection.db.myEquipmentOffers], isCurrent, readOffers);
     return {
       tables: [tables.myEquipmentLocks, tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table, lootSettings.table],
       applied() { readStaff(); readIgnoredDrops(); readLootSettings(); readLocks(); },

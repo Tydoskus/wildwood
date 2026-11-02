@@ -2,6 +2,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import type { StarterWeaponKind } from "../../../shared/starter-chest";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { watchTables } from "./table-watch";
 
 export type StarterChestResult = { ok: boolean; error?: string };
 
@@ -17,14 +18,12 @@ export function createStarterChestRows(notify: () => void) {
     target = { connection, isCurrent };
     loaded = false; opened = false;
     const read = () => {
-      if (!isCurrent()) return;
       const next = [...connection.db.myStarterWeapon.iter()].length > 0;
       if (loaded && next === opened) return;
       loaded = true; opened = next;
       notify();
     };
-    connection.db.myStarterWeapon.onInsert(read); connection.db.myStarterWeapon.onUpdate(read); connection.db.myStarterWeapon.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myStarterWeapon]);
+    watchTables(connection, { what: "starter chest", isCurrent, listen: [connection.db.myStarterWeapon], queries: [tables.myStarterWeapon], read });
   }
 
   async function claim(kind: StarterWeaponKind): Promise<StarterChestResult> {

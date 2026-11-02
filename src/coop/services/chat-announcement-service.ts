@@ -1,5 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { chatAnnouncementKind, type ChatAnnouncementKind } from "../../../shared/chat-announcement";
+import { watchTables } from "./table-watch";
 
 /**
  * Which public chat messages the server marked as its own announcements (Server Boost, Patreon thanks), from the
@@ -12,7 +13,6 @@ export function createChatAnnouncementRows(notify: () => void) {
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     kinds = new Map(); revision++;
     const read = () => {
-      if (!isCurrent()) return;
       const next = new Map<bigint, ChatAnnouncementKind>();
       for (const row of connection.db.chatAnnouncement.iter()) {
         const kind = chatAnnouncementKind(row.kind);
@@ -21,9 +21,10 @@ export function createChatAnnouncementRows(notify: () => void) {
       kinds = next; revision++;
       notify();
     };
-    connection.db.chatAnnouncement.onInsert(read);
-    connection.db.chatAnnouncement.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.chatAnnouncement]);
+    watchTables(connection, {
+      what: "chat announcement", isCurrent, listen: [connection.db.chatAnnouncement], changes: ["insert", "delete"],
+      queries: [tables.chatAnnouncement], read,
+    });
   }
 
   return {

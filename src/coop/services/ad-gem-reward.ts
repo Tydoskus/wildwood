@@ -1,6 +1,7 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import type { AdGemRewardRecord } from "../../../shared/ad-gem-reward";
 import { reducerErrorMessage } from "./reducer-errors";
+import { watchTables } from "./table-watch";
 
 export type AdGemClaimResult = { ok: boolean; error?: string };
 
@@ -23,15 +24,11 @@ export function createAdGemReward(notify: () => void) {
     target = { connection, isCurrent };
     record = null;
     const read = () => {
-      if (!isCurrent()) return;
       const [row] = [...connection.db.myAdGemReward.iter()];
       record = row ? { lastClaimAtMs: millis(row.lastClaimAt), dayKey: row.dayKey, claimsToday: row.claimsToday } : null;
       notify();
     };
-    connection.db.myAdGemReward.onInsert(read);
-    connection.db.myAdGemReward.onUpdate(read);
-    connection.db.myAdGemReward.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myAdGemReward]);
+    watchTables(connection, { what: "ad gem reward", isCurrent, listen: [connection.db.myAdGemReward], queries: [tables.myAdGemReward], read });
   }
 
   async function claimAdGems(): Promise<AdGemClaimResult> {
