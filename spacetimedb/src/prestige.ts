@@ -35,7 +35,7 @@ export function statRewardMultiplier(ctx: any, identity: any, read?: BonusRows) 
     * guildQuestBonusFor(ctx, identity);
   // The same three factors, from rows the kill report already read.
   return researchStatRewardMultiplier(researchInPlayFor(read.research, read.off) ?? undefined)
-    * prestigeStatMultiplier(!read.aggro && prestigeStatGainOn(read.off) ? ctx.db.playerPrestige.identity.find(identity)?.level ?? 0 : 0)
+    * prestigeStatMultiplier(!read.aggro && prestigeStatGainOn(read.off) ? read.prestige ?? ctx.db.playerPrestige.identity.find(identity)?.level ?? 0 : 0)
     * read.quest.bonus;
 }
 
@@ -43,10 +43,16 @@ export function statRewardMultiplier(ctx: any, identity: any, read?: BonusRows) 
  * The rows a kill report reads once for the reward multiplier, perks, soul stats and attack cap
  * (combatBoundForReport), so each helper does not read them again. Nothing in a report writes them.
  */
-export type BonusRows = { off: BonusOff; aggro: boolean; challenge: any; research: any; stored: PrestigePerkRanks; quest: QuestStanding };
+export type BonusRows = StandingRows & { quest: QuestStanding };
 export function bonusRowsFor(ctx: any, identity: any, research: any): BonusRows {
+  return { ...standingRowsFor(ctx, identity, research), quest: questStandingFor(ctx, identity) };
+}
+
+/** BonusRows without the quest standing, which a kill report reads fresh: what a combat profile keeps (combat-profile.ts). */
+export type StandingRows = { off: BonusOff; aggro: boolean; challenge: any; research: any; stored: PrestigePerkRanks; prestige?: number };
+export function standingRowsFor(ctx: any, identity: any, research: any): StandingRows {
   return { off: bonusOffFor(ctx, identity), aggro: aggroChallengeActive(ctx, identity), challenge: ctx.db.playerPrestigeChallenge.identity.find(identity),
-    research, stored: storedPrestigePerkRanks(ctx, identity), quest: questStandingFor(ctx, identity) };
+    research, stored: storedPrestigePerkRanks(ctx, identity), prestige: ctx.db.playerPrestige.identity.find(identity)?.level ?? 0 };
 }
 
 /** The stat gain for each type of reward: statRewardMultiplier, and the active Bounty cards on top. `cards` saves the read when the caller has them. */

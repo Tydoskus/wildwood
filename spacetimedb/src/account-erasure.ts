@@ -136,6 +136,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerCardShopPurchase", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerBossCardRoll", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerCardAttackCap", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerCombatStamp", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerCardDrop", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerItemCollection", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerWornSkill", columns: ["identity"], pk: "identity", mode: "key" },

@@ -1,3 +1,4 @@
+import { touchCombatProfile } from "./combat-profile";
 import { table, t } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import { NO_STAFF_SKILLS, isSkillStaff, rollStaffSkills, type StaffSkillRoll } from "../../shared/staff-skills";
@@ -46,7 +47,10 @@ export function staffSkillRollFor(ctx: Ctx, identity: Identity, itemId: string):
   return rollOf(ctx.db.playerStaffSkill.key.find(staffSkillKey(identity, itemId)));
 }
 export function setStaffSkillRoll(ctx: Ctx, identity: Identity, itemId: string, roll: Partial<StaffSkillRoll>) {
-  if (isSkillStaff(itemId)) writeRow(ctx, staffSkillKey(identity, itemId), identity, itemId, 0n, 0n, roll);
+  if (!isSkillStaff(itemId)) return;
+  writeRow(ctx, staffSkillKey(identity, itemId), identity, itemId, 0n, 0n, roll);
+  // Loot merges duplicates here inside a kill report, which keeps its combat profile otherwise.
+  touchCombatProfile(ctx, identity);
 }
 /** Destruction and prestige retain a roll, so neither can be used to reroll the last copy. */
 export function ensureStaffSkillRoll(ctx: Ctx, identity: Identity, itemId: string, skillLuck = 0) {

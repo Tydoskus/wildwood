@@ -1,3 +1,4 @@
+import { touchCombatProfile } from "./combat-profile";
 import { table, t, type InferSchema, type ReducerCtx } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type spacetimedb from "./index";
@@ -22,6 +23,8 @@ export function setSwordSkillRoll(ctx: Ctx, identity: Identity, itemId: string, 
     whirlwind: roll.whirlwind ?? 0, deflect: roll.deflect ?? 0, shockwave: roll.shockwave ?? 0 };
   if (ctx.db.playerSwordSkill.key.find(row.key)) ctx.db.playerSwordSkill.key.update(row);
   else ctx.db.playerSwordSkill.insert(row);
+  // Loot merges duplicates here inside a kill report, which keeps its combat profile otherwise.
+  touchCombatProfile(ctx, identity);
 }
 /** Destruction and prestige retain a roll, so neither can be used to reroll the last copy. */
 export function ensureSwordSkillRoll(ctx: Ctx, identity: Identity, itemId: string, skillLuck = 0) {

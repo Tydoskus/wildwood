@@ -1,3 +1,4 @@
+import { keepsCombatProfile } from "./combat-profile";
 import { SenderError, table, t } from "spacetimedb/server";
 import { Timestamp, type Identity } from "spacetimedb";
 import type spacetimedbType from "./index";
@@ -247,8 +248,8 @@ const TreeChopEntry = t.object("TreeChopEntry", { treeId: t.u32(), atMs: t.u64()
 /** A fall, a batch of them, the hatchet claim, and the caller's own Woodcutting and stumps. */
 export function registerWoodcutting(spacetimedb: typeof spacetimedbType, deps: MiningDeps) {
   const claimHatchet = spacetimedb.reducer({}, (ctx: any) => claimHatchetFor(ctx, deps));
-  const chopTree = spacetimedb.reducer({ treeId: t.u32() }, (ctx: any, args: { treeId: number }) => chopTreeFor(ctx, args, deps));
-  const reportChopping = spacetimedb.reducer({ chops: t.array(TreeChopEntry) }, (ctx: any, args: any) => reportChoppingFor(ctx, args, deps));
+  const chopTree = spacetimedb.reducer({ treeId: t.u32() }, keepsCombatProfile((ctx: any, args: { treeId: number }) => chopTreeFor(ctx, args, deps)));
+  const reportChopping = spacetimedb.reducer({ chops: t.array(TreeChopEntry) }, keepsCombatProfile((ctx: any, args: any) => reportChoppingFor(ctx, args, deps)));
   const myWoodcutting = spacetimedb.view({ name: "my_woodcutting", public: true }, t.array(playerWoodcutting.rowType), (ctx: any) => {
     const row = ctx.db.playerWoodcutting.identity.find(ctx.sender);
     return row ? [row] : [];

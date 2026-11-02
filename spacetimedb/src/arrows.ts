@@ -1,3 +1,4 @@
+import { keepsCombatProfile } from "./combat-profile";
 import { SenderError, table, t } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type spacetimedbType from "./index";
@@ -91,7 +92,7 @@ function spendArrowsFor(ctx: Ctx, args: { arrowId: string; count: number }, deps
 export function registerArrows(spacetimedb: typeof spacetimedbType, deps: CraftingDeps) {
   const craftArrows = spacetimedb.reducer({ arrowId: t.string(), crafts: t.u32() }, (ctx: any, args: { arrowId: string; crafts: number }) => craftArrowsFor(ctx, args, deps));
   const nockArrow = spacetimedb.reducer({ arrowId: t.string() }, (ctx: any, args: { arrowId: string }) => nockArrowFor(ctx, args, deps));
-  const spendArrows = spacetimedb.reducer({ arrowId: t.string(), count: t.u32() }, (ctx: any, args: { arrowId: string; count: number }) => spendArrowsFor(ctx, args, deps));
+  const spendArrows = spacetimedb.reducer({ arrowId: t.string(), count: t.u32() }, keepsCombatProfile((ctx: any, args: { arrowId: string; count: number }) => spendArrowsFor(ctx, args, deps)));
   const myNockedArrow = spacetimedb.view({ name: "my_nocked_arrow", public: true }, t.array(playerNockedArrow.rowType),
     (ctx: any) => { const row = ctx.db.playerNockedArrow.identity.find(ctx.sender); return row ? [row] : []; });
   return { craftArrows, nockArrow, spendArrows, myNockedArrow };

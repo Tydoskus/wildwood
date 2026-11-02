@@ -17,6 +17,7 @@ import { STARTER_BOW, WOODEN_ARMOR, BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS } from 
 import { insertSnapshotRow, updateSnapshotRow } from "./snapshot-row-writes";
 import { powerFieldsForProgress } from "./player-power";
 import { syncPlayerMotionIdentity, playerWithMotion } from "./presence-runtime";
+import { touchCombatProfile } from "./combat-profile";
 
 export function saveSubmittedProgress(ctx: ModuleReducerCtx, progress: {
   maxHp: number;
@@ -48,6 +49,7 @@ export function saveSubmittedProgress(ctx: ModuleReducerCtx, progress: {
   if (current && LOADOUT_FIELDS.every(field => progress[field] === base[field]) && !wearsUnlentLook(base, lentLooksFor(ctx, ctx.sender))) {
     return;
   }
+  touchCombatProfile(ctx, ctx.sender);
   const bootsCollected = base.bootsCollected;
   const inventorySource = { ...base, identity: ctx.sender, bootsCollected };
   const inventory = inventoryForProgress(inventorySource);

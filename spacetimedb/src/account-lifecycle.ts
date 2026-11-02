@@ -631,6 +631,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     unlinkPatreon(ctx, identity);
     for (const budget of ctx.db.enemyDefeatBudget.identity.filter(identity)) ctx.db.enemyDefeatBudget.key.delete(budget.key);
     ctx.db.playerDefeatClock.identity.delete(identity);
+    ctx.db.playerCombatStamp.identity.delete(identity);
     ctx.db.playerMapDeparture.identity.delete(identity);
     removeAudioSettings(ctx, identity);
     removeLootSettings(ctx, identity);
@@ -696,6 +697,7 @@ export function createAccountLifecycle(deps: AccountLifecycleDeps) {
     unlinkPatreon(ctx, identity);
     for (const budget of ctx.db.enemyDefeatBudget.identity.filter(identity)) ctx.db.enemyDefeatBudget.key.delete(budget.key);
     ctx.db.playerDefeatClock.identity.delete(identity);
+    ctx.db.playerCombatStamp.identity.delete(identity);
     ctx.db.playerMapDeparture.identity.delete(identity);
     removeAudioSettings(ctx, identity);
     removeLootSettings(ctx, identity);

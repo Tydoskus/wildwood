@@ -95,7 +95,8 @@ describe("cards in the kill bound", () => {
     const bound = cardOffenseBound(cardTotals(weapon));
     expect(bound.damage).toBeGreaterThan(1);
     expect(bound.reach).toBeGreaterThan(1);
-    expect(carded.dps).toBeCloseTo(plain.dps * bound.damage, 6);
+    // Per swing: a Quick Draw card also raises the attack speed cap the report syncs to.
+    expect(carded.dps * carded.attackInterval).toBeCloseTo(plain.dps * plain.attackInterval * bound.damage, 6);
     expect(carded.reach).toBeCloseTo(plain.reach! * bound.reach, 6);
   });
 

@@ -103,12 +103,12 @@ it("freezes sword rolls for a duel and keeps that same snapshot through its repl
 it("allows sword reach and bounds Deflect independently of damage taken, including Reflect Only", () => {
   const f = swordsman();
   f.patch("playerProgress", { damage: 0, maxHp: 100, regen: 0, armor: 0, equippedHead: "", equippedChest: "" });
-  const { combatBoundForReport } = createCombatReport({ attackIntervalForProgress: progress => progress.attackRate,
+  // A fresh report each time: rows are seeded here without the reducers that would bump the combat profile stamp.
+  const bound = () => createCombatReport({ attackIntervalForProgress: progress => progress.attackRate,
     itemUpgradeLevelFor: () => 0, inventoryForProgress: progress => JSON.parse(progress.inventoryJson),
     equippedRightHandForProgress: progress => progress.equippedRightHand, equippedLeftHandForProgress: progress => progress.equippedLeftHand,
-    equippedHeadForProgress: progress => progress.equippedHead, equippedChestForProgress: progress => progress.equippedChest });
-  const bound = () => combatBoundForReport(f.ctx as unknown as Parameters<typeof combatBoundForReport>[0])
-    .preview({ type: "damage", amount: 0, count: 0 });
+    equippedHeadForProgress: progress => progress.equippedHead, equippedChestForProgress: progress => progress.equippedChest })
+    .combatBoundForReport(f.ctx as any).preview({ type: "damage", amount: 0, count: 0 });
   f.transaction(() => setSwordSkillRoll(swordCtx(f), f.ctx.sender, "ion_sword", {}));
   const plain = bound();
   f.transaction(() => setSwordSkillRoll(swordCtx(f), f.ctx.sender, "ion_sword", { whirlwind: 10, shockwave: 10, deflect: 10 }));

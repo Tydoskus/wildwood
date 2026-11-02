@@ -11,6 +11,7 @@ import { COMPATIBLE_PROTOCOL_VERSIONS, SPACETIME_AUTH_CLIENT_ID, SPACETIME_AUTH_
 import { CHAT_AGE_REQUIRED, TERMS_VERSION, isEligiblePlayerAgeBand, isPlayableAgeBand } from "../../shared/legal";
 import { playerWithMotion } from "./presence-runtime";
 import { auditPrivilegedAccess } from "./privileged-access-audit";
+import { touchAllCombatProfiles } from "./combat-profile";
 
 // Cached clients parse these exact wire messages. Current clients rebrand them
 // for display; changing them would break reconnects and account linking in old tabs.
@@ -133,6 +134,8 @@ export function requireDeveloperSession(ctx: ModuleReducerCtx, action: string) {
       throw new SenderError("Developer access required.");
     }
   });
+  // Developer tools change other players' rows, where only their own reducers bump a stamp.
+  touchAllCombatProfiles(ctx);
 }
 
 export function requireDeveloper(ctx: ModuleReducerCtx, action: string) {
@@ -142,6 +145,7 @@ export function requireDeveloper(ctx: ModuleReducerCtx, action: string) {
       throw new SenderError("Developer access required.");
     }
   });
+  touchAllCombatProfiles(ctx);
 }
 
 export function touchPlayerAccessAudit(ctx: any, protocolVersion: number) {

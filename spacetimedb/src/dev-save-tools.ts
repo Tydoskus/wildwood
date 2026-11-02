@@ -15,6 +15,7 @@ import { syncPlayerMotionIdentity, playerWithMotion } from "./presence-runtime";
 import { refreshLeaderboard } from "./leaderboard-refresh";
 import { requireAllowedDisplayName, syncDisplayNamePresentation } from "./display-names";
 import { MAX_MOVEMENT_SPEED_OVERRIDE, playerBaseMovementSpeed, MAX_PLAYER_STAT, MIN_ATTACK_INTERVAL, PLAYER_PROJECTILE_SPEED, MAX_ARMOR, movementSpeedsMatch } from "../../shared/rules";
+import { touchAllCombatProfiles } from "./combat-profile";
 
 export function devResetDailyBonus(ctx: ModuleReducerCtx, { identity }: { identity: Identity }) {
   if (!isDatabaseOwnerIdentity(ctx.sender)) {
@@ -49,6 +50,7 @@ export function devResetDailyBonus(ctx: ModuleReducerCtx, { identity }: { identi
 
 export function devCopyCombatStats(ctx: ModuleReducerCtx, { sourceIdentity, targetIdentity }: { sourceIdentity: Identity; targetIdentity: Identity }) {
   if (!isDatabaseOwnerIdentity(ctx.sender)) requireDeveloper(ctx, "dev_copy_player_combat_stats");
+  touchAllCombatProfiles(ctx);
   if (sameIdentity(sourceIdentity, targetIdentity)) throw new SenderError("Source and target must differ.");
   const source = readPlayerProgress(ctx, sourceIdentity);
   const target = readPlayerProgress(ctx, targetIdentity);

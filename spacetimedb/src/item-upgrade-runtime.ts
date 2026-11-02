@@ -23,6 +23,7 @@ import { UPGRADE_SLOT_LABELS } from "../../shared/slot-upgrades";
 import { slotUpgradeDurationWithResearch } from "../../shared/utility-research";
 import { itemUpgradeDurationMs } from "../../shared/items";
 import { Timestamp } from "spacetimedb";
+import { touchCombatProfile } from "./combat-profile";
 
 export function removeItemUpgradeCompletionSchedules(ctx: any, identity: any, slot?: number) {
   const scheduledIds = [...ctx.db.itemUpgradeCompletionSchedule.identity.filter(identity) as Iterable<any>]
@@ -80,6 +81,8 @@ export function completeActiveItemUpgrade(ctx: any, active: any, slot: number) {
     const completed = { key, identity: active.identity, itemId: active.itemId, level: active.targetLevel };
     if (current) updateSnapshotRow(ctx, "playerItemUpgrade", completed);
     else insertSnapshotRow(ctx, "playerItemUpgrade", completed);
+    // Often the scheduler's write, where no reducer of this player's bumps the stamp.
+    touchCombatProfile(ctx, active.identity);
     const progress = readPlayerProgress(ctx, active.identity);
     if (progress) writeProgressAndPresentation(ctx, progress);
   }

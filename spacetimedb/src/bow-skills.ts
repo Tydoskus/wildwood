@@ -3,6 +3,7 @@ import type { Identity } from "spacetimedb";
 import { NO_BOW_SKILLS, isSkillBow, rollBowSkills, type BowSkillRoll } from "../../shared/bow-skills";
 import { bowSkillsWithCards } from "../../shared/card-bounds";
 import { activeCardTotalsFor } from "./active-cards";
+import { touchCombatProfile } from "./combat-profile";
 
 /**
  * Each player's bow skill rolls, one row per bow id rolled. A bow with no row
@@ -57,6 +58,7 @@ export function ensureBowSkillRoll(ctx: Ctx, identity: Identity, itemId: string,
   if (ctx.db.playerBowSkill.key.find(key)) return;
   const roll = rollBowSkills(itemId, () => ctx.random(), skillLuck)!;
   ctx.db.playerBowSkill.insert({ key, identity, itemId, ...roll });
+  touchCombatProfile(ctx, identity);
 }
 
 export function removeBowSkills(ctx: Ctx, identity: Identity) {

@@ -62,7 +62,7 @@ import { playerStarterWeapon, registerStarterChest } from "./starter-chest";
 import { playerCraftSkill, playerCraftLevel, registerCrafting } from "./crafting";
 import { playerTool, registerTools } from "./tools";
 import { mergeOldGearPayout, oldGearPayout, payOutOldGear } from "./old-gear-payout";
-import { playerCard, playerGearSlots, playerCopySlots, playerCardDrop, registerGearCards } from "./gear-cards"; import { playerActiveCard, registerActiveCards } from "./active-cards"; import { playerCardAttackCap, syncCardAttackCap, syncCardAttackCapFor } from "./card-attack-cap"; import { playerBuild, playerBuildName, registerBuilds } from "./builds"; import { playerWornSkill, syncWornSkill } from "./worn-skill";
+import { playerCard, playerGearSlots, playerCopySlots, playerCardDrop, registerGearCards } from "./gear-cards"; import { playerActiveCard, registerActiveCards } from "./active-cards"; import { playerCardAttackCap, syncCardAttackCap } from "./card-attack-cap"; import { combatStampEpoch, keepsCombatProfile, playerCombatStamp, touchAllCombatProfiles, touchCombatProfile, touchCombatProfileAfterReducers } from "./combat-profile"; import { playerBuild, playerBuildName, registerBuilds } from "./builds"; import { playerWornSkill, syncWornSkill } from "./worn-skill";
 import { awardCardDrops, playerBossCardRoll, playerCardMeter } from "./card-drops"; import { playerCardShopPurchase, registerCardShop } from "./card-shop";
 import { awardRegularEnemyLoot } from "./enemy-loot-award";
 import { moderateReportedMessage } from "./chat-report-moderation";
@@ -1500,8 +1500,11 @@ const spacetimedb = schema({
   researchCompletionSchedule,
   itemUpgradeCompletionSchedule,
   duelResolutionSchedule,
+  playerCombatStamp, combatStampEpoch,
 });
 export default spacetimedb;
+// Before any reducer is declared: each one bumps its sender's combat profile stamp unless marked (combat-profile.ts).
+touchCombatProfileAfterReducers(spacetimedb);
 
 // Row-level visibility. Subscription filters are the client's own choice, so
 // without these a modified client could read where an invisible player (a
@@ -1762,6 +1765,7 @@ export const devSwapCharacters = spacetimedb.reducer(
     reason: t.string(), confirmation: t.string() },
   (ctx, args) => {
     if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_swap_characters", "Database owner required.");
+    touchAllCombatProfiles(ctx);
     swapCharacterLogins(ctx, args);
     refreshLeaderboard(ctx);
   },
@@ -2109,7 +2113,7 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
 
 export const runMaintenance = spacetimedb.reducer(
   { maintenance: maintenanceSchedule.rowType },
-  (ctx, { maintenance }) => {
+  keepsCombatProfile((ctx: any, { maintenance }: any) => {
     void maintenance; requireScheduler(ctx);
     const finishedDuels = [...ctx.db.duel.iter()].map(row => withDuelWide(ctx, row)).filter((current: any) =>
       current.status === "finishing" && ctx.timestamp.microsSinceUnixEpoch >= current.endsAtMicros
@@ -2123,7 +2127,7 @@ export const runMaintenance = spacetimedb.reducer(
     reconcileOnlinePlayers(ctx);
     refreshLeaderboardIfDue(ctx);
     expireEquipmentOffers(ctx); killGems.trimKillGemLedger(ctx);
-  },
+  }),
 );
 
 // Exact scheduled completions remain authoritative. These scans only recover
@@ -2176,7 +2180,7 @@ export const cleanupStartupTelemetry = spacetimedb.reducer(
 
 export const publishMotionDetailFrames = spacetimedb.reducer(
   { schedule: motionDetailFrameSchedule.rowType },
-  (ctx, _args) => {
+  keepsCombatProfile((ctx: any, _args: any) => {
     requireScheduler(ctx); let continuePublishing = false;
     const staleIdentities: any[] = [];
     const sampleMotion = createPlayerMotionFrameSampler(ctx.timestamp.microsSinceUnixEpoch);
@@ -2221,12 +2225,12 @@ export const publishMotionDetailFrames = spacetimedb.reducer(
         scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MOTION_DETAIL_FRAME_INTERVAL_MICROS),
       });
     }
-  },
+  }),
 );
 
 export const publishMapFrames = spacetimedb.reducer(
   { schedule: mapFrameSchedule.rowType },
-  (ctx, _args) => {
+  keepsCombatProfile((ctx: any, _args: any) => {
     requireScheduler(ctx); let continuePublishing = false;
     let sampleVisiblePlayers = false;
     const maps = new Map<string, PlayerMapSample[]>();
@@ -2261,7 +2265,7 @@ export const publishMapFrames = spacetimedb.reducer(
         scheduledAt: ScheduleAt.time(ctx.timestamp.microsSinceUnixEpoch + MAP_FRAME_INTERVAL_MICROS),
       });
     }
-  },
+  }),
 );
 
 export const completeResearch = spacetimedb.reducer(
@@ -2346,11 +2350,11 @@ export const registerClientHost = spacetimedb.reducer({ host: t.string() }, (ctx
 
 export const recordConnectionDiagnostic = spacetimedb.reducer(
   { payload: t.string() },
-  (ctx, { payload }) => {
+  keepsCombatProfile((ctx: any, { payload }: any) => {
     if (blockedSession(ctx)) return;
     requireSession(ctx);
     recordConnectionDiagnostics(ctx, payload);
-  },
+  }),
 );
 
 export const recordStartupTelemetry = spacetimedb.reducer(
@@ -2537,7 +2541,7 @@ export const setDeveloperPresence = spacetimedb.reducer(
 export const setMultiplayerEnabled = spacetimedb.reducer({ enabled: t.bool() }, (ctx, { enabled }) => applyPresence(ctx, enabled, enabled));
 // The eye (`enabled`: see others, and be seen) and, with it off, whether to be seen anyway while idle or
 // autofarming (`shown`): a still or puppet player costs other players next to nothing.
-export const setPresence = spacetimedb.reducer({ enabled: t.bool(), shown: t.bool() }, (ctx, { enabled, shown }) => applyPresence(ctx, enabled, enabled || shown));
+export const setPresence = spacetimedb.reducer({ enabled: t.bool(), shown: t.bool() }, keepsCombatProfile((ctx: any, { enabled, shown }: any) => applyPresence(ctx, enabled, enabled || shown)));
 function applyPresence(ctx: GameReducerContext, enabled: boolean, seen: boolean) {
   const player = requireControllingPlayer(ctx);
   writeMultiplayerPreference(ctx, enabled);
@@ -2852,6 +2856,7 @@ export const devRollbackPlayerProgression = spacetimedb.reducer(
     requireOwner: () => {
       if (!isDatabaseOwnerIdentity(ctx.sender)) denyPrivilegedAccess(ctx, "dev_rollback_player_progression", "Account database owner required.");
       if (activeDuelFor(ctx, args.identity)) throw new SenderError("Wait for this player's duel to finish.");
+      touchAllCombatProfiles(ctx);
     },
     apply: (progress, mapIndex) => {
       writeProgressAndPresentation(ctx, progress);
@@ -2924,7 +2929,8 @@ export const savePlayerProgress = spacetimedb.reducer(
     cosmeticRightHand: t.string(),
     cosmeticLeftHand: t.string(),
   },
-  (ctx, progress) => saveSubmittedProgress(ctx, progress),
+  // Bumps the stamp itself, only when the loadout changes: an unchanged save is the common one.
+  keepsCombatProfile((ctx: any, progress: any) => saveSubmittedProgress(ctx, progress)),
 );
 
 export const startResearch = spacetimedb.reducer(
@@ -3260,8 +3266,8 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: Defea
     // Only the map and power are read here; the position is worked out below if the row is written.
     const player = requireControllingPlayerRow(ctx);
     if (activeDuelFor(ctx, ctx.sender)) throw new SenderError("Enemy rewards require your account world connection.");
-    // Everything the combat bound reads, read once for the whole report, the save included when the sync wrote none.
-    const { worn, progress } = syncCardAttackCapFor(ctx, ctx.sender), combat = combatBoundForReport(ctx, worn, progress);
+    // Everything the combat bound reads, read once for the whole report; most of it kept between reports.
+    const combat = combatBoundForReport(ctx), worn = combat.wornCards();
     const accepted = acceptEnemyDefeats(ctx, batch, permittedDefeatMaps(ctx, player, TOWN_MAP_ID), combat, clocks);
     if (!accepted) return;
     const enforce = () => {
@@ -3295,6 +3301,8 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: Defea
       }
     }
     const gate = accepted.bossCleared ? recordBossGateClear(ctx, batch.mapId) : null;
+    // A gate clear opens maps and can win a challenge: the profile is built again next report.
+    if (gate) touchCombatProfile(ctx, ctx.sender);
     awardCardDrops(ctx, ctx.sender, batch.mapId, accepted.kills, accepted.bossCleared ? 1 : 0, 1, worn, combat.luck);
     awardWeaponMastery(ctx, ctx.sender, (base ?? gate?.previousProgress ?? combat.savedProgress())?.equippedRightHand, accepted.count, Boolean(gate),
       combat.inChallenge);
@@ -3320,7 +3328,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: Defea
 const killReport = (ctx: any, batch: any) => {
   recordEnemyDefeatsFor(ctx, batch, throttleKillReports(ctx));
 };
-export const reportEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport);
+export const reportEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, keepsCombatProfile(killReport));
 // Same reward as reportEnemyDefeats: which reducer a client calls is its own claim.
 export const reportAutoFarmEnemyDefeats = spacetimedb.reducer(enemyDefeatReportArgs, killReport);
 
@@ -3615,14 +3623,14 @@ export const collectGuildMemberQuests = spacetimedb.reducer({ member: t.identity
 
 export const sendChatMessage = spacetimedb.reducer(
   { message: t.string() },
-  (ctx, { message }) => sendPlayerChatMessage(ctx, message),
+  keepsCombatProfile((ctx: any, { message }: any) => sendPlayerChatMessage(ctx, message)),
 );
 
 // Kept separate from sendChatMessage so already-deployed clients retain their
 // original reducer signature while newer clients can attach a server snapshot.
 export const sendChatReply = spacetimedb.reducer(
   { message: t.string(), replyToMessageId: t.u64() },
-  (ctx, { message, replyToMessageId }) => sendPlayerChatMessage(ctx, message, replyToMessageId),
+  keepsCombatProfile((ctx: any, { message, replyToMessageId }: any) => sendPlayerChatMessage(ctx, message, replyToMessageId)),
 );
 
 export const reportChatMessage = spacetimedb.reducer(
@@ -3702,20 +3710,20 @@ export const updateMovementState = spacetimedb.reducer(
     motionEpoch: t.u32(),
     sequence: t.u32(),
   },
-  (ctx, { x, y, vx, vy, simulationTick, motionEpoch, sequence }) => {
+  keepsCombatProfile((ctx: any, { x, y, vx, vy, simulationTick, motionEpoch, sequence }: any) => {
     if (blockedSession(ctx)) return;
     applyMovementState(ctx, x, y, vx, vy, simulationTick, motionEpoch, sequence);
-  },
+  }),
 );
 
 export const setPlayerMotionInterest = spacetimedb.reducer(
   { networkIds: t.array(t.u32()) },
-  (ctx, args) => setMotionInterest(ctx, args),
+  keepsCombatProfile((ctx: any, args: any) => setMotionInterest(ctx, args)),
 );
 
 export const changeMap = spacetimedb.reducer(
   { mapId: t.string(), x: t.f64(), y: t.f64() },
-  (ctx, args) => changePlayerMap(ctx, args),
+  keepsCombatProfile((ctx: any, args: any) => changePlayerMap(ctx, args)),
 );
 /** Research Ready's tap: the Town teleport into the Research building (map-travel.ts). */
 export const teleportToResearch = spacetimedb.reducer({ x: t.f64(), y: t.f64() }, (ctx, args) => teleportToResearchRoom(ctx, args));
@@ -3732,7 +3740,7 @@ function requireOperator(ctx: any) {
   const internal = !ctx.connectionId && sameIdentity(ctx.sender, ctx.databaseIdentity);
   if (!internal && !isDatabaseOwnerIdentity(ctx.sender)) throw new SenderError("Database operator required");
 }
-export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t.f64() }, (ctx, { x, y }) => {
+export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t.f64() }, keepsCombatProfile((ctx: any, { x, y }: any) => {
   const player = requireControllingPlayer(ctx);
   if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > worldBoundsFor(player.mapId).width - PLAYER_RADIUS || y > worldBoundsFor(player.mapId).height - PLAYER_RADIUS) {
     throw new SenderError("Invalid bench position");
@@ -3743,7 +3751,7 @@ export const prepareWorldActionPosition = spacetimedb.reducer({ x: t.f64(), y: t
   const next = { ...player, ...at, ...playerZone(at.x, at.y), moving: false, vx: 0, vy: 0, dx: 0, dy: 0, lastInputAt: ctx.timestamp };
   updateSnapshotRow(ctx, "player", next);
   syncPlayerMotion(ctx, next);
-});
+}));
 
 function requireGuildConnection(ctx: ModuleReducerCtx) {
   requireControllingPlayer(ctx);

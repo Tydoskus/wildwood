@@ -13,6 +13,7 @@ import { ScheduleAt, Timestamp } from "spacetimedb";
 import { reconcileActiveItemUpgrade } from "./item-upgrade-runtime";
 import { powerFieldsForProgress } from "./player-power";
 import { isLuckResearchId, writeLuckRanks } from "./luck-research";
+import { touchCombatProfile } from "./combat-profile";
 import { LUCK_RESEARCH_IDS, RANK_TABLE_RESEARCH_IDS, isRankTableResearchId } from "../../shared/research";
 import { writeRankTableRanks } from "./research-rank";
 
@@ -23,6 +24,8 @@ export const researchForPlayer = createResearchState({ updateSnapshotRow, insert
  * the rest to player_research.
  */
 export function writeResearchRanks(ctx: any, identity: any, research: Record<string, any>, changed: ResearchId) {
+  // Research also completes on the scheduler's clock, where no reducer of this player's bumps the stamp.
+  touchCombatProfile(ctx, identity);
   if (isLuckResearchId(changed)) { writeLuckRanks(ctx, identity, research); return; }
   if (isRankTableResearchId(changed)) { writeRankTableRanks(ctx, identity, research); return; }
   const row: Record<string, any> = { ...research, identity };

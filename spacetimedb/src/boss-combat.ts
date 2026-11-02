@@ -7,15 +7,18 @@ import { researchInPlayFor } from "../../shared/bonus-toggles";
 import { bootSkillChanceFactor, equipmentDamageFactor, hasBootStat, itemDefinition, type ItemLevel } from "../../shared/items";
 import { armorSkillChanceFactor } from "../../shared/armor-class-perks";
 import { createEnemyRewardAccumulator, type EnemyStatReward } from "../../shared/enemy-reward-accumulator";
-import { attackCapInPlay, bonusRowsFor, statRewardMultiplierFor, prestigePerkRanks, type BonusRows } from "./prestige";
+import { attackCapInPlay, standingRowsFor, statRewardMultiplierFor, prestigePerkRanks, type BonusRows } from "./prestige";
 import { WORLD_REFLECT_SHARE, preArmorFactor, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { armorDamageReduction } from "../../shared/combat";
 import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { cardStatFactors, type CardTotals } from "../../shared/card-effects";
-import { activeCardTotalsFor } from "./active-cards";
 import { serverBoostRewardMultiplier } from "./server-boost-tables";
 import { luckInPlay } from "./luck-research";
+import { questStandingFor } from "./daily-quests";
+import { createCombatProfiles } from "./combat-profile";
+import { syncCardAttackCapFor } from "./card-attack-cap";
 import type { LuckRanks } from "../../shared/luck-research";
+import type { PrestigePerkRanks } from "../../shared/prestige-perks";
 import { soulStatsFor, withSoulStats } from "./soul-dimension";
 import { bowSkillRollFor } from "./bow-skills";
 import { bowSkillReachMultiplier, isSkillBow } from "../../shared/bow-skills";
@@ -96,13 +99,13 @@ export function createCombatReport(deps: CombatReportDeps) {
    * what it and the head and chest make of any base damage, with each slot's
    * upgrade level read at most once. The formula has to stay researchedDamage's.
    */
-  function damageLoadout(ctx: GameReducerContext, progress: any, research: any, cardTotals: CardTotals) {
+  function damageLoadout(ctx: GameReducerContext, progress: any, research: any, cardTotals: CardTotals, cards: ReturnType<typeof cardStatFactors>,
+    levels: Map<string, ItemLevel>) {
     const inventory = inventoryForProgress(progress);
     const rightHand = equippedRightHandForProgress(progress, inventory);
     const weapon = rightHand || equippedLeftHandForProgress(progress, inventory);
     const head = equippedHeadForProgress(progress, inventory), chest = equippedChestForProgress(progress, inventory);
-    // Per item: the slot's tier and the item's own refine are both fixed for a report.
-    const levels = new Map<string, ItemLevel>();
+    // Per item: the slot's tier and the item's own refine, kept with the profile while its stamp holds.
     const levelFor = (itemId: unknown): ItemLevel => {
       // Boots have no slot tier, but graded ones refine.
       if (!upgradeSlotForItem(itemId) && !hasBootStat(itemId)) return 0;
@@ -118,9 +121,31 @@ export function createCombatReport(deps: CombatReportDeps) {
     const { equipment, skillFactor } = gearFactors(weapon, head, chest, feet,
       [levelFor(weapon), levelFor(head), levelFor(chest), hasBootStat(feet) ? levelFor(feet) : 0]);
     // The active cards: attack cards multiply damage as they do power.
-    const cards = cardStatFactors(cardTotals);
     return { weapon, rightHand, levelFor, cardTotals, cards, skillFactor,
       damage: (base: number) => base * equipment * warcraft * cards.damage };
+  }
+
+  const profiles = createCombatProfiles<ReturnType<typeof buildProfile>>();
+
+  /**
+   * What a kill report reads that only research, perks, toggles, challenges, cards, gear levels and skill rolls
+   * change. It is kept between reports while the player's stamp holds (combat-profile.ts).
+   */
+  function buildProfile(ctx: GameReducerContext, worn: CardTotals) {
+    const rows = standingRowsFor(ctx, ctx.sender, ctx.db.playerResearch.identity.find(ctx.sender));
+    // prestigePerkRanks and attackCapInPlay read no quest standing.
+    const read = rows as BonusRows;
+    return {
+      rows, worn, cards: cardStatFactors(worn), cardBound: cardOffenseBound(worn),
+      ranks: prestigePerkRanks(ctx, ctx.sender, read) as PrestigePerkRanks, minInterval: attackCapInPlay(ctx, ctx.sender, worn, read),
+      luck: undefined as LuckRanks | undefined,
+      levels: new Map<string, ItemLevel>(),
+      rolls: new Map<string, ReturnType<typeof skillRollsFor>>(),
+    };
+  }
+  function skillRollsFor(ctx: GameReducerContext, weapon: string) {
+    return { bow: isSkillBow(weapon) ? bowSkillRollFor(ctx, ctx.sender, weapon) : null, sword: swordSkillRollFor(ctx, ctx.sender, weapon),
+      staff: isStaff(weapon) ? staffSkillRollFor(ctx, ctx.sender, weapon) : null };
   }
 
   /**
@@ -128,35 +153,42 @@ export function createCombatReport(deps: CombatReportDeps) {
    * report. Every row it reads is fixed for the length of a report: validation
    * writes only budget rows and the stream cursor, and the rewards a report
    * earns move stats, never gear, unlocks, perks, research or the bow's roll.
-   * So the rows are read and the inventory parsed once, on first use, and each
-   * entry after that is arithmetic on the saved stats plus what it earned.
-   * Rebuilding it per species would be most of what the kill reducer costs.
+   * The rows only those change are kept between reports (buildProfile); the
+   * save, quest standing, boost, soul stats, mastery and arrows are read fresh.
    */
-  function combatBoundForReport(ctx: GameReducerContext, worn?: CardTotals, savedRow?: any) {
+  function combatBoundForReport(ctx: GameReducerContext) {
+    let synced: ReturnType<typeof syncCardAttackCapFor> | undefined;
+    const { profile, fresh } = profiles.profileFor(ctx, ctx.sender, () => {
+      synced = syncCardAttackCapFor(ctx, ctx.sender);
+      return buildProfile(ctx, synced.worn);
+    });
+    // The sync wrote, or found no save: this transaction's writes are under the profile until it commits.
+    if (fresh && !synced?.progress) profiles.forget(ctx, ctx.sender);
+    const savedRow = synced?.progress;
     let loaded: ReturnType<typeof load> | undefined;
     let power: ReturnType<typeof powerStatsFrom> | undefined;
     // Rows the rest of the report reads too, each read once on first use. Nothing in a report writes them.
-    let researchRead: { row: any } | undefined, rows: BonusRows | undefined, luck: LuckRanks | undefined, boostRead: number | undefined;
-    const researchRow = () => (researchRead ??= { row: ctx.db.playerResearch.identity.find(ctx.sender) }).row;
-    const bonuses = () => (rows ??= bonusRowsFor(ctx, ctx.sender, researchRow()));
+    let rows: BonusRows | undefined, boostRead: number | undefined;
+    const worn = profile.worn;
+    const researchRow = () => profile.rows.research;
+    const bonuses = () => (rows ??= { ...profile.rows, quest: questStandingFor(ctx, ctx.sender) });
     const serverBoost = () => (boostRead ??= serverBoostRewardMultiplier(ctx));
     function load() {
-      // The caller passes the save when it has just read it and written nothing since.
+      // The sync passes the save when it has just read it and written nothing since.
       const saved = savedRow ?? readPlayerProgress(ctx, ctx.sender);
       const bonus = bonuses(), research = bonus.research;
-      // The active cards, read once for the report (syncCardAttackCap) rather than again by each helper.
       // A running Server Boost doubles what this report earns, and the bound counts the stronger player that makes.
       const stat = statRewardMultiplierFor(ctx, ctx.sender, worn, bonus), boost = serverBoost();
       const statMultiplier = (type: string) => stat(type) * boost;
       // Soul stats add to the run's in every fight; the saved row and the earned rewards stay the run's alone.
       const soul = soulStatsFor(ctx, ctx.sender, bonus);
-      const cards = worn ?? activeCardTotalsFor(ctx, ctx.sender);
-      const loadout = saved ? damageLoadout(ctx, saved, research, cards) : null;
+      const cards = worn;
+      const loadout = saved ? damageLoadout(ctx, saved, research, cards, profile.cards, profile.levels) : null;
       const challenge = bonus.challenge;
       // Reflect Only wins and Quick Draw set the attack speed cap, Aggro runs included (attackCapInPlay).
       // The bounds above keep stored research, the looser side.
-      const ranks = prestigePerkRanks(ctx, ctx.sender, bonus);
-      const minInterval = attackCapInPlay(ctx, ctx.sender, worn, bonus);
+      const ranks = profile.ranks;
+      const minInterval = profile.minInterval;
       const earned = saved ? createEnemyRewardAccumulator(saved, statMultiplier, minInterval) : null;
       const statsFor = saved ? preparePlayerPowerStats(saved, research, loadout?.levelFor, cards) : null;
       // Armor rewards can change the nonlinear reduction inside a report.
@@ -181,7 +213,7 @@ export function createCombatReport(deps: CombatReportDeps) {
       // still be critting; the bound has to know that or it clips them.
       // Crit kills inside the report raise the run's rating, so the multiplier is read per entry.
       // Card effects in combat (card-bounds.ts): more damage a hit and more enemies reached, all counted at once.
-      const cardBound = cardOffenseBound(loadout.cardTotals);
+      const cardBound = profile.cardBound;
       // Weapon Mastery's Skill Proficiency raises every skill chance, and its techniques add hits, damage and speed
       // (mastery-techniques.ts), each at its most. Read once a report, and counted during Reflect Only and Aggro runs
       // too (where the client leaves it off): the looser side.
@@ -201,14 +233,15 @@ export function createCombatReport(deps: CombatReportDeps) {
       // enemy, so they widen reach; the Split Shot arrow rolls the bow's skills
       // too, so the two reaches multiply.
       // Bow skill cards add to a bow's own roll.
-      const bowSkills = isSkillBow(loadout.weapon)
-        ? rollWithProficiency(bowSkillsWithCards(bowSkillRollFor(ctx, ctx.sender, loadout.weapon), loadout.cardTotals), mastery.level, loadout.skillFactor) : null;
-      const swordSkills = rollWithProficiency(swordSkillRollFor(ctx, ctx.sender, loadout.weapon), mastery.level, loadout.skillFactor);
+      let rolls = profile.rolls.get(loadout.weapon);
+      if (!rolls) profile.rolls.set(loadout.weapon, rolls = skillRollsFor(ctx, loadout.weapon));
+      const bowSkills = rolls.bow ? rollWithProficiency(bowSkillsWithCards(rolls.bow, loadout.cardTotals), mastery.level, loadout.skillFactor) : null;
+      const swordSkills = rollWithProficiency(rolls.sword, mastery.level, loadout.skillFactor);
       // A staff's bolt bursts on every enemy around its impact, and its skills reach further (staff-skills.ts).
       // Sorcery's bigger blast needs nothing more: the bound counts a burst's most targets, not its size.
       const staff = isStaff(loadout.weapon);
-      const staffReach = staff
-        ? staffSkillReachMultiplier(rollWithProficiency(staffSkillRollFor(ctx, ctx.sender, loadout.weapon), mastery.level, loadout.skillFactor), technique.meteorFalls) : 1;
+      const staffReach = rolls.staff
+        ? staffSkillReachMultiplier(rollWithProficiency(rolls.staff, mastery.level, loadout.skillFactor), technique.meteorFalls) : 1;
       const armorReduction = armorFor(statsFor(withSoulStats(saved, soul, minInterval)).armor).reduction;
       // A nocked arrow, while the bow in hand has some to shoot (arrows.ts).
       const arrow = arrowOffenseBound(isBow(loadout.weapon) ? arrowInPlay(ctx, ctx.sender) : null);
@@ -282,10 +315,10 @@ export function createCombatReport(deps: CombatReportDeps) {
       commit: (reward: EnemyStatReward) => report().earned?.commit(reward),
       research: researchRow, bonuses, serverBoost,
       /** Luck as drops read it, for the report's card and gold rolls. */
-      luck: () => (luck ??= luckInPlay(ctx, ctx.sender, bonuses().off)),
+      luck: () => (profile.luck ??= luckInPlay(ctx, ctx.sender, profile.rows.off)),
       /** Either challenge under way (prestige-challenge.ts challengeActive). */
       inChallenge: () => Boolean(bonuses().challenge?.active) || bonuses().aggro,
-      /** The active cards the caller read for this report, if it passed them. */
+      /** The active cards in play, read with the profile. */
       wornCards: () => worn,
       rewardedProgress: () => report().earned?.current(),
       /** The saved progress row as the report found it; nothing in validation writes it. */

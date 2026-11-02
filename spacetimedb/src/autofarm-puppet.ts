@@ -1,3 +1,4 @@
+import { keepsCombatProfile } from "./combat-profile";
 import { table, t, SenderError } from "spacetimedb/server";
 import type { default as spacetimedbType } from "./index";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
@@ -69,6 +70,6 @@ export function setAutoFarmPuppetFor(ctx: any, group: string, camp: string, deps
 }
 
 export function registerAutoFarmPuppetReducers(spacetimedb: typeof spacetimedbType, deps: PuppetDeps) {
-  const setAutoFarmPuppet = spacetimedb.reducer({ group: t.string(), camp: t.string() }, (ctx, { group, camp }) => setAutoFarmPuppetFor(ctx, group, camp, deps));
+  const setAutoFarmPuppet = spacetimedb.reducer({ group: t.string(), camp: t.string() }, keepsCombatProfile((ctx: any, { group, camp }: any) => setAutoFarmPuppetFor(ctx, group, camp, deps)));
   return { setAutoFarmPuppet };
 }

@@ -241,6 +241,12 @@ export const ChatReactionUnlock = __t.object("ChatReactionUnlock", {
 });
 export type ChatReactionUnlock = __Infer<typeof ChatReactionUnlock>;
 
+export const CombatStampEpoch = __t.object("CombatStampEpoch", {
+  id: __t.u8(),
+  version: __t.u32(),
+});
+export type CombatStampEpoch = __Infer<typeof CombatStampEpoch>;
+
 export const ConnectionDiagnostic = __t.object("ConnectionDiagnostic", {
   id: __t.string(),
   identity: __t.identity(),
@@ -1605,6 +1611,12 @@ export const PlayerCombatRating = __t.object("PlayerCombatRating", {
   critDamage: __t.f64(),
 });
 export type PlayerCombatRating = __Infer<typeof PlayerCombatRating>;
+
+export const PlayerCombatStamp = __t.object("PlayerCombatStamp", {
+  identity: __t.identity(),
+  version: __t.u32(),
+});
+export type PlayerCombatStamp = __Infer<typeof PlayerCombatStamp>;
 
 export const PlayerController = __t.object("PlayerController", {
   identity: __t.identity(),

@@ -1,3 +1,4 @@
+import { keepsCombatProfile } from "./combat-profile";
 import { SenderError, table, t } from "spacetimedb/server";
 import { Timestamp, type Identity } from "spacetimedb";
 import { cardStatFactors } from "../../shared/card-effects";
@@ -275,8 +276,8 @@ const MiningBreakEntry = t.object("MiningBreakEntry", { nodeId: t.u32(), atMs: t
 /** A break, a batch of them, the old pickaxe claim, and the caller's own Mining and bare rocks. */
 export function registerMining(spacetimedb: typeof spacetimedbType, deps: MiningDeps) {
   const claimPickaxe = spacetimedb.reducer({}, (ctx: any) => claimPickaxeFor(ctx, deps));
-  const mineNode = spacetimedb.reducer({ nodeId: t.u32() }, (ctx: any, args: { nodeId: number }) => mineNodeFor(ctx, args, deps));
-  const reportMining = spacetimedb.reducer({ breaks: t.array(MiningBreakEntry) }, (ctx: any, args: any) => reportMiningFor(ctx, args, deps));
+  const mineNode = spacetimedb.reducer({ nodeId: t.u32() }, keepsCombatProfile((ctx: any, args: { nodeId: number }) => mineNodeFor(ctx, args, deps)));
+  const reportMining = spacetimedb.reducer({ breaks: t.array(MiningBreakEntry) }, keepsCombatProfile((ctx: any, args: any) => reportMiningFor(ctx, args, deps)));
   const myMining = spacetimedb.view({ name: "my_mining", public: true }, t.array(playerMining.rowType), (ctx: any) => {
     const row = ctx.db.playerMining.identity.find(ctx.sender);
     return row ? [row] : [];

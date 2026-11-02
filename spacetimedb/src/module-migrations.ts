@@ -44,6 +44,7 @@ import { installBalanceCurve, repinMapBalances } from "./map-balance";
 import { activateCardsFromGear } from "./active-cards";
 import { payOutAllOldGear } from "./old-gear-payout";
 import { giveEveryoneStarterWeapons } from "./starter-chest";
+import { touchAllCombatProfiles } from "./combat-profile";
 
 export const MODULE_MIGRATION_VERSION = 67;
 
@@ -119,6 +120,8 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     const state = ctx.db.moduleMigrationState.id.find(0);
     const currentVersion = state?.version ?? 0;
     if (currentVersion >= MODULE_MIGRATION_VERSION) return;
+    // A migration can rewrite anyone's research or gear: every kept combat profile is built again.
+    touchAllCombatProfiles(ctx);
     if (currentVersion < 1) {
       for (const research of ctx.db.playerResearch.iter() as Iterable<any>) {
         if (research.frontierMastery !== 0) updateSnapshotRow(ctx, "playerResearch", { ...research, frontierMastery: 0 });
