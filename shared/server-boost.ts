@@ -5,8 +5,6 @@
  */
 export const SERVER_BOOST_MULTIPLIER = 2;
 export const SERVER_BOOST_DURATION_MS = 15 * 60_000;
-/** Extending stacks time, never the multiplier, up to this much left. */
-export const SERVER_BOOST_MAX_REMAINING_MS = 2 * 60 * 60_000;
 export const SERVER_BOOST_COOLDOWN_MS = 24 * 60 * 60_000;
 /** A kill report trails its kills by a few seconds, so the server pays the boost this much past the end. */
 export const SERVER_BOOST_REPORT_GRACE_MS = 10_000;
@@ -41,18 +39,12 @@ export function serverBoostCooldownMs(lastTriggeredAtMs: number | undefined, now
   return lastTriggeredAtMs === undefined ? 0 : Math.max(0, lastTriggeredAtMs + SERVER_BOOST_COOLDOWN_MS - nowMs);
 }
 
-/**
- * The new end time after a trigger: 15 minutes from now, or 15 more on a
- * running boost. Null when the full 15 minutes would pass the cap, so a
- * supporter never spends their day's boost on time that is thrown away.
- */
+/** The new end time after a trigger: 15 minutes from now, or 15 more on a running boost. Time stacks, never the multiplier. */
 export function extendedServerBoostEnd(endsAtMs: number | undefined, nowMs: number) {
-  const remaining = serverBoostRemainingMs(endsAtMs ?? 0, nowMs);
-  if (remaining + SERVER_BOOST_DURATION_MS > SERVER_BOOST_MAX_REMAINING_MS) return null;
-  return nowMs + remaining + SERVER_BOOST_DURATION_MS;
+  return nowMs + serverBoostRemainingMs(endsAtMs ?? 0, nowMs) + SERVER_BOOST_DURATION_MS;
 }
 
-/** The most supporters a running boost thanks by name: eight 15-minute boosts fill the two-hour cap. */
+/** The most supporters a running boost thanks by name, so its banner stays one line. */
 export const SERVER_BOOST_MAX_NAMES = 8;
 
 /** The boost's thanks list after `name` starts or extends it: everyone who did, once each, in order. */

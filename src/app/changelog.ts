@@ -1,6 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
   "0.917.47": [
     "The Shop now lists every Patreon supporter perk",
+    "Server Boosts no longer stop at 2 hours: every boost adds its 15 minutes",
   ],
   "0.917.45": [
     "Online count now names the server, as in Server 1: 12 Online",

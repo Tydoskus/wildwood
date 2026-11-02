@@ -3,8 +3,7 @@
 import { t, SenderError } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import { isDeveloperIdentity } from "../../shared/developer-identity";
-import { extendedServerBoostEnd, formatServerBoostWait, serverBoostCooldownMs, SERVER_BOOST_DURATION_MS, SERVER_BOOST_MAX_REMAINING_MS,
-  serverBoostRemainingMs, withBoostSupporter } from "../../shared/server-boost";
+import { extendedServerBoostEnd, formatServerBoostWait, serverBoostCooldownMs, withBoostSupporter } from "../../shared/server-boost";
 import { serverBoostTables } from "./server-boost-tables";
 import { patreonStatus } from "./patreon";
 import { insertChatMessage } from "./chat-runtime";
@@ -27,10 +26,6 @@ export function triggerServerBoost(ctx: Ctx) {
   if (wait > 0) throw new SenderError(`Your next Server Boost is ready in ${formatServerBoostWait(wait)}.`);
   const current = ctx.db.serverBoost.id.find(0);
   const endsAtMs = extendedServerBoostEnd(current?.endsAtMs, now);
-  if (endsAtMs === null) {
-    const roomIn = serverBoostRemainingMs(current?.endsAtMs ?? 0, now) + SERVER_BOOST_DURATION_MS - SERVER_BOOST_MAX_REMAINING_MS;
-    throw new SenderError(`The Server Boost is full. Try again in ${formatServerBoostWait(roomIn)}.`);
-  }
   const profile = ctx.db.playerProfile.identity.find(ctx.sender);
   const name = profile?.displayName || "A supporter";
   const extending = Boolean(current && current.endsAtMs > now);

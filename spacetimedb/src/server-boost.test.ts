@@ -4,7 +4,7 @@ import { PROTOCOL_VERSION } from "../../shared/rules";
 import { crystalFixture, identity, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { fillDefeatBudget, reportEnemy } from "../../tests/helpers/enemy-defeat";
 import { progressOf } from "../../tests/helpers/progress";
-import { SERVER_BOOST_DURATION_MS, SERVER_BOOST_MAX_REMAINING_MS, SERVER_BOOST_COOLDOWN_MS } from "../../shared/server-boost";
+import { SERVER_BOOST_DURATION_MS, SERVER_BOOST_COOLDOWN_MS } from "../../shared/server-boost";
 import { DEVELOPER_IDENTITY } from "../../shared/developer-identity";
 import { goldFor } from "./gold";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
@@ -61,7 +61,7 @@ describe("server boost", () => {
     expect(endsAt(f)).toBe(nowMs(f) + SERVER_BOOST_DURATION_MS);
   });
 
-  it("extends a running boost by 15 minutes and refuses time past the 2 hour cap", () => {
+  it("extends a running boost by 15 minutes for every supporter who starts one, with no cap", () => {
     const f = supporter();
     start(f);
     const first = endsAt(f);
@@ -71,11 +71,9 @@ describe("server boost", () => {
       f.seed("patreonLink", { identity: other, userId: digit, accessToken: "a", refreshToken: "r", tier: "gold", frame: "gold",
         validUntilMs: nowMs(f) + SERVER_BOOST_COOLDOWN_MS, checkedAtMs: nowMs(f), attemptedAtMs: nowMs(f) });
       seat(f, other, BigInt(10 + Number(digit)));
-      if (endsAt(f) - nowMs(f) + SERVER_BOOST_DURATION_MS <= SERVER_BOOST_MAX_REMAINING_MS) start(f);
-      else expect(() => start(f)).toThrow();
+      start(f);
     }
-    expect(endsAt(f)).toBe(first + 7 * SERVER_BOOST_DURATION_MS);
-    expect(endsAt(f) - nowMs(f)).toBeLessThanOrEqual(SERVER_BOOST_MAX_REMAINING_MS);
+    expect(endsAt(f)).toBe(first + 8 * SERVER_BOOST_DURATION_MS);
   });
 
   it("lets a developer start it without a membership or the daily wait", () => {
