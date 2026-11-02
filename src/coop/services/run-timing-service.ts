@@ -1,5 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { parseRunBossClears, type RunRecord } from "../../../shared/run-timing";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 /** The current prestige run's timing as the server keeps it, in milliseconds of active play. */
 export type RunTiming = {
@@ -26,7 +27,6 @@ export function createRunTimingRows(notify: () => void) {
     timing = null;
     history = [];
     const readHistory = () => {
-      if (!isCurrent()) return;
       history = [...connection.db.myRunHistory.iter()].map(row => ({
         prestige: row.prestige, playedMs: Number(row.playedMicros / 1_000n), wholeRun: row.wholeRun,
         bossClears: parseRunBossClears(row.bossClears).map(clear => ({ mapId: clear.mapId, playedMs: clear.playedMicros / 1_000 })),
@@ -35,7 +35,6 @@ export function createRunTimingRows(notify: () => void) {
       notify();
     };
     const read = () => {
-      if (!isCurrent()) return;
       const [row] = [...connection.db.myRunTiming.iter()];
       timing = row ? {
         prestige: row.prestige,
@@ -47,12 +46,9 @@ export function createRunTimingRows(notify: () => void) {
       } : null;
       notify();
     };
-    connection.db.myRunTiming.onInsert(read);
-    connection.db.myRunTiming.onUpdate(read);
-    connection.db.myRunTiming.onDelete(read);
-    connection.db.myRunHistory.onInsert(readHistory);
-    connection.db.myRunHistory.onDelete(readHistory);
-    connection.subscriptionBuilder().onApplied(() => { read(); readHistory(); }).subscribe([tables.myRunTiming, tables.myRunHistory]);
+    onTableChange([connection.db.myRunTiming], isCurrent, read);
+    onTableChange([connection.db.myRunHistory], isCurrent, readHistory, ["insert", "delete"]);
+    subscribeTables(connection, "run timing", isCurrent, [tables.myRunTiming, tables.myRunHistory], () => { read(); readHistory(); });
   }
   return {
     watch,

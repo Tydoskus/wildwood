@@ -2,6 +2,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import { BUILD_SLOTS, cleanBuildName, parseBuildCards, parseBuildGear, type SavedBuild } from "../../../shared/builds";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { watchTables } from "./table-watch";
 
 type Result = { ok: boolean; error?: string };
 type Target = { connection: DbConnection; isCurrent: () => boolean };
@@ -17,14 +18,12 @@ export function createBuildRows(notify: () => void) {
     builds = Array.from({ length: BUILD_SLOTS }, () => null);
     names = Array.from({ length: BUILD_SLOTS }, () => "");
     const readNames = () => {
-      if (!isCurrent()) return;
       const next = Array.from({ length: BUILD_SLOTS }, () => "");
       for (const row of connection.db.myBuildNames.iter()) if (row.slot < BUILD_SLOTS) next[row.slot] = row.name;
       names = next;
       notify();
     };
     const read = () => {
-      if (!isCurrent()) return;
       const next: (SavedBuild | null)[] = Array.from({ length: BUILD_SLOTS }, () => null);
       for (const row of connection.db.myBuilds.iter()) {
         if (row.slot < BUILD_SLOTS) next[row.slot] = { slot: row.slot, gear: parseBuildGear(row.gearJson), cards: parseBuildCards(row.cardsJson) };
@@ -32,10 +31,8 @@ export function createBuildRows(notify: () => void) {
       builds = next;
       notify();
     };
-    connection.db.myBuilds.onInsert(read); connection.db.myBuilds.onUpdate(read); connection.db.myBuilds.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myBuilds]);
-    connection.db.myBuildNames.onInsert(readNames); connection.db.myBuildNames.onUpdate(readNames); connection.db.myBuildNames.onDelete(readNames);
-    connection.subscriptionBuilder().onApplied(readNames).subscribe([tables.myBuildNames]);
+    watchTables(connection, { what: "builds", isCurrent, listen: [connection.db.myBuilds], queries: [tables.myBuilds], read });
+    watchTables(connection, { what: "build names", isCurrent, listen: [connection.db.myBuildNames], queries: [tables.myBuildNames], read: readNames });
   }
 
   async function call(send: (connection: DbConnection) => Promise<unknown>): Promise<Result> {

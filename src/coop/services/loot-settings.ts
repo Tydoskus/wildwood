@@ -1,5 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { reducerErrorMessage } from "./reducer-errors";
+import { onTableChange } from "./table-watch";
 
 export type LootSettings = { autoKeepBest: boolean; autoEquipBest: boolean };
 export type LootSettingsResult = { ok: boolean; error?: string };
@@ -33,9 +34,7 @@ export function createLootSettings(notify: () => void) {
       settings = row ? { autoKeepBest: row.autoKeepBest, autoEquipBest: row.autoEquipBest } : DEFAULT_LOOT_SETTINGS;
       notify();
     };
-    connection.db.myLootSettings.onInsert(read);
-    connection.db.myLootSettings.onUpdate(read);
-    connection.db.myLootSettings.onDelete(read);
+    onTableChange([connection.db.myLootSettings], isCurrent, read);
     return read;
   }
 

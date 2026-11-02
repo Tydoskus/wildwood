@@ -1,5 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { parseGuildHallLevels, type GuildHallLevels, type GuildHallPart } from "../../../shared/guild-hall";
+import { watchTables } from "./table-watch";
 
 export type GuildHallState = { guildId: string; fund: number; spent: number; levels: GuildHallLevels };
 
@@ -15,21 +16,20 @@ export function createGuildHallRows(connection: () => DbConnection | null, notif
   function watch(current: DbConnection, isCurrent: () => boolean) {
     hall = null;
     const read = () => {
-      if (!isCurrent()) return;
       const [row] = [...current.db.myGuildHall.iter()];
       hall = row ? { guildId: String(row.guildId), fund: row.fund, spent: row.spent, levels: parseGuildHallLevels(row.levels) } : null;
       notify();
     };
-    current.db.myGuildHall.onInsert(read); current.db.myGuildHall.onUpdate(read); current.db.myGuildHall.onDelete(read);
-    current.subscriptionBuilder().onApplied(read).subscribe([tables.myGuildHall]);
+    watchTables(current, { what: "guild hall", isCurrent, listen: [current.db.myGuildHall], queries: [tables.myGuildHall], read });
     joinRequests = 0;
     const count = () => {
-      if (!isCurrent()) return;
       const next = current.db.myGuildJoinRequests.count();
       if (Number(next) !== joinRequests) { joinRequests = Number(next); notify(); }
     };
-    current.db.myGuildJoinRequests.onInsert(count); current.db.myGuildJoinRequests.onDelete(count);
-    current.subscriptionBuilder().onApplied(count).subscribe([tables.myGuildJoinRequests]);
+    watchTables(current, {
+      what: "guild join requests", isCurrent, listen: [current.db.myGuildJoinRequests], changes: ["insert", "delete"],
+      queries: [tables.myGuildJoinRequests], read: count,
+    });
   }
 
   return {

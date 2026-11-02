@@ -2,6 +2,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import { serverBoostCooldownMs, serverBoostGatherMultiplier, serverBoostMultiplier, serverBoostRemainingMs, type ServerBoostState } from "../../../shared/server-boost";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { watchTables } from "./table-watch";
 
 type Target = { connection: DbConnection; isCurrent: () => boolean };
 
@@ -18,16 +19,15 @@ export function createServerBoostRows(notify: () => void, nowMs: () => number) {
     target = { connection, isCurrent };
     boost = null; lastTriggeredAtMs = undefined;
     const read = () => {
-      if (!isCurrent()) return;
       const [row] = [...connection.db.serverBoost.iter()];
       boost = row ? { endsAtMs: row.endsAtMs, startedAtMs: row.startedAtMs, supporterName: row.supporterName } : null;
       lastTriggeredAtMs = [...connection.db.myServerBoostTrigger.iter()][0]?.lastTriggeredAtMs;
       notify();
     };
-    for (const table of [connection.db.serverBoost, connection.db.myServerBoostTrigger]) {
-      table.onInsert(read); table.onUpdate(read); table.onDelete(read);
-    }
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.serverBoost, tables.myServerBoostTrigger]);
+    watchTables(connection, {
+      what: "server boost", isCurrent, listen: [connection.db.serverBoost, connection.db.myServerBoostTrigger],
+      queries: [tables.serverBoost, tables.myServerBoostTrigger], read,
+    });
   }
 
   async function triggerServerBoost(): Promise<{ ok: boolean; error?: string }> {

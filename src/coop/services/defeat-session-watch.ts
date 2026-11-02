@@ -1,6 +1,7 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { DEFEAT_COOLDOWN, DEFEAT_REAUTH, freshAuthentication } from "../../../shared/defeat-session";
 import { inspectSpacetimeIdToken } from "../security/oidc-id-token";
+import { subscribeTables } from "./table-watch";
 
 /** The server enforces admission. This subscription promptly ends the UI session. */
 export function watchDefeatSession(connection: DbConnection, token: string | null,
@@ -15,7 +16,7 @@ export function watchDefeatSession(connection: DbConnection, token: string | nul
   };
   connection.db.myDefeatSessionRestriction.onInsert((_ctx, row) => apply(row));
   connection.db.myDefeatSessionRestriction.onUpdate((_ctx, _old, row) => apply(row));
-  connection.subscriptionBuilder().onApplied(() => {
+  subscribeTables(connection, "defeat session", isCurrent, [tables.myDefeatSessionRestriction], () => {
     for (const row of connection.db.myDefeatSessionRestriction.iter()) apply(row);
-  }).subscribe([tables.myDefeatSessionRestriction]);
+  });
 }

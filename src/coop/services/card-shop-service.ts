@@ -1,6 +1,7 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { watchTables } from "./table-watch";
 
 export type BuyShopCardResult = { ok: boolean; error?: string };
 
@@ -16,15 +17,12 @@ export function createCardShopRows(notify: () => void) {
     target = { connection, isCurrent };
     bought = new Map();
     const read = () => {
-      if (!isCurrent()) return;
       const next = new Map<number, readonly string[]>();
       for (const row of connection.db.myCardShopPurchases.iter()) next.set(Number(row.rotation), [...row.cardIds]);
       bought = next;
       notify();
     };
-    const view = connection.db.myCardShopPurchases;
-    view.onInsert(read); view.onUpdate(read); view.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myCardShopPurchases]);
+    watchTables(connection, { what: "card shop", isCurrent, listen: [connection.db.myCardShopPurchases], queries: [tables.myCardShopPurchases], read });
   }
 
   return {

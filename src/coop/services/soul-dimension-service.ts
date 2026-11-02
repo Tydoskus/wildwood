@@ -1,5 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { cleanSoulLevel, cleanSoulStats, EMPTY_REWARD_KILLS, type RewardKillCounts, type SoulLevel, type SoulStats } from "../../../shared/soul-dimension";
+import { watchTables } from "./table-watch";
 
 /**
  * This account's Soul Dimension rows: its soul stats, Soul Level and kills by
@@ -18,7 +19,6 @@ export function createSoulDimensionRows(connection: () => DbConnection | null, n
     kills = { ...EMPTY_REWARD_KILLS };
     open = false;
     const read = () => {
-      if (!isCurrent()) return;
       const [soulRow] = [...current.db.mySoulStats.iter()];
       soul = soulRow ? cleanSoulStats(soulRow) : null;
       const [levelRow] = [...current.db.mySoulLevel.iter()];
@@ -32,14 +32,13 @@ export function createSoulDimensionRows(connection: () => DbConnection | null, n
       open = current.db.soulDimensionConfig.id.find(0)?.open ?? true;
       notify();
     };
-    current.db.mySoulStats.onInsert(read); current.db.mySoulStats.onUpdate(read); current.db.mySoulStats.onDelete(read);
     const me = current.identity!;
-    current.db.playerRewardKills.onInsert(read); current.db.playerRewardKills.onUpdate(read); current.db.playerRewardKills.onDelete(read);
-    current.db.soulDimensionConfig.onInsert(read); current.db.soulDimensionConfig.onUpdate(read); current.db.soulDimensionConfig.onDelete(read);
-    current.db.mySoulLevel.onInsert(read); current.db.mySoulLevel.onUpdate(read); current.db.mySoulLevel.onDelete(read);
-    current.subscriptionBuilder().onApplied(read).subscribe([tables.mySoulStats, tables.playerRewardKills.where(row => row.identity.eq(me)), tables.soulDimensionConfig]);
+    watchTables(current, {
+      what: "soul stats", isCurrent, listen: [current.db.mySoulStats, current.db.playerRewardKills, current.db.soulDimensionConfig],
+      queries: [tables.mySoulStats, tables.playerRewardKills.where(row => row.identity.eq(me)), tables.soulDimensionConfig], read,
+    });
     // Its own subscription, so a server without the view yet leaves the others working.
-    current.subscriptionBuilder().onApplied(read).onError(() => {}).subscribe([tables.mySoulLevel]);
+    watchTables(current, { what: "soul level", isCurrent, listen: [current.db.mySoulLevel], queries: [tables.mySoulLevel], read });
   }
 
   return {

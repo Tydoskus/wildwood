@@ -6,6 +6,7 @@ import { withRequestDeadline } from "./request-deadline";
 import { createGatherQueue, createReportGains, gatherExtras, type GatherClock } from "./gather-queue";
 import { reducerEventMs } from "./reducer-event-time";
 import { boostedYield } from "../../../shared/server-boost";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 export type MiningResult = { ok: boolean; error?: string };
 type Target = { connection: DbConnection; isCurrent: () => boolean };
@@ -93,7 +94,6 @@ export function createMiningRows(notify: () => void, clock?: GatherClock, boostA
     mining = 0; rocksBroken = 0; broken = new Map();
     // A report's reply carries the server's time, which the next report's times are read against.
     const readMining = (ctx?: unknown) => {
-      if (!isCurrent()) return;
       const serverAt = reducerEventMs(ctx);
       if (serverAt !== null) clock?.observeServerTime?.(serverAt);
       const [row] = [...connection.db.myMining.iter()];
@@ -102,18 +102,16 @@ export function createMiningRows(notify: () => void, clock?: GatherClock, boostA
       notify();
     };
     const readBroken = () => {
-      if (!isCurrent()) return;
       const next = new Map<number, number>();
       for (const row of connection.db.myMinedNodes.iter()) next.set(row.nodeId, toMs(row.brokenAt));
       broken = next;
       notify();
     };
-    connection.db.myMining.onInsert(readMining); connection.db.myMining.onUpdate(readMining); connection.db.myMining.onDelete(readMining);
+    onTableChange([connection.db.myMining], isCurrent, readMining);
     gains.watch(connection.db.myOres);
-    connection.db.myMinedNodes.onInsert(readBroken); connection.db.myMinedNodes.onUpdate(readBroken); connection.db.myMinedNodes.onDelete(readBroken);
-    connection.subscriptionBuilder()
-      .onApplied(() => { readMining(); readBroken(); counted = { base: rocksBroken, sent: 0, reported: 0 }; })
-      .subscribe([tables.myMining, tables.myMinedNodes]);
+    onTableChange([connection.db.myMinedNodes], isCurrent, readBroken);
+    subscribeTables(connection, "mining", isCurrent, [tables.myMining, tables.myMinedNodes],
+      () => { readMining(); readBroken(); counted = { base: rocksBroken, sent: 0, reported: 0 }; });
   }
 
   async function call(send: (connection: DbConnection) => Promise<unknown>): Promise<MiningResult> {

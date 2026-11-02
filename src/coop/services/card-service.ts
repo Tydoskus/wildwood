@@ -3,6 +3,7 @@ import { cardDefinition, type CardSlot } from "../../../shared/cards";
 import { NO_ACTIVE_CARDS, activeCardsOfRow, type ActiveCards } from "../../../shared/active-cards";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { onTableChange, subscribeTables } from "./table-watch";
 
 export type CardDrop = { cardIds: readonly string[]; sequence: bigint };
 export type CardResult = { ok: boolean; error?: string };
@@ -25,31 +26,27 @@ export function createCardRows(notify: () => void) {
     // The standing row on connect is an old find, not one to announce.
     let hydrated = false;
     const readCards = () => {
-      if (!isCurrent()) return;
       const next: Record<string, number> = {};
       for (const row of connection.db.myCards.iter()) if (cardDefinition(row.cardId) && row.count > 0) next[row.cardId] = row.count;
       counts = next;
       notify();
     };
     const readActive = () => {
-      if (!isCurrent()) return;
       active = activeCardsOfRow([...connection.db.myActiveCards.iter()][0]);
       notify();
     };
     const readDrop = () => {
-      if (!isCurrent()) return;
       const [row] = [...connection.db.myCardDrop.iter()];
       const previous = drop;
       drop = row ? { cardIds: row.cardIds.filter(cardId => cardDefinition(cardId)), sequence: row.sequence } : null;
       notify();
       if (hydrated && drop && drop.sequence !== previous?.sequence && drop.cardIds.length) dropListener?.(drop);
     };
-    connection.db.myCards.onInsert(readCards); connection.db.myCards.onUpdate(readCards); connection.db.myCards.onDelete(readCards);
-    connection.db.myActiveCards.onInsert(readActive); connection.db.myActiveCards.onUpdate(readActive); connection.db.myActiveCards.onDelete(readActive);
-    connection.db.myCardDrop.onInsert(readDrop); connection.db.myCardDrop.onUpdate(readDrop); connection.db.myCardDrop.onDelete(readDrop);
-    connection.subscriptionBuilder()
-      .onApplied(() => { readCards(); readActive(); readDrop(); hydrated = true; })
-      .subscribe([tables.myCards, tables.myActiveCards, tables.myCardDrop]);
+    onTableChange([connection.db.myCards], isCurrent, readCards);
+    onTableChange([connection.db.myActiveCards], isCurrent, readActive);
+    onTableChange([connection.db.myCardDrop], isCurrent, readDrop);
+    subscribeTables(connection, "cards", isCurrent, [tables.myCards, tables.myActiveCards, tables.myCardDrop],
+      () => { readCards(); readActive(); readDrop(); hydrated = true; });
   }
 
   async function call(send: (connection: DbConnection) => Promise<unknown>): Promise<CardResult> {

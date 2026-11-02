@@ -2,6 +2,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import { TOOL_IDS, isToolId, normalizeToolLevel, type ToolId } from "../../../shared/tools";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
+import { watchTables } from "./table-watch";
 
 export type ToolResult = { ok: boolean; error?: string };
 type Target = { connection: DbConnection; isCurrent: () => boolean };
@@ -17,14 +18,12 @@ export function createToolRows(notify: () => void) {
     target = { connection, isCurrent };
     levels = worn();
     const read = () => {
-      if (!isCurrent()) return;
       const next = worn();
       for (const row of connection.db.myTools.iter()) if (isToolId(row.tool)) next[row.tool] = normalizeToolLevel(row.level);
       levels = next;
       notify();
     };
-    connection.db.myTools.onInsert(read); connection.db.myTools.onUpdate(read); connection.db.myTools.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myTools]);
+    watchTables(connection, { what: "tools", isCurrent, listen: [connection.db.myTools], queries: [tables.myTools], read });
   }
 
   async function upgradeTool(tool: ToolId, expectedLevel: number): Promise<ToolResult> {

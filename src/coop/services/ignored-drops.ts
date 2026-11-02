@@ -1,5 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 import { reducerErrorMessage } from "./reducer-errors";
+import { onTableChange } from "./table-watch";
 
 export type IgnoredDropsResult = { ok: boolean; error?: string };
 
@@ -28,9 +29,7 @@ export function createIgnoredDrops(notify: () => void) {
       ignored = new Set([...connection.db.myIgnoredDrops.iter()].map(row => row.itemId));
       notify();
     };
-    connection.db.myIgnoredDrops.onInsert(read);
-    connection.db.myIgnoredDrops.onUpdate(read);
-    connection.db.myIgnoredDrops.onDelete(read);
+    onTableChange([connection.db.myIgnoredDrops], isCurrent, read);
     return read;
   }
 

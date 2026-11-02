@@ -1,4 +1,5 @@
 import { tables, type DbConnection } from "../../module_bindings";
+import { watchTables } from "./table-watch";
 export type { OfflineActivity } from "../../../shared/offline-gathering";
 
 export type OfflineProgressSummary = {
@@ -48,7 +49,7 @@ export function watchOfflineProgress(
   const seen = new Set<string>();
   const apply = () => {
     const row = [...connection.db.myOfflineProgress.iter()][0];
-    if (!row || !isCurrent()) return;
+    if (!row) return;
     const gather = [...connection.db.myOfflineGatherChoice.iter()].find(entry => entry.grantedAtMicros === row.grantedAtMicros);
     // World entry can be retried; the same grant must open one summary. Its choice may arrive a moment after it.
     const key = `${row.grantedAtMicros}:${Boolean(gather)}`;
@@ -64,23 +65,19 @@ export function watchOfflineProgress(
       },
     });
   };
-  connection.db.myOfflineProgress.onInsert(apply);
-  connection.db.myOfflineProgress.onUpdate(apply);
-  connection.db.myOfflineGatherChoice.onInsert(apply);
-  connection.db.myOfflineGatherChoice.onUpdate(apply);
-  connection.subscriptionBuilder().onApplied(apply).subscribe([tables.myOfflineProgress, tables.myOfflineGatherChoice]);
+  watchTables(connection, {
+    what: "offline progress", isCurrent, listen: [connection.db.myOfflineProgress, connection.db.myOfflineGatherChoice],
+    changes: ["insert", "update"], queries: [tables.myOfflineProgress, tables.myOfflineGatherChoice], read: apply,
+  });
 }
 
 /**
  * The account's opt-out. A missing row means on, which is the default and what
  * almost every account has, so no row needs adding.
  */
-export function watchOfflineProgressPreference(connection: DbConnection, present: (enabled: boolean) => void) {
+export function watchOfflineProgressPreference(connection: DbConnection, isCurrent: () => boolean, present: (enabled: boolean) => void) {
   const read = () => present([...connection.db.myOfflinePreference.iter()][0]?.enabled ?? true);
-  connection.db.myOfflinePreference.onInsert(read);
-  connection.db.myOfflinePreference.onUpdate(read);
-  connection.db.myOfflinePreference.onDelete(read);
-  connection.subscriptionBuilder().onApplied(read).subscribe([tables.myOfflinePreference]);
+  watchTables(connection, { what: "offline preference", isCurrent, listen: [connection.db.myOfflinePreference], queries: [tables.myOfflinePreference], read });
 }
 
 /**
@@ -94,8 +91,7 @@ export function createOfflineProgressPreference(connection: () => DbConnection |
   let enabled = true;
   return {
     watch(current: DbConnection, isCurrent: () => boolean) {
-      watchOfflineProgressPreference(current, next => {
-        if (!isCurrent()) return;
+      watchOfflineProgressPreference(current, isCurrent, next => {
         enabled = next;
         notify();
       });
