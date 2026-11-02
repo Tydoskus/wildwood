@@ -178,7 +178,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
         const db = dependencies.connection()?.db;
         const levels: Partial<Record<WeaponSchool, number>> = {};
         if (identity === dependencies.localIdentity()) {
-          for (const row of db?.myWeaponMastery?.iter() ?? []) if (isWeaponSchool(row.school)) levels[row.school] = masteryLevel(row.points);
+          for (const row of db?.playerWeaponMastery?.iter() ?? []) if (row.identity.toHexString() === identity && isWeaponSchool(row.school)) levels[row.school] = masteryLevel(row.points);
         } else {
           for (const row of db?.playerMasteryLevel?.iter() ?? []) if (isWeaponSchool(row.school) && row.identity.toHexString() === identity) levels[row.school] = row.level;
         }

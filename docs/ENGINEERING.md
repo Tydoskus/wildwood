@@ -140,6 +140,18 @@ the next person starts from numbers rather than guesses.
    call count (Home 38, portal 45); fewer calls is still cheaper despite not
    being the main cost driver.
 
+   **Measured 2026-11-01 on a local v2.12 host (kill reports):** a write re-runs
+   only the views whose read set covers the written rows, which for a
+   sender-scoped view is the writer's own. Other players' views were not re-run.
+   Each re-run that changes the view's output cost about 1.4 ms, and that grew
+   with every view materialization the database holds, including those of
+   disconnected accounts. A kill report re-ran `my_reward_kills`,
+   `my_weapon_mastery`, `my_gold` and, on drops, `my_item_collection`: about
+   4.9 of 6.7 ms. With no views subscribed it took 2.2 ms. Those four tables are
+   now public and the client subscribes to its own rows. **Rule:** a table
+   written on a hot path is read through a filtered table subscription, not a
+   per-user view.
+
 What the eye already sheds, for reference: live steering collapses to one packet
 per 30 seconds, the motion-interest row is deleted, detail-frame publishing stops
 re-arming, the remote subscriptions are released, and `set_speed` is held until

@@ -388,7 +388,9 @@ import PlayerDeathFrameRow from "./player_death_frame_table";
 import PlayerFreeRespecRow from "./player_free_respec_table";
 import PlayerGearSlotsRow from "./player_gear_slots_table";
 import PlayerGemDropRow from "./player_gem_drop_table";
+import PlayerGoldRow from "./player_gold_table";
 import PlayerInventoryRow from "./player_inventory_table";
+import PlayerItemCollectionRow from "./player_item_collection_table";
 import PlayerItemDropRow from "./player_item_drop_table";
 import PlayerItemRefineRow from "./player_item_refine_table";
 import PlayerItemUpgradeRow from "./player_item_upgrade_table";
@@ -412,6 +414,8 @@ import PlayerProfileRow from "./player_profile_table";
 import PlayerProfileSnapshotRow from "./player_profile_snapshot_table";
 import PlayerProgressRow from "./player_progress_table";
 import PlayerResearchRow from "./player_research_table";
+import PlayerRewardKillsRow from "./player_reward_kills_table";
+import PlayerWeaponMasteryRow from "./player_weapon_mastery_table";
 import PlayerWideStatsRow from "./player_wide_stats_table";
 import PlayerWoodcuttingLevelRow from "./player_woodcutting_level_table";
 import PlayerWornSkillRow from "./player_worn_skill_table";
@@ -858,6 +862,17 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, PlayerGemDropRow),
+  playerGold: __table({
+    name: 'player_gold',
+    indexes: [
+      { accessor: 'identity', name: 'player_gold_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_gold_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerGoldRow),
   playerInventory: __table({
     name: 'player_inventory',
     indexes: [
@@ -869,6 +884,20 @@ const tablesSchema = __schema({
       { name: 'player_inventory_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerInventoryRow),
+  playerItemCollection: __table({
+    name: 'player_item_collection',
+    indexes: [
+      { accessor: 'identity', name: 'player_item_collection_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'key', name: 'player_item_collection_key_idx_btree', algorithm: 'btree', columns: [
+        'key',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_item_collection_key_key', constraint: 'unique', columns: ['key'] },
+    ],
+  }, PlayerItemCollectionRow),
   playerItemDrop: __table({
     name: 'player_item_drop',
     indexes: [
@@ -1145,6 +1174,31 @@ const tablesSchema = __schema({
       { name: 'player_research_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerResearchRow),
+  playerRewardKills: __table({
+    name: 'player_reward_kills',
+    indexes: [
+      { accessor: 'identity', name: 'player_reward_kills_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_reward_kills_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerRewardKillsRow),
+  playerWeaponMastery: __table({
+    name: 'player_weapon_mastery',
+    indexes: [
+      { accessor: 'identity', name: 'player_weapon_mastery_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'key', name: 'player_weapon_mastery_key_idx_btree', algorithm: 'btree', columns: [
+        'key',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_weapon_mastery_key_key', constraint: 'unique', columns: ['key'] },
+    ],
+  }, PlayerWeaponMasteryRow),
   playerWideStats: __table({
     name: 'player_wide_stats',
     indexes: [

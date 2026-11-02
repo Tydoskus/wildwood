@@ -23,7 +23,7 @@ export function createSoulDimensionRows(connection: () => DbConnection | null, n
       soul = soulRow ? cleanSoulStats(soulRow) : null;
       const [levelRow] = [...current.db.mySoulLevel.iter()];
       level = levelRow ? cleanSoulLevel(levelRow) : null;
-      const [killRow] = [...current.db.myRewardKills.iter()];
+      const killRow = current.db.playerRewardKills.identity.find(me);
       kills = killRow ? {
         damage: Number(killRow.damage), health: Number(killRow.health), armor: Number(killRow.armor),
         regen: Number(killRow.regen), speed: Number(killRow.speed),
@@ -33,10 +33,11 @@ export function createSoulDimensionRows(connection: () => DbConnection | null, n
       notify();
     };
     current.db.mySoulStats.onInsert(read); current.db.mySoulStats.onUpdate(read); current.db.mySoulStats.onDelete(read);
-    current.db.myRewardKills.onInsert(read); current.db.myRewardKills.onUpdate(read); current.db.myRewardKills.onDelete(read);
+    const me = current.identity!;
+    current.db.playerRewardKills.onInsert(read); current.db.playerRewardKills.onUpdate(read); current.db.playerRewardKills.onDelete(read);
     current.db.soulDimensionConfig.onInsert(read); current.db.soulDimensionConfig.onUpdate(read); current.db.soulDimensionConfig.onDelete(read);
     current.db.mySoulLevel.onInsert(read); current.db.mySoulLevel.onUpdate(read); current.db.mySoulLevel.onDelete(read);
-    current.subscriptionBuilder().onApplied(read).subscribe([tables.mySoulStats, tables.myRewardKills, tables.soulDimensionConfig]);
+    current.subscriptionBuilder().onApplied(read).subscribe([tables.mySoulStats, tables.playerRewardKills.where(row => row.identity.eq(me)), tables.soulDimensionConfig]);
     // Its own subscription, so a server without the view yet leaves the others working.
     current.subscriptionBuilder().onApplied(read).onError(() => {}).subscribe([tables.mySoulLevel]);
   }

@@ -923,10 +923,19 @@
       "sequence:u64",
       "droppedAt:timestamp"
     ],
+    "player_gold": [
+      "identity:identity",
+      "gold:u64"
+    ],
     "player_inventory": [
       "identity:identity",
       "inventoryJson:string",
       "cosmeticItemsJson:string"
+    ],
+    "player_item_collection": [
+      "key:string",
+      "identity:identity",
+      "itemId:string"
     ],
     "player_item_drop": [
       "key:string",
@@ -1150,6 +1159,14 @@
       "critCap:u32",
       "inventorySlots:u32"
     ],
+    "player_reward_kills": [
+      "identity:identity",
+      "damage:u64",
+      "health:u64",
+      "armor:u64",
+      "regen:u64",
+      "speed:u64"
+    ],
     "player": [
       "identity:identity",
       "x:f64",
@@ -1180,6 +1197,12 @@
       "vy:f32",
       "simulationTick:u32",
       "motionEpoch:u32"
+    ],
+    "player_weapon_mastery": [
+      "key:string",
+      "identity:identity",
+      "school:string",
+      "points:u64"
     ],
     "player_wide_stats": [
       "identity:identity",

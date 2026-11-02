@@ -13,7 +13,7 @@ import { bootMoveSpeedFactor, canonicalItemId, hasBootStat } from "../../shared/
 import { normalizeRefineLevel } from "../../shared/refine-multiplier";
 
 /** A school's Mastery points, one row per player and school, so a new school needs no new column. */
-export const playerWeaponMastery = table({ name: "player_weapon_mastery", public: false }, {
+export const playerWeaponMastery = table({ name: "player_weapon_mastery", public: true }, {
   key: t.string().primaryKey(),
   identity: t.identity().index("btree"),
   school: t.string(),

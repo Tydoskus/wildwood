@@ -26,7 +26,7 @@ import {
  * - soul_dimension_config is the switch: closed, only the developer can
  *   travel there; open, anyone who has prestiged can.
  */
-export const playerRewardKills = table({ name: "player_reward_kills", public: false }, {
+export const playerRewardKills = table({ name: "player_reward_kills", public: true }, {
   identity: t.identity().primaryKey(),
   damage: t.u64(),
   health: t.u64(),

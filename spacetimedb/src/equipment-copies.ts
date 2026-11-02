@@ -53,7 +53,7 @@ export const playerEquipmentCopy = table({ name: "player_equipment_copy", public
  * Every item a player has ever had drop, for the Gear Collection in the map window: one row per item, kept for
  * good. Gear in the bag counts too, row or not, read on the client.
  */
-export const playerItemCollection = table({ name: "player_item_collection", public: false }, {
+export const playerItemCollection = table({ name: "player_item_collection", public: true }, {
   key: t.string().primaryKey(),
   identity: t.identity().index("btree"),
   itemId: t.string(),

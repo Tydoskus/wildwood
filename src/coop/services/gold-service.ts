@@ -1,6 +1,6 @@
 import { tables, type DbConnection } from "../../module_bindings";
 
-/** This account's gold (my_gold); no row means none. */
+/** This account's gold (player_gold, its own row); no row means none. */
 export function createGoldRows(notify: () => void) {
   let gold = 0n;
 
@@ -9,13 +9,14 @@ export function createGoldRows(notify: () => void) {
     const read = () => {
       if (!isCurrent()) return;
       let next = 0n;
-      for (const row of connection.db.myGold.iter()) next = row.gold;
+      for (const row of connection.db.playerGold.iter()) if (row.identity.isEqual(me)) next = row.gold;
       if (next === gold) return;
       gold = next;
       notify();
     };
-    connection.db.myGold.onInsert(read); connection.db.myGold.onUpdate(read); connection.db.myGold.onDelete(read);
-    connection.subscriptionBuilder().onApplied(read).subscribe([tables.myGold]);
+    const me = connection.identity!;
+    connection.db.playerGold.onInsert(read); connection.db.playerGold.onUpdate(read); connection.db.playerGold.onDelete(read);
+    connection.subscriptionBuilder().onApplied(read).subscribe([tables.playerGold.where(row => row.identity.eq(me))]);
   }
 
   return {

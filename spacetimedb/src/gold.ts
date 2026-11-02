@@ -11,7 +11,7 @@ import { guildHallBonusFor } from "./guild-hall-bonus";
 import type { GuildHallPart } from "../../shared/guild-hall";
 
 /** Each player's gold (shared/gold.ts). Private; the player reads their own through my_gold. */
-export const playerGold = table({ name: "player_gold", public: false }, {
+export const playerGold = table({ name: "player_gold", public: true }, {
   identity: t.identity().primaryKey(),
   gold: t.u64(),
 });
