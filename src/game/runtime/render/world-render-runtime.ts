@@ -10,6 +10,7 @@ import { toolSprite } from "../town/tool-sprites";
 import { woodcuttingScene } from "../town/woodcutting-scene";
 import { fishingScene } from "../town/fishing-scene";
 import { createFishingRodSprite, FISHING_ROD, FISHING_ROD_OVERRIDES } from "../town/fishing-rod-sprite";
+import { createFishingLine } from "../town/fishing-line";
 import { createFishingSpotRenderer } from "../town/fishing-spot-renderer";
 import { createWoodTreeRenderer } from "../town/wood-tree-renderer";
 import { createStarterChestRenderer } from "./starter-chest-renderer";
@@ -302,6 +303,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     drawShadow: drawEntityShadow, hpLossFlashDuration: options.bossHpLossFlashDuration, spiderWebRange: options.spiderWebRange,
     showBossHitboxes: options.showBossHitboxes,
   });
+  const fishingLine = createFishingLine(options.camera);
   const actor = createActorRenderer({
     ctx: options.ctx,
     camera: options.camera,
@@ -311,18 +313,24 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     nowMs: options.nowMs,
     localDeath: options.localDeath,
     remoteDeath: options.remoteDeath,
-    drawPlayerAppearance: (rendered, alpha) => drawStartingPlayer(options.ctx, options.playerAppearanceAssets, {
-      ...rendered,
-      // Mining in the Copper Hills: the Smith's pickaxe in hand, swinging on the mining's own clock.
-      ...(rendered.rightHandItem === MINING_PICKAXE ? { throwClock: miningScene.swingClock, presentationOverrides: PICKAXE_OVERRIDES } : {}),
-      // Chopping in Timberwood: the hatchet's axe, held at its own grip (hatchet-sprite.ts).
-      ...(rendered.rightHandItem === WOODCUTTING_HATCHET ? { throwClock: woodcuttingScene.swingClock, presentationOverrides: HATCHET_OVERRIDES } : {}),
-      // Fishing in the Town's river: the rod held still over the water.
-      ...(rendered.rightHandItem === FISHING_ROD ? { throwClock: 0, presentationOverrides: FISHING_ROD_OVERRIDES } : {}),
-      gameTime: rendered.gameTime ?? options.gameTime(),
-      skinTone: rendered.skinTone ?? options.skinTone(rendered.identity ?? rendered.id) ?? DEFAULT_SKIN_TONE,
-      alpha,
-    }),
+    drawPlayerAppearance: (rendered, alpha) => {
+      // While fishing, the line runs from the rod's tip, found as the hand draws it, to the spot.
+      const fishing = rendered.rightHandItem === FISHING_ROD && typeof options.ctx.getTransform === "function";
+      const world = fishing ? options.ctx.getTransform() : null;
+      drawStartingPlayer(options.ctx, options.playerAppearanceAssets, {
+        ...rendered,
+        // Mining in the Copper Hills: the Smith's pickaxe in hand, swinging on the mining's own clock.
+        ...(rendered.rightHandItem === MINING_PICKAXE ? { throwClock: miningScene.swingClock, presentationOverrides: PICKAXE_OVERRIDES } : {}),
+        // Chopping in Timberwood: the hatchet's axe, held at its own grip (hatchet-sprite.ts).
+        ...(rendered.rightHandItem === WOODCUTTING_HATCHET ? { throwClock: woodcuttingScene.swingClock, presentationOverrides: HATCHET_OVERRIDES } : {}),
+        // Fishing in the Town's river: the rod held still over the water.
+        ...(rendered.rightHandItem === FISHING_ROD ? { throwClock: 0, presentationOverrides: FISHING_ROD_OVERRIDES, ...(fishing ? { onLayerBounds: fishingLine.layer } : {}) } : {}),
+        gameTime: rendered.gameTime ?? options.gameTime(),
+        skinTone: rendered.skinTone ?? options.skinTone(rendered.identity ?? rendered.id) ?? DEFAULT_SKIN_TONE,
+        alpha,
+      });
+      if (world) fishingLine.draw(options.ctx, world, options.gameTime(), alpha);
+    },
     localHeadItem: () => options.equippedItems().head,
     localChestItem: () => options.equippedItems().chest,
     localFeetItem: () => options.equippedItems().feet,

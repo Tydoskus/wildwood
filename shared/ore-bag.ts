@@ -55,7 +55,7 @@ export function bagFullForOres(needed: readonly OreId[]) {
 export function oreDescription(oreId: OreId) {
   if (isArrowId(oreId)) return { use: `Nock them for a bow: each shot spends one. ${ARROW_KINDS[oreId].text}.`, from: "Crafted at the Smith from a log and an ore." };
   const fish = fishById(oreId);
-  if (fish) return { use: "A catch for your collection. It does nothing else.", from: `Caught at the fishing spots in the Town's river, from Fishing Lv ${fish.level}.` };
+  if (fish) return { use: "", from: `Caught in the Town's river from Fishing Lv ${fish.level}.` };
   if (oreId === "starshard") return { use: "Refining from ★11 up takes one a try, with the gear's ore.", from: "Every Mysterious rock in the Copper Hills holds one; the rocks are rare." };
   if (oreId === ARCANE_CRYSTAL) return { use: "Crafting staffs and Magic armor takes it.", from: "Mined from crystal rocks in the Copper Hills, east of Town." };
   const tree = WOOD_TREE_KINDS.find(kind => WOOD_TREES[kind].log === oreId);

@@ -361,7 +361,7 @@ export function createItemInspectionController(elements: ItemInspectionElements)
     context.textContent = `${request.count.toLocaleString()} in your bag`;
     const { use, from } = oreDescription(request.oreId);
     const description = document.createElement("p");
-    description.textContent = `${use} ${from}`;
+    description.textContent = [use, from].filter(Boolean).join(" ");
     copy.append(context, description);
     const actionRow = renderActions(request.actions);
     const summary = document.createElement("div");
