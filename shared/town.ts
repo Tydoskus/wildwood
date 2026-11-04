@@ -57,22 +57,36 @@ export const TOWN_EXCHANGE = Object.freeze({
 });
 export const inTownExchange = (x: number, y: number, margin = 0) =>
   x > TOWN_EXCHANGE.left - margin && x < TOWN_EXCHANGE.right + margin && y > TOWN_EXCHANGE.top - margin && y < TOWN_EXCHANGE.bottom + margin;
-/** The market square itself, bare earth as the village's roads are, near the top of its cell. */
+/** The clerk's corner of the square, at its north edge: his booth is placed from it. */
 export const TOWN_EXCHANGE_PLAZA = Object.freeze({ left: TOWN_CENTER.x - 500, right: TOWN_CENTER.x + 360, top: TOWN_CENTER.y + 2_450, bottom: TOWN_CENTER.y + 3_060 });
-/** The square's middle, where the chrysanthemum bed stands. */
-export const TOWN_EXCHANGE_CENTER = Object.freeze({
-  x: (TOWN_EXCHANGE_PLAZA.left + TOWN_EXCHANGE_PLAZA.right) / 2, y: (TOWN_EXCHANGE_PLAZA.top + TOWN_EXCHANGE_PLAZA.bottom) / 2 + 40,
-});
 /**
- * The road down to the square, rectangles of road as a map's paths are: a branch east off the village's own bottom
- * road below the river, and the way south into the square. The branch starts inside that road's dirt (its
- * baked edge is at x -558), and only what lies east of TOWN_EXCHANGE_ROAD_JOIN is painted, so the two roads meet
- * as one with no edge between them.
+ * Where the market stands, round its round plaza: the hall to the north, the plaza, the yards along its paths
+ * west and east, and the avenue south. The countryside keeps clear of these.
+ */
+export const TOWN_EXCHANGE_GROUNDS = Object.freeze([
+  Object.freeze({ x: TOWN_CENTER.x - 1_250, y: TOWN_CENTER.y + 2_200, w: 2_400, h: 1_620 }),
+  Object.freeze({ x: TOWN_CENTER.x - 2_250, y: TOWN_CENTER.y + 2_480, w: 1_000, h: 1_000 }),
+  Object.freeze({ x: TOWN_CENTER.x + 1_150, y: TOWN_CENTER.y + 2_480, w: 700, h: 1_000 }),
+]);
+/**
+ * The plaza's middle, where its fountain stands, in line with the clerk; how far the plaza reaches across, and down
+ * as a share of that: it is drawn as round things on the ground are, half as deep as wide.
+ */
+export const TOWN_EXCHANGE_CENTER = Object.freeze({ x: TOWN_CENTER.x - 70, y: TOWN_CENTER.y + 3_030 });
+export const TOWN_EXCHANGE_PLAZA_RADIUS = 600;
+export const TOWN_EXCHANGE_PLAZA_DEPTH = .5;
+/**
+ * The road down to the market, rectangles of road as a map's paths are: a branch east off the village's own bottom
+ * road below the river, south past the Soul portal, a jog west round the hall's wing, and south into the plaza. The
+ * branch starts inside that road's dirt (its baked edge is at x -558), and only what lies east of
+ * TOWN_EXCHANGE_ROAD_JOIN is painted down by the village, so the two roads meet as one with no edge between them.
  */
 export const TOWN_EXCHANGE_ROAD_JOIN = TOWN_CENTER.x - 561;
 export const TOWN_EXCHANGE_ROAD = Object.freeze([
   Object.freeze({ x: TOWN_CENTER.x - 650, y: TOWN_CENTER.y + 1_720, w: 330, h: 96 }),
-  Object.freeze({ x: TOWN_CENTER.x - 416, y: TOWN_CENTER.y + 1_720, w: 96, h: 760 }),
+  Object.freeze({ x: TOWN_CENTER.x - 416, y: TOWN_CENTER.y + 1_720, w: 96, h: 526 }),
+  Object.freeze({ x: TOWN_CENTER.x - 640, y: TOWN_CENTER.y + 2_150, w: 320, h: 96 }),
+  Object.freeze({ x: TOWN_CENTER.x - 640, y: TOWN_CENTER.y + 2_150, w: 96, h: 740 }),
 ]);
 /** Where the Trade Chrysanthemum's clerk stands, in front of his booth on the square's north side: his feet. */
 export const TOWN_EXCHANGE_POSITION = Object.freeze({ x: TOWN_EXCHANGE_PLAZA.left + 430, y: TOWN_EXCHANGE_PLAZA.top + 190 });
@@ -81,11 +95,10 @@ export const TOWN_EXCHANGE_REACH = 60;
 export const TOWN_EXCHANGE_SERVER_REACH = 100;
 /** The sign to the square, where the branch leaves the village's road, pointing east along it. */
 export const TOWN_EXCHANGE_SIGNPOST_POSITION = Object.freeze({ x: TOWN_CENTER.x - 505, y: TOWN_CENTER.y + 1_690 });
-/** Whether a point is on the square or its road, or within `margin` of them. */
+/** Whether a point is on the market's grounds or its road, or within `margin` of them. */
 export function onTownExchangeGround(x: number, y: number, margin = 0) {
-  const plaza = TOWN_EXCHANGE_PLAZA;
-  if (x > plaza.left - margin && x < plaza.right + margin && y > plaza.top - margin && y < plaza.bottom + margin) return true;
-  return TOWN_EXCHANGE_ROAD.some(road => x > road.x - margin && x < road.x + road.w + margin && y > road.y - margin && y < road.y + road.h + margin);
+  return [...TOWN_EXCHANGE_GROUNDS, ...TOWN_EXCHANGE_ROAD]
+    .some(area => x > area.x - margin && x < area.x + area.w + margin && y > area.y - margin && y < area.y + area.h + margin);
 }
 /** The village's own stone bridge west of the square: the woodcutters' road leaves the village over it. Its middle. */
 export const TOWN_WEST_BRIDGE = Object.freeze({ x: TOWN_CENTER.x - 1_912, y: TOWN_CENTER.y + 226 });
@@ -364,7 +377,7 @@ export const TOWN_HILLS_BORDER = 330;
 export const TOWN_HILLS_STONE_FREE = 1_200;
 /** How far round Timberwood its own ground reaches (town-world.ts lays its cover): the countryside's props keep out of it. */
 export const TOWN_GROVE_BORDER = 150;
-/** How far round the market square and its road the countryside's standing props keep, so nothing hides them. */
+/** How far round the market's grounds and its road the countryside's standing props keep, so nothing hides them. */
 const TOWN_EXCHANGE_CLEAR = 90;
 /** Where the portals stand: the countryside keeps clear of them. */
 const PORTAL_CLEARINGS = [TOWN_TRAVEL_PORTAL, TOWN_SOUL_PORTAL];

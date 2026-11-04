@@ -107,6 +107,7 @@ export type WorldRenderRuntimeOptions = {
     /** The Soul Dimension's one atlas (town-village.ts). */
     soulAtlas?: HTMLImageElement;
     townVillageProps?: HTMLImageElement;
+    townMarketSprites?: HTMLImageElement;
     townVillageGround?: HTMLImageElement;
     soulInteriors?: HTMLImageElement;
     soulWater?: HTMLImageElement;
@@ -423,7 +424,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     const drawSoulProp = createSoulPropRenderer({ ctx: options.ctx, camera: options.camera, atlas: () => options.assets.soulAtlas,
       villageProps: () => options.assets.townVillageProps, devicePixelRatio: options.devicePixelRatio, time: options.gameTime,
       drawsOnCanvas: () => !worldSprites?.recording(),
-      hallProps: () => options.assets.guildHallProps, drawCrest: createGuildCrestDrawer(() => options.assets.guildEmblemSheets) });
+      hallProps: () => options.assets.guildHallProps, marketProps: () => options.assets.townMarketSprites,
+      drawCrest: createGuildCrestDrawer(() => options.assets.guildEmblemSheets) });
     hallGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.guildHallGround, area: GUILD_HALL_GROUND,
       interiors: () => undefined, drawRooms: createGuildHallRoomsDrawer({ ctx: options.ctx, camera: options.camera, rooms: () => options.assets.guildHallRooms,
         devicePixelRatio: options.devicePixelRatio }),

@@ -1,3 +1,4 @@
+import { marketFrame } from "../town/market-sheet";
 import { decodedImage } from "../render/decoded-image";
 import { markCanvasChanged } from "../render/frozen-canvas";
 import { townInteriorArea as soulInteriorArea, TOWN_INTERIOR_MARGIN as SOUL_INTERIOR_MARGIN } from "../../../../shared/town";
@@ -8,7 +9,6 @@ import type { Camera } from "../render/camera";
 import { snapWorldRenderCoordinate } from "../render/render-space";
 import { createShrunkImages, deviceScale } from "../render/shrunk-image";
 import { createTownSignpostSprites, drawTownSignpost, TOWN_SIGNPOST_EXTENT, TOWN_SIGNPOST_EXTENT_MIRRORED } from "../town/town-signpost";
-import { drawExchangeProp, EXCHANGE_PROP_EXTENTS } from "../town/exchange-props";
 
 export type SoulPropDecor = Extract<WorldDecor, { type: "soulProp" }>;
 export const SOUL_ATLAS_SOURCE = "assets/wildstat/soul-dimension/soul-atlas.webp";
@@ -19,8 +19,9 @@ const villageFrames = new Map<string, Frame>(Object.entries(TOWN_VILLAGE_SCENE.f
   .map(([id, [x, y, w, h, ax, ay]]) => [id, { x, y, w, h, ax, ay }]));
 
 /** A prop's frame (the village's sheet, a guild hall's, or the wilds' atlas), or null for one none has. */
-export function soulFrame(name: string, sheet?: "village" | "hall"): Frame | null {
+export function soulFrame(name: string, sheet?: "village" | "hall" | "market"): Frame | null {
   if (sheet === "village") return villageFrames.get(name) ?? null;
+  if (sheet === "market") return marketFrame(name);
   if (sheet === "hall") return guildHallFrame(name);
   return (SOUL_ATLAS.frames as Record<string, Frame | undefined>)[name] ?? null;
 }
@@ -36,7 +37,6 @@ export function animationFrame(anim: NonNullable<SoulPropDecor["anim"]>, seconds
 /** How far above and to each side of its depth point a prop reaches, for culling. */
 export function soulPropExtent(item: SoulPropDecor) {
   if (item.signpost) return item.flip ? TOWN_SIGNPOST_EXTENT_MIRRORED : TOWN_SIGNPOST_EXTENT;
-  if (item.painted) return EXCHANGE_PROP_EXTENTS[item.painted];
   if (item.crest) { const half = item.crest / 2, dy = item.dy ?? 0; return { left: half, right: half, up: Math.max(0, half - dy), down: Math.max(0, half + dy) }; }
   const frame = soulFrame(item.frame, item.sheet);
   if (!frame) return { left: 0, right: 0, up: 0, down: 0 };
@@ -52,6 +52,8 @@ export function createSoulPropRenderer(options: {
   villageProps: () => HTMLImageElement | undefined;
   /** A guild hall's props. */
   hallProps?: () => HTMLImageElement | undefined;
+  /** The Trade Chrysanthemum's sheet (market-sheet.ts). */
+  marketProps?: () => HTMLImageElement | undefined;
   /** Draws the guild's badge, `size` square, centred at a point (screen units). */
   drawCrest?: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => void;
   devicePixelRatio: () => number;
@@ -76,12 +78,6 @@ export function createSoulPropRenderer(options: {
         snapWorldRenderCoordinate(item.y + (item.dy ?? 0) - camera.y, camera.zoom, options.devicePixelRatio()), item.crest);
       return;
     }
-    if (item.painted) {
-      const { camera } = options;
-      drawExchangeProp(target ?? options.ctx, item.painted, snapWorldRenderCoordinate(item.x - camera.x, camera.zoom, options.devicePixelRatio()),
-        snapWorldRenderCoordinate(item.y - camera.y, camera.zoom, options.devicePixelRatio()));
-      return;
-    }
     if (item.signpost) {
       const { camera } = options;
       // Live draws copy a sprite of the sign; baking into tiles draws it.
@@ -89,7 +85,8 @@ export function createSoulPropRenderer(options: {
         snapWorldRenderCoordinate(item.y - camera.y, camera.zoom, options.devicePixelRatio()), item.signpost, item.flip);
       return;
     }
-    const image = item.sheet === "village" ? options.villageProps() : item.sheet === "hall" ? options.hallProps?.() : options.atlas();
+    const image = item.sheet === "village" ? options.villageProps() : item.sheet === "hall" ? options.hallProps?.()
+      : item.sheet === "market" ? options.marketProps?.() : options.atlas();
     const open = item.sheet === "hall" ? guildHallDoorState.open : SOUL_DOORS_OPEN.has(item.door ?? -1);
     const name = item.anim ? String(animationFrame(item.anim, options.time())) : item.openFrame && open ? item.openFrame : item.frame;
     const frame = soulFrame(name, item.sheet);

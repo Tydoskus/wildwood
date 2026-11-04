@@ -7,6 +7,8 @@ export const RELEASE_NOTES: Record<string, string[]> = {
     "Stronger maps drop more gold",
     "Balancing: enemies from the Desert on are tougher, and the Snowlands and Lava Lake bosses hit harder",
     "Fishing: tap a fishing spot in the Town's river to fish it; 16 fish to collect, Fishing levels 1 to 99",
+    "The Trade Chrysanthemum is rebuilt as a grand market: a hall, a fountain plaza, and streets for timber, fish, ores and gear",
+    "The village's ground is drawn at twice the detail",
   ],
   "0.917.49": [
     "Upgrades show their power jump: the number counts up and the gain pops above it",

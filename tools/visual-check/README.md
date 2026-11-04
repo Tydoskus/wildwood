@@ -26,7 +26,9 @@ Picked by URL hash in `visual-check.html`:
 | `fishing` | A fishing spot on the river off the bank, the player on the bank fishing it with the rod out, and a catch's splash |
 | `world` | Every campaign map, the first Endless map, the Soul Dimension and a guild hall where a player arrives, drawn by the game's own world renderer at the phone framing (ground, roads, decor, portals and their labels, camps, the minimap, the Night Forest's dark); players at a gate and at a boss for depth order; the Forest and the Night Forest at the desktop framing |
 | `town` | The Town at the phone framing: the arrival, the same with attack-range research (the camera must not move), the player's zoom at 50% and 150%, the river at the west bridge, Ox, the countryside's baked ground; and the desktop framing |
-| `exchange` | The Trade Chrysanthemum south of the village: the road from the village's south edge down to its square, the clerk at his booth, the square and the countryside beside it at the phone framing, and the square at the desktop framing |
+| `exchange` | The Trade Chrysanthemum: the road from the village and its sign, the gate, the clerk at the hall's steps, the fountain and its pavilions, the timber street, the avenue south, the countryside beside it, and the whole market at the desktop framing |
+| `market-sprites` | Every sprite of the market's baked sheet (scripts/art/market-sprites.ts) at 1x and 2x, extents dashed and foot marked, with a check that nothing paints past its extents |
+| `market-bake` | Draws the market's sprites for scripts/art/bake-market-sprites.mjs to pack; not a picture to check |
 | `guild-battlefield` | A guild battle replay's canvas: five a side walking in, at the first blow and midway; twenty a side midway, portrait and landscape |
 | `icons` | The inventory window over a full bag (every item, a few grades again at ★10 / ★20), at 390 and 1280 wide |
 | `hud` | The in-game HUD: player card, toolbar icons, gem wallet, minimap |

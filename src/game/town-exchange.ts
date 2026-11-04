@@ -1,89 +1,148 @@
-import { TOWN_EXCHANGE_CENTER, TOWN_EXCHANGE_PLAZA, TOWN_EXCHANGE_POSITION, TOWN_EXCHANGE_ROAD, TOWN_EXCHANGE_SIGNPOST_POSITION } from "../../shared/town";
+import { TOWN_CENTER, TOWN_EXCHANGE_CENTER, TOWN_EXCHANGE_POSITION, TOWN_EXCHANGE_ROAD, TOWN_EXCHANGE_SIGNPOST_POSITION } from "../../shared/town";
+import { MARKET_SPRITE_SCALE } from "./runtime/town/market-sheet";
 import type { SoulSolid } from "./town-village";
 import type { WorldDecor } from "./world";
 
 /**
- * The Trade Chrysanthemum's square south of the village (shared/town.ts places it): the clerk's booth of three
- * market stalls on its north side, a chrysanthemum bed in the middle, more stalls down either side, lamp posts,
- * banners at the road's mouth, and crates, barrels and a cart round the edges. The village's own props, its stalls
- * set up as its market's are; the bed and the banners are painted (exchange-props.ts).
+ * The Trade Chrysanthemum south of the village (shared/town.ts places it), its pieces from its own baked sheet
+ * (market-sheet.ts):
+ *
+ * - the clerk's hall to the north, its steps down to the round plaza, and a gate over the road where it comes in;
+ * - the plaza: a fountain in the middle, four curved pavilions round it (weapons and armour, crystals and arrows,
+ *   ores, fish and timber), stone lanterns round it;
+ * - the yards along the paths west and east: timber and fish west towards Timberwood, ores and crystal east
+ *   towards the Copper Hills, each ending at a warehouse; the gear sellers' corners north of them, the fletchers'
+ *   south-west;
+ * - an avenue of banners and flower beds south to a stone lion.
  */
 export const TOWN_EXCHANGE_LABEL = "Trade Chrysanthemum";
 
-type Piece = readonly [frame: string, x: number, y: number, dy?: number];
-const { left: L, top: T } = TOWN_EXCHANGE_PLAZA;
-const MIDDLE = TOWN_EXCHANGE_POSITION.x;
+/** A point measured from the village's fountain, as the grounds are laid out. */
+const at = (dx: number, dy: number) => ({ x: TOWN_CENTER.x + dx, y: TOWN_CENTER.y + dy });
+const CX = TOWN_EXCHANGE_CENTER.x, CY = TOWN_EXCHANGE_CENTER.y;
+const plaza = (dx: number, dy: number) => ({ x: CX + dx, y: CY + dy });
 
-/** A market stall as the village sets its own up: shadow, stall and awning at one depth. */
-const stall = (body: string, awning: string, x: number, y: number): Piece[] =>
-  [["160", x, y, 5], [body, x, y, 20], [awning, x, y, awning === "166" || awning === "187" ? -30 : -33]];
-/** A stall's collider: its counter, as the village's are. */
-const stallSolid = (x: number, y: number) => box(x - 45, y - 24, x + 45, y + 13);
-const box = (left: number, top: number, right: number, bottom: number): SoulSolid =>
-  ({ xs: [left, right, right, left], ys: [top, top, bottom, bottom], left, top, right, bottom });
+type Piece = { frame: string; x: number; y: number; flip?: boolean; s?: number };
+/** Its collider's half-width and how far it reaches up from the foot (0 for none). */
+type Solid = { half: number; up: number };
 
-/** The clerk's booth, the stalls down either side, and where each stands. */
-const BOOTH_Y = T + 140;
-const STALLS: readonly (readonly [body: string, awning: string, x: number, y: number])[] = [
-  ["162", "165", MIDDLE - 98, BOOTH_Y], ["164", "166", MIDDLE, BOOTH_Y], ["163", "165", MIDDLE + 98, BOOTH_Y],
-  ["161", "186", L + 92, T + 300], ["163", "166", L + 92, T + 475],
-  ["162", "166", L + 768, T + 300], ["161", "186", L + 768, T + 475],
-];
-/** Lamp posts: either side of the booth, and round the bed. */
-const LAMPS: readonly (readonly [number, number])[] = [
-  [MIDDLE - 172, BOOTH_Y + 14], [MIDDLE + 172, BOOTH_Y + 14],
-  [TOWN_EXCHANGE_CENTER.x - 150, TOWN_EXCHANGE_CENTER.y - 75], [TOWN_EXCHANGE_CENTER.x + 150, TOWN_EXCHANGE_CENTER.y - 75],
-  [TOWN_EXCHANGE_CENTER.x - 150, TOWN_EXCHANGE_CENTER.y + 85], [TOWN_EXCHANGE_CENTER.x + 150, TOWN_EXCHANGE_CENTER.y + 85],
-];
-/** Goods stacked about: crates, barrels, sacks, a cart and hay, each with the half-width of its collider (0 for none). */
-const GOODS: readonly (readonly [frame: string, x: number, y: number, half: number])[] = [
-  // Beside the booth.
-  ["185", MIDDLE - 214, BOOTH_Y - 4, 17], ["263", MIDDLE - 206, BOOTH_Y + 22, 0],
-  ["193", MIDDLE + 212, BOOTH_Y - 6, 17], ["202", MIDDLE + 240, BOOTH_Y + 4, 15], ["231", MIDDLE + 222, BOOTH_Y + 26, 20],
-  // By the side stalls.
-  ["172", L + 162, T + 308, 16], ["261", L + 160, T + 488, 0], ["246", L + 26, T + 488, 20],
-  ["185", L + 698, T + 310, 17], ["229", L + 836, T + 312, 20], ["49", L + 700, T + 490, 0],
-  // The south corners: a cart and its load, hay and firewood.
-  ["175", L + 104, T + 580, 38], ["177", L + 166, T + 576, 17], ["265", L + 212, T + 584, 28],
-  ["126", L + 750, T + 582, 26], ["276", L + 806, T + 580, 0], ["193", L + 696, T + 578, 17],
-];
-/** The bed's foot, its front edge: everyone north of it is drawn behind its flowers. */
-export const EXCHANGE_BED = Object.freeze({ x: TOWN_EXCHANGE_CENTER.x, y: TOWN_EXCHANGE_CENTER.y + 48, rx: 92, ry: 50 });
-/** Banners either side of where the road comes in, and at the square's south corners. */
-const ROAD_MOUTH = TOWN_EXCHANGE_ROAD[TOWN_EXCHANGE_ROAD.length - 1];
-const BANNERS: readonly (readonly [number, number])[] = [
-  [ROAD_MOUTH.x - 26, T + 30], [ROAD_MOUTH.x + ROAD_MOUTH.w + 26, T + 30], [L + 26, T + 600], [TOWN_EXCHANGE_PLAZA.right - 26, T + 600],
+/** The hall stands just behind the clerk; the road comes in under the gate down its last straight. */
+const HALL = { x: TOWN_EXCHANGE_POSITION.x, y: TOWN_EXCHANGE_POSITION.y - 40 };
+const ROAD_IN = TOWN_EXCHANGE_ROAD[TOWN_EXCHANGE_ROAD.length - 1];
+const GATE = { x: ROAD_IN.x + ROAD_IN.w / 2, y: HALL.y - 140 };
+/** The fountain's foot, the front edge of its basin, whose middle is the plaza's. */
+const FOUNTAIN = { x: CX, y: CY + 90, rx: 180, ry: 90 };
+
+/** The ring pieces' size here, and where one stands: its foot, given at the sheet's size from the fountain. */
+const RING_SCALE = 1.3;
+const onRing = (dx: number, dy: number) => plaza(dx * RING_SCALE, dy * RING_SCALE);
+
+/** Where each yard's stalls stand: the row north of its path, and the row south. */
+const PATH_NORTH = CY - 100, PATH_SOUTH = CY + 230;
+/** Where a stall or a prop of a yard stands along its row. */
+const row = (dx: number, y: number) => ({ x: TOWN_CENTER.x + dx, y });
+
+const PIECES: readonly (readonly [Piece, Solid])[] = [
+  [{ frame: "hall", ...HALL }, { half: 395, up: 330 }],
+  [{ frame: "gate", ...GATE }, { half: 0, up: 0 }],
+  [{ frame: "fountain", ...FOUNTAIN }, { half: 0, up: 0 }],
+  // The pavilions are drawn as parts of rings round the fountain, here a third larger: each
+  // foot sits so its ring's middle is the fountain's (scripts/art/market-plaza.ts).
+  [{ frame: "pavilion-nw", ...onRing(-217, -83), s: RING_SCALE }, { half: 140, up: 60 }],
+  [{ frame: "pavilion-ne", ...onRing(217, -83), s: RING_SCALE }, { half: 140, up: 60 }],
+  [{ frame: "pavilion-sw", ...onRing(-217, 134), s: RING_SCALE }, { half: 140, up: 60 }],
+  [{ frame: "pavilion-se", ...onRing(217, 134), s: RING_SCALE }, { half: 140, up: 60 }],
+  // Stone lanterns round the plaza between the ways out, and either side of where the paths leave it.
+  ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => [{ frame: "stone-lantern", ...plaza(sx * 470, sy * 250) }, { half: 12, up: 10 }] as const),
+  ...[-1, 1].flatMap(side => [
+    [{ frame: "stone-lantern", ...plaza(side * 660, -100) }, { half: 12, up: 10 }],
+    [{ frame: "stone-lantern", ...plaza(side * 660, 110) }, { half: 12, up: 10 }],
+  ] as const),
+  // The avenue south: banners in pairs, flower beds and the lion.
+  ...[360, 460, 560].flatMap(dy => [
+    [{ frame: "banner", ...plaza(-130, dy) }, { half: 7, up: 7 }], [{ frame: "banner", ...plaza(130, dy) }, { half: 7, up: 7 }],
+  ] as const),
+  [{ frame: "flower-bed", ...plaza(-230, 650) }, { half: 64, up: 30 }],
+  [{ frame: "flower-bed", ...plaza(230, 650) }, { half: 64, up: 30 }],
+  [{ frame: "lion-statue", ...plaza(0, 700) }, { half: 36, up: 20 }],
+  // West: timber and fish along the path, the warehouse at its end.
+  [{ frame: "sign-timber", ...row(-800, PATH_NORTH) }, { half: 8, up: 6 }],
+  [{ frame: "stall-timber", ...row(-980, PATH_NORTH) }, { half: 56, up: 30 }],
+  [{ frame: "lumber-stack", ...row(-1_180, PATH_NORTH) }, { half: 64, up: 30 }],
+  [{ frame: "stall-timber", ...row(-1_390, PATH_NORTH) }, { half: 56, up: 30 }],
+  [{ frame: "lumber-stack", ...row(-1_590, PATH_NORTH) }, { half: 64, up: 30 }],
+  [{ frame: "warehouse", ...row(-1_960, PATH_NORTH + 10) }, { half: 160, up: 160 }],
+  [{ frame: "sign-fish", ...row(-800, PATH_SOUTH) }, { half: 8, up: 6 }],
+  [{ frame: "stall-fish", ...row(-980, PATH_SOUTH) }, { half: 56, up: 30 }],
+  [{ frame: "fish-tub", ...row(-1_150, PATH_SOUTH) }, { half: 30, up: 20 }],
+  [{ frame: "stall-fish", ...row(-1_330, PATH_SOUTH) }, { half: 56, up: 30 }],
+  [{ frame: "fish-tub", ...row(-1_500, PATH_SOUTH) }, { half: 30, up: 20 }],
+  // East: ores and crystal, the warehouse at its end.
+  [{ frame: "sign-ore", ...row(660, PATH_NORTH) }, { half: 8, up: 6 }],
+  [{ frame: "stall-ore", ...row(840, PATH_NORTH) }, { half: 56, up: 30 }],
+  [{ frame: "ore-cart", ...row(1_030, PATH_NORTH) }, { half: 50, up: 26 }],
+  [{ frame: "stall-crystal", ...row(1_220, PATH_NORTH) }, { half: 56, up: 30 }],
+  [{ frame: "warehouse", ...row(1_560, PATH_NORTH + 10) }, { half: 160, up: 160 }],
+  [{ frame: "sign-ore", ...row(660, PATH_SOUTH) }, { half: 8, up: 6 }],
+  [{ frame: "stall-crystal", ...row(840, PATH_SOUTH) }, { half: 56, up: 30 }],
+  [{ frame: "ore-cart", ...row(1_030, PATH_SOUTH) }, { half: 50, up: 26 }],
+  [{ frame: "stall-ore", ...row(1_220, PATH_SOUTH) }, { half: 56, up: 30 }],
+  [{ frame: "ore-cart", ...row(1_410, PATH_SOUTH) }, { half: 50, up: 26 }],
+  // The gear sellers' corners either side of the hall, and the fletchers' south-west.
+  [{ frame: "sign-weapons", ...at(-820, 2_590) }, { half: 8, up: 6 }],
+  [{ frame: "stall-weapons", ...at(-1_000, 2_600) }, { half: 56, up: 30 }],
+  [{ frame: "weapon-rack", ...at(-1_180, 2_610) }, { half: 46, up: 20 }],
+  [{ frame: "stall-weapons", ...at(-1_360, 2_600) }, { half: 56, up: 30 }],
+  [{ frame: "sign-armor", ...at(680, 2_590) }, { half: 8, up: 6 }],
+  [{ frame: "stall-armor", ...at(860, 2_600) }, { half: 56, up: 30 }],
+  [{ frame: "armor-stand", ...at(1_040, 2_610) }, { half: 26, up: 20 }],
+  [{ frame: "stall-armor", ...at(1_220, 2_600) }, { half: 56, up: 30 }],
+  [{ frame: "sign-arrows", ...at(-820, 3_490) }, { half: 8, up: 6 }],
+  [{ frame: "stall-arrows", ...at(-1_000, 3_510) }, { half: 56, up: 30 }],
+  [{ frame: "arrow-barrel", ...at(-1_170, 3_520) }, { half: 22, up: 16 }],
+  [{ frame: "stall-arrows", ...at(-1_340, 3_510) }, { half: 56, up: 30 }],
 ];
 
-const prop = ([frame, x, y, dy = 0]: Piece): WorldDecor => ({ type: "soulProp", sheet: "village", frame, s: 1, x, y, dy, shadow: frame === "160" });
+/** The countryside's own trees round the market, and benches on the grass by the plaza. */
+const TREES: readonly (readonly [frame: string, dx: number, dy: number])[] = [
+  ["4", -1_550, 2_420], ["6", 1_450, 2_420], ["6", -2_150, 2_620], ["4", 1_780, 2_640], ["4", -1_250, 3_780], ["6", 1_000, 3_700],
+  ["6", -430, 3_740], ["4", 290, 3_740], ["4", 700, 3_550], ["6", -2_100, 3_510],
+];
+const BENCHES: readonly (readonly [frame: string, dx: number, dy: number])[] = [
+  ["41", -620, 3_460], ["252", 480, 3_460], ["41", 860, 3_560],
+];
+
+const sprite = ({ frame, x, y, flip, s = 1 }: Piece): WorldDecor => ({ type: "soulProp", sheet: "market", frame, s: s * MARKET_SPRITE_SCALE, x, y, flip });
+const village = (frame: string, x: number, y: number, s = 1): WorldDecor => ({ type: "soulProp", sheet: "village", frame, s, x, y });
 
 export const TOWN_EXCHANGE_DECOR: readonly WorldDecor[] = [
-  ...STALLS.flatMap(([body, awning, x, y]) => stall(body, awning, x, y)).map(prop),
-  ...LAMPS.map(([x, y]) => prop(["192", x, y])),
-  ...GOODS.map(([frame, x, y]) => prop([frame, x, y])),
-  { type: "soulProp", frame: "", s: 1, x: EXCHANGE_BED.x, y: EXCHANGE_BED.y, painted: "chrysanthemumBed" },
-  ...BANNERS.map(([x, y]): WorldDecor => ({ type: "soulProp", frame: "", s: 1, x, y, painted: "exchangeBanner" })),
+  ...PIECES.map(([piece]) => sprite(piece)),
+  ...TREES.map(([frame, dx, dy]) => { const point = at(dx, dy); return village(frame, point.x, point.y, .8); }),
+  ...BENCHES.map(([frame, dx, dy]) => { const point = at(dx, dy); return village(frame, point.x, point.y); }),
   { type: "soulProp", frame: "", s: 1, ...TOWN_EXCHANGE_SIGNPOST_POSITION, signpost: "Trade\nChrysanthemum", flip: true },
   { type: "station", x: TOWN_EXCHANGE_POSITION.x, y: TOWN_EXCHANGE_POSITION.y, s: 1, label: TOWN_EXCHANGE_LABEL },
 ];
 
-/** The bed's kerb as a many-sided outline, a little inside its drawn edge. */
-const bedSolid = (): SoulSolid => {
-  const xs: number[] = [], ys: number[] = [], cy = EXCHANGE_BED.y - EXCHANGE_BED.ry + 4;
-  for (let index = 0; index < 16; index++) {
-    const angle = index / 16 * Math.PI * 2;
-    xs.push(EXCHANGE_BED.x + Math.cos(angle) * (EXCHANGE_BED.rx - 6));
-    ys.push(cy + Math.sin(angle) * (EXCHANGE_BED.ry - 10));
+const box = (left: number, top: number, right: number, bottom: number): SoulSolid =>
+  ({ xs: [left, right, right, left], ys: [top, top, bottom, bottom], left, top, right, bottom });
+
+/** The fountain's kerb as a many-sided outline, a little inside its drawn edge. */
+const fountainSolid = (): SoulSolid => {
+  const xs: number[] = [], ys: number[] = [], cy = FOUNTAIN.y - FOUNTAIN.ry;
+  for (let index = 0; index < 20; index++) {
+    const angle = index / 20 * Math.PI * 2;
+    xs.push(FOUNTAIN.x + Math.cos(angle) * (FOUNTAIN.rx - 10));
+    ys.push(cy + Math.sin(angle) * (FOUNTAIN.ry - 14));
   }
   return { xs, ys, left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
 };
 
-/** What a player cannot walk through on the square: stalls' counters, lamp posts, goods, the bed, the poles. */
+/** What a player cannot walk through: the buildings, the fountain, the pavilions' counters and everything standing about. */
 export const TOWN_EXCHANGE_SOLIDS: readonly SoulSolid[] = [
-  ...STALLS.map(([, , x, y]) => stallSolid(x, y)),
-  ...LAMPS.map(([x, y]) => box(x - 8, y - 8, x + 8, y + 4)),
-  ...GOODS.filter(([, , , half]) => half > 0).map(([, x, y, half]) => box(x - half, y - 14, x + half, y + 4)),
-  bedSolid(),
-  ...BANNERS.map(([x, y]) => box(x - 7, y - 7, x + 7, y + 4)),
+  ...PIECES.filter(([, solid]) => solid.half > 0).map(([piece, solid]) => box(piece.x - solid.half, piece.y - solid.up, piece.x + solid.half, piece.y + 4)),
+  ...[-82, 82].map(side => box(GATE.x + side - 14, GATE.y - 10, GATE.x + side + 14, GATE.y + 4)),
+  fountainSolid(),
+  ...TREES.map(([, dx, dy]) => { const point = at(dx, dy); return box(point.x - 14, point.y - 10, point.x + 14, point.y + 4); }),
+  ...BENCHES.map(([, dx, dy]) => { const point = at(dx, dy); return box(point.x - 50, point.y - 14, point.x + 50, point.y + 4); }),
   box(TOWN_EXCHANGE_SIGNPOST_POSITION.x - 8, TOWN_EXCHANGE_SIGNPOST_POSITION.y - 8, TOWN_EXCHANGE_SIGNPOST_POSITION.x + 8, TOWN_EXCHANGE_SIGNPOST_POSITION.y + 4),
 ];

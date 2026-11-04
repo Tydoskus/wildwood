@@ -1,6 +1,7 @@
 import { SOUL_SHORE_SOURCE, SOUL_WATER_SOURCE } from "../soul/soul-water";
 import { decodeOffThread, releaseDecoded } from "./decoded-image";
 import { FOREST_ROAD_SOURCE } from "./forest-road";
+import { MARKET_SPRITES_SOURCE } from "../town/market-sheet";
 import { SOUL_ATLAS_SOURCE, SOUL_INTERIORS_SOURCE, TOWN_VILLAGE_GROUND_SOURCE, TOWN_VILLAGE_PROPS_SOURCE } from "../soul/soul-prop-renderer";
 import { isProceduralMap } from "../../../../shared/procedural-maps";
 import { isGuildHallMap } from "../../../../shared/guild-hall";
@@ -277,6 +278,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
   };
   const soulAtlasAsset = decodedSheet(SOUL_ATLAS_SOURCE);
   const townVillagePropsAsset = decodedSheet(TOWN_VILLAGE_PROPS_SOURCE);
+  const townMarketSpritesAsset = decodedSheet(MARKET_SPRITES_SOURCE);
   const townVillageGroundAsset = decodedSheet(TOWN_VILLAGE_GROUND_SOURCE);
   const soulWaterAsset = decodedSheet(SOUL_WATER_SOURCE);
   const soulShoreAsset = decodedSheet(SOUL_SHORE_SOURCE);
@@ -291,7 +293,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     lavaDecor: lavaAssets,
     nightDecor: [nightTreeAsset],
     cherryDecor: [cherryTreeAsset],
-    townVillage: [soulAtlasAsset, townVillagePropsAsset, townVillageGroundAsset, soulWaterAsset, soulShoreAsset, soulInteriorsAsset],
+    townVillage: [soulAtlasAsset, townVillagePropsAsset, townVillageGroundAsset, soulWaterAsset, soulShoreAsset, soulInteriorsAsset, townMarketSpritesAsset],
     packNature: [soulAtlasAsset],
     forestRoad: [forestRoadAsset],
     guildHall: guildHallAssets,
@@ -346,6 +348,7 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     charredTrees: lavaAssets.slice(6).map((asset) => asset.image),
     soulAtlas: soulAtlasAsset.image,
     townVillageProps: townVillagePropsAsset.image,
+    townMarketSprites: townMarketSpritesAsset.image,
     townVillageGround: townVillageGroundAsset.image,
     soulInteriors: soulInteriorsAsset.image,
     guildHallProps: guildHallAssets[0].image,

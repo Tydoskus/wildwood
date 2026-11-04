@@ -51,13 +51,11 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "starterChest"; s: number }
   /** A Soul Dimension sprite from its atlas (town-village.ts): village pieces and the wilds' props. */
   /** `sheet: "village"` is the baked demo village's; `dy` draws it that far from its depth point (a house's parts share one depth). */
-  | { type: "soulProp"; s: number; frame: string; flip?: boolean; sheet?: "village" | "hall"; dy?: number;
+  | { type: "soulProp"; s: number; frame: string; flip?: boolean; sheet?: "village" | "hall" | "market"; dy?: number;
     /** A guild hall's crest point: the guild's badge, this many units square, centred there. */
     crest?: number;
     /** The Town square's painted signpost (town-signpost.ts), its plank labelled this; it has no sprite. */
     signpost?: string;
-    /** One of the Trade Chrysanthemum's painted pieces (exchange-props.ts): it has no sprite either. */
-    painted?: "chrysanthemumBed" | "exchangeBanner";
     /** Lies flat: drawn with the ground, under everyone, never sorted against them (garden beds, bridges, grass). */
     ground?: boolean;
     /** A shadow: drawn with the ground, every shadow faded together so overlapping ones do not stack darker. */

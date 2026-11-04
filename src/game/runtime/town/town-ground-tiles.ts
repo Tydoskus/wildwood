@@ -6,7 +6,7 @@ import { TOWN_EXCHANGE_DECOR } from "../../town-exchange";
 import type { WorldDecor } from "../../world";
 import { paintHillsGround } from "./hills-ground";
 import { createForestRoadPainter } from "../render/forest-road";
-import { TOWN_EXCHANGE_GROUND } from "./exchange-ground";
+import { TOWN_EXCHANGE_GROUND, paintExchangeGround } from "./exchange-ground";
 import { SOUL_SHADOW_STRENGTH, soulFrame, soulPropExtent, type SoulPropDecor } from "../soul/soul-prop-renderer";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
@@ -169,14 +169,16 @@ export function createTownGroundTilePainter(images: Images) {
       }
     }
     paintHillsGround(context, rect, ox, oy);
-    if (rect.right > TOWN_EXCHANGE_GROUND.join) {
+    if (rect.right > TOWN_EXCHANGE_GROUND.join || rect.bottom > TOWN_EXCHANGE_GROUND.below) {
       context.save();
       context.beginPath();
-      context.rect(TOWN_EXCHANGE_GROUND.join - ox, 0, rect.right - TOWN_EXCHANGE_GROUND.join, tileSize);
+      context.rect(TOWN_EXCHANGE_GROUND.join - ox, 0, Math.max(0, rect.right - TOWN_EXCHANGE_GROUND.join), tileSize);
+      context.rect(0, TOWN_EXCHANGE_GROUND.below - oy, tileSize, Math.max(0, rect.bottom - TOWN_EXCHANGE_GROUND.below));
       context.clip();
       paintRoads(context, TOWN_EXCHANGE_GROUND.paths, ox, oy, tileSize, TOWN_EXCHANGE_GROUND.grass);
       context.restore();
     }
+    paintExchangeGround(context, rect, ox, oy);
     const { flat, shadows } = townGroundPropsIn(rect);
     paintGroundProps(context, flat, shadows, ox, oy, tileSize);
     return true;

@@ -165,10 +165,14 @@ export async function exchange() {
     await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the join at 150%", at: { x: TOWN_CENTER.x - 560, y: TOWN_CENTER.y + 1_780 }, zoomSteps: 10 }),
     await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the village's edge by the portal", at: { x: TOWN_CENTER.x - 520, y: TOWN_CENTER.y + 1_960 } }),
     await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the road from the village", at: { x: TOWN_CENTER.x - 370, y: TOWN_CENTER.y + 2_000 }, zoomSteps: -6 }),
+    await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the gate", at: { x: clerk.x - 300, y: clerk.y - 380 } }),
     await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the clerk", at: { x: clerk.x + 40, y: clerk.y + 70 } }),
-    await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the square", at: { x: TOWN_EXCHANGE_CENTER.x - 60, y: TOWN_EXCHANGE_CENTER.y + 150 } }),
-    await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · countryside beside it", at: { x: plaza.right + 260, y: plaza.bottom + 120 } }),
+    await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the fountain", at: { x: TOWN_EXCHANGE_CENTER.x - 60, y: TOWN_EXCHANGE_CENTER.y + 230 } }),
+    await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the west street", at: { x: TOWN_CENTER.x - 1_750, y: TOWN_EXCHANGE_CENTER.y + 60 } }),
+    await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · the avenue south", at: { x: TOWN_EXCHANGE_CENTER.x + 40, y: TOWN_EXCHANGE_CENTER.y + 600 } }),
+    await mapView({ mapId, ...PHONE, parent: phones, title: "exchange · countryside beside it", at: { x: TOWN_CENTER.x + 2_000, y: plaza.bottom + 900 } }),
     await mapView({ mapId, ...DESKTOP, title: "exchange · desktop", at: { x: TOWN_EXCHANGE_CENTER.x, y: TOWN_EXCHANGE_CENTER.y - 150 }, zoomSteps: -4 }),
+    await mapView({ mapId, ...DESKTOP, title: "exchange · the whole market", at: { x: TOWN_EXCHANGE_CENTER.x, y: TOWN_EXCHANGE_CENTER.y + 60 }, zoomSteps: -10 }),
   ];
   for (const view of views) await view.draw();
 }

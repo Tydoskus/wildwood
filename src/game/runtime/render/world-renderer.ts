@@ -3,7 +3,7 @@ import { WORLD_WIDTH } from "../../../../shared/rules";
 import { isSoulMap, SOUL_STAT_DETAILS } from "../../../../shared/soul-dimension";
 import { inTownInteriors, isTownMap, TOWN_DOORS, TOWN_INTERIOR_MARGIN, TOWN_VILLAGE_WALK_AREA, TOWN_WALK_AREA } from "../../../../shared/town";
 import { TOWN_EXCHANGE_LABEL } from "../../town-exchange";
-import { TOWN_EXCHANGE_GROUND } from "../town/exchange-ground";
+import { TOWN_EXCHANGE_GROUND, TOWN_EXCHANGE_MAP_RECTS } from "../town/exchange-ground";
 import { MINING_NODES } from "../../../../shared/mining";
 import { SCHOOL_DETAILS } from "../../../../shared/weapon-mastery";
 import { ORE_COLORS } from "../town/ore-rock-renderer";
@@ -1289,9 +1289,11 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     draw.fillStyle = colors.ground; draw.fillRect(innerX, innerY, innerSize, innerSize);
     if (frame && !frame.rooms && isTownMap(options.getMapId())) {
       drawTownVillageOnMinimap(draw, ox, oy, sx, sy);
-      // The road to the Trade Chrysanthemum and its square, in the roads' colour.
+      // The road to the Trade Chrysanthemum, its paths and its plaza, in the roads' colour.
       draw.fillStyle = colors.path;
-      for (const path of TOWN_EXCHANGE_GROUND.paths) draw.fillRect(innerX + (path.x - ox) * sx, innerY + (path.y - oy) * sy, path.w * sx, path.h * sy);
+      for (const path of TOWN_EXCHANGE_MAP_RECTS) draw.fillRect(innerX + (path.x - ox) * sx, innerY + (path.y - oy) * sy, path.w * sx, path.h * sy);
+      const { plaza } = TOWN_EXCHANGE_GROUND;
+      draw.beginPath(); draw.ellipse(innerX + (plaza.x - ox) * sx, innerY + (plaza.y - oy) * sy, plaza.rx * sx, plaza.ry * sy, 0, 0, Math.PI * 2); draw.fill();
     }
     if (frame?.hills) drawOreRocksOnMinimap(draw, ox, oy, sx, sy);
     if (frame?.grove) drawWoodTreesOnMinimap(draw, ox, oy, sx, sy);

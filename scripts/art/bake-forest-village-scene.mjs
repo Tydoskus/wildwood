@@ -16,7 +16,7 @@
  *   tar -xzf "art-source/2D Minimal World - ForestVillage.unitypackage" -C <pkg>
  *   node scripts/art/bake-forest-village-scene.mjs <pkg>
  *
- * Writes public/assets/wildstat/soul-dimension/village-ground.webp,
+ * Writes public/assets/wildstat/soul-dimension/village-ground.webp (at full resolution),
  * village-props.webp and src/game/town-village-scene.json. Game units are
  * Unity units × UNITS (60: the pack's 100 pixels a unit at the atlas's .6).
  */
@@ -34,8 +34,10 @@ if (!packageDir) { console.error("usage: bake-forest-village-scene.mjs <extracte
 loadPackage(packageDir);
 
 const UNITS = 60;
-/** Ground pixels per game unit: half resolution keeps the decoded image small on phones. */
+/** Mask pixels per game unit: the river's masks stay at half resolution, under phones' texture limits. */
 const GROUND_SCALE = .5;
+/** The ground image's own pixels per game unit: one, as the ground tiles are drawn, so its cobbles stay sharp. */
+const GROUND_IMAGE_SCALE = 1;
 const PROP_SCALE = .6;
 // The demo scene's village: the base village prefab plus its chimney smoke and campfire particles.
 const PREFAB = "Demo/ForestVillage Variant.prefab";
@@ -329,8 +331,14 @@ const minX = Math.floor(Math.min(...groundPieces.map(p => p.gx))), minY = Math.f
 const maxX = Math.ceil(Math.max(...groundPieces.map(p => p.gx + p.w))), maxY = Math.ceil(Math.max(...groundPieces.map(p => p.gy + p.h)));
 const outDir = join(root, "public/assets/wildstat/soul-dimension");
 mkdirSync(outDir, { recursive: true });
-await sharp({ create: { width: maxX - minX, height: maxY - minY, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-  .composite(groundPieces.map(p => ({ input: p.buffer, left: Math.round(p.gx - minX), top: Math.round(p.gy - minY) })))
+// The same rectangle at the image's own scale: each piece drawn again at that scale.
+const imageScale = GROUND_IMAGE_SCALE / GROUND_SCALE, imagePieces = [];
+for (const piece of ground) {
+  const image = await spriteBuffer(piece.sprite, GROUND_IMAGE_SCALE * UNITS / 100, { flipX: piece.flipX, flipY: piece.flipY, alpha: piece.alpha, tint: piece.tint });
+  imagePieces.push({ ...image, gx: piece.x * UNITS * GROUND_IMAGE_SCALE - image.pivotX, gy: -piece.y * UNITS * GROUND_IMAGE_SCALE - image.pivotY });
+}
+await sharp({ create: { width: Math.round((maxX - minX) * imageScale), height: Math.round((maxY - minY) * imageScale), channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+  .composite(imagePieces.map(p => ({ input: p.buffer, left: Math.max(0, Math.round(p.gx - minX * imageScale)), top: Math.max(0, Math.round(p.gy - minY * imageScale)) })))
   .webp({ quality: 90, alphaQuality: 90, effort: 6 }).toFile(join(outDir, "village-ground.webp"));
 
 
@@ -641,4 +649,4 @@ const doorData = doorways.map(({ item, prop, image }, index) => {
 writeFileSync(join(root, "shared/town-doors.json"), `${JSON.stringify({ gap: interiors.gap, doors: doorData }, null, 1)}\n`);
 writeFileSync(join(root, "src/game/town-village-scene.json"), JSON.stringify(scene));
 console.log(`${doorData.length} doors, rooms sheet 2048x${roomSheetHeight}`);
-console.log(`ground ${maxX - minX}x${maxY - minY}px, ${frameList.length} frames for ${placed.length} props, ${solidShapes.length} solids, ${emitters.length} particle emitters, fountain ${scene.fountain}`);
+console.log(`ground ${Math.round((maxX - minX) * imageScale)}x${Math.round((maxY - minY) * imageScale)}px (masks ${maxX - minX}x${maxY - minY}), ${frameList.length} frames for ${placed.length} props, ${solidShapes.length} solids, ${emitters.length} particle emitters, fountain ${scene.fountain}`);

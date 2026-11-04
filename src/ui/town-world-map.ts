@@ -1,8 +1,9 @@
-import { TOWN_CENTER, TOWN_EXCHANGE_CENTER, TOWN_GROVE, TOWN_HILLS, TOWN_VILLAGE_BOUNDS, TOWN_WALK_AREA } from "../../shared/town";
+import { TOWN_CENTER, TOWN_EXCHANGE, TOWN_EXCHANGE_CENTER, TOWN_GROVE, TOWN_HILLS, TOWN_VILLAGE_BOUNDS, TOWN_WALK_AREA } from "../../shared/town";
 import { MINING_NODES } from "../../shared/mining";
 import { WOOD_TREE_NODES } from "../../shared/woodcutting";
 import { TOWN_VILLAGE_GROUND } from "../game/town-village";
-import { TOWN_EXCHANGE_GROUND } from "../game/runtime/town/exchange-ground";
+import { decodedImage } from "../game/runtime/render/decoded-image";
+import { TOWN_EXCHANGE_GROUND, TOWN_EXCHANGE_MAP_RECTS } from "../game/runtime/town/exchange-ground";
 import { ORE_COLORS } from "../game/runtime/town/ore-rock-renderer";
 import { LOG_COLORS } from "../game/runtime/town/wood-tree-renderer";
 import { miningScene } from "../game/runtime/town/mining-scene";
@@ -26,7 +27,7 @@ export const TOWN_MAP_PLACES = Object.freeze([
   { name: "Village", x: TOWN_CENTER.x + (TOWN_VILLAGE_BOUNDS.left + TOWN_VILLAGE_BOUNDS.right) / 2, y: TOWN_CENTER.y + TOWN_VILLAGE_BOUNDS.top - 600 },
   { name: "Timberwood", x: (TOWN_GROVE.left + TOWN_GROVE.right) / 2, y: TOWN_GROVE.top - 200 },
   { name: "Copper Hills", x: (TOWN_HILLS.left + TOWN_HILLS.right) / 2, y: TOWN_HILLS.top - 200 },
-  { name: "Trade Chrysanthemum", x: TOWN_EXCHANGE_CENTER.x, y: TOWN_EXCHANGE_CENTER.y + 700 },
+  { name: "Trade Chrysanthemum", x: TOWN_EXCHANGE_CENTER.x, y: TOWN_EXCHANGE.bottom - 70 },
 ]);
 
 export type TownMapScene = {
@@ -46,7 +47,8 @@ function villageImage(image: HTMLImageElement | undefined) {
   villageThumbnail = document.createElement("canvas");
   villageThumbnail.width = 512;
   villageThumbnail.height = Math.max(1, Math.round(512 * image.naturalHeight / image.naturalWidth));
-  villageThumbnail.getContext("2d")?.drawImage(image, 0, 0, villageThumbnail.width, villageThumbnail.height);
+  // The copy decoded off the main thread: drawing the image itself would decode the whole ground on it.
+  villageThumbnail.getContext("2d")?.drawImage(decodedImage(image), 0, 0, villageThumbnail.width, villageThumbnail.height);
   return villageThumbnail;
 }
 
@@ -68,7 +70,9 @@ export function drawTownWorldMap(context: CanvasRenderingContext2D, width: numbe
     context.imageSmoothingEnabled = false;
   }
   context.fillStyle = scene.path;
-  for (const path of TOWN_EXCHANGE_GROUND.paths) rect(path);
+  for (const path of TOWN_EXCHANGE_MAP_RECTS) rect(path);
+  const [plazaX, plazaY] = at(TOWN_EXCHANGE_GROUND.plaza.x, TOWN_EXCHANGE_GROUND.plaza.y);
+  context.beginPath(); context.ellipse(plazaX, plazaY, TOWN_EXCHANGE_GROUND.plaza.rx * sx, TOWN_EXCHANGE_GROUND.plaza.ry * sy, 0, 0, Math.PI * 2); context.fill();
   for (const path of scene.paths) rect(path);
 
   // Ore rocks and trees: a dot each in its ore's or wood's colour, faded while bare or felled.
