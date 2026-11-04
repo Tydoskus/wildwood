@@ -43,6 +43,8 @@ const SPEECH_BUBBLE_FADE_MS = 1_250;
 const SPEECH_BUBBLE_STACK_GAP = 5;
 /** Label pixels between the top of a player's plate and the lowest bubble. */
 const SPEECH_BUBBLE_GAP = plateSize(22);
+/** Between a plate's top and what is drawn over it (drawAbovePlate), and between a head and it with no plate. */
+const ABOVE_PLATE_GAP = plateSize(6), ABOVE_HEAD_GAP = plateSize(12);
 /** From the top of the head or helmet to the lowest bubble, for a player whose plate is hidden. */
 const SPEECH_BUBBLE_LIFT = plateSize(76);
 /** A bareheaded player's head top, for callers that do not give one. */
@@ -306,6 +308,17 @@ export function createPlayerIdentityRenderer(options: {
     return lines;
   }
 
+  /**
+   * Something `height` screen pixels tall just over this frame's plate (or just over the head with no plate), painted
+   * with its bottom middle at (0, bottom) in screen pixels; a speech bubble drawn after goes over it.
+   */
+  function drawAbovePlate(identity: string | undefined, x: number, headTop: number, height: number, paint: (bottom: number) => void) {
+    if (!identity) return;
+    const plateTop = plateTops.get(identity), bottom = plateTop === undefined ? -ABOVE_HEAD_GAP : plateTop - ABOVE_PLATE_GAP;
+    drawScreenSpaceAt(options.ctx, options.camera.zoom, x, headTop, () => paint(bottom));
+    plateTops.set(identity, bottom - height);
+  }
+
   /** `headTop` is the top of the head or helmet in world space (overhead-plate.ts). */
   function drawSpeechBubble(identity: string | undefined, x: number, headTop: number) {
     if (!identity) return;
@@ -524,5 +537,5 @@ export function createPlayerIdentityRenderer(options: {
     return playerPowerForStats(stats);
   }
 
-  return { publicPlayerName, renderDomPlayerName, applyProfileIcon, paintProfileIconCanvas, updateSpeechBubbles, drawSpeechBubble, drawActorStatus, drawPlayerIdentity, playerPower };
+  return { publicPlayerName, renderDomPlayerName, applyProfileIcon, paintProfileIconCanvas, updateSpeechBubbles, drawSpeechBubble, drawAbovePlate, drawActorStatus, drawPlayerIdentity, playerPower };
 }

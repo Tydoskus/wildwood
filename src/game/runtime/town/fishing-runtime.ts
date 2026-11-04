@@ -112,6 +112,8 @@ export function createFishingRuntime(deps: {
       const spot = fishingScene.spots.find(each => each.spot === fishingAt?.spot);
       if (spot) { deps.burst?.(spot.x, spot.y - 6, WATER, 14, 110); deps.burst?.(spot.x, spot.y - 10, color, 6, 70); }
       fishingScene.splash = 1;
+      fishingScene.gain = fish.experience;
+      fishingScene.gainLeft = 1;
       const level = fishingLevel(source.fishingExperience?.() ?? 0), opened = FISH.find(each => each.level === level);
       if (level > shownLevel) deps.message?.(opened ? `Fishing Lv ${level}: ${opened.name} can bite now.` : `Fishing Lv ${level}`, LEVEL_UP);
       shownLevel = level;
@@ -157,6 +159,8 @@ export function createFishingRuntime(deps: {
     }
     refreshSpots(now());
     fishingScene.splash = Math.max(0, fishingScene.splash - dt * 1.5);
+    fishingScene.gainLeft = Math.max(0, fishingScene.gainLeft - dt / 1.4);
+    fishingScene.experience = source?.fishingExperience?.() ?? 0;
     active = Boolean(here && source && deps.player.hp > 0);
     if (!active || !source) { stop(); heading = null; return; }
     listen(source);

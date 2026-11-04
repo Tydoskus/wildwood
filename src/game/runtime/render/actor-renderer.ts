@@ -247,6 +247,8 @@ export function createActorRenderer(options: {
   drawStatus: (status: ActorStatus) => void;
   drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, headTop: number, color: string, gender?: PlayerGender) => void;
   drawSpeechBubble: (identity: string | undefined, x: number, headTop: number) => void;
+  /** Anything over the player's own plate, under its speech bubble. */
+  drawLocalOverhead?: (identity: string | undefined, x: number, headTop: number) => void;
   publicName: (identity: string | undefined, name: string | undefined) => string;
   worldHealthBarHeight: number;
   /** The map being drawn: its labels and plates replace the last map's on the shared pages. */
@@ -550,6 +552,7 @@ export function createActorRenderer(options: {
       power,
       fillColor: "#46cf5a",
     });
+    options.drawLocalOverhead?.(identity, x, headTop);
     options.drawSpeechBubble(identity, x, headTop);
   }
 

@@ -23,7 +23,7 @@ Picked by URL hash in `visual-check.html`:
 | `dps-breakdown` | The DPS breakdown card over a bow build with Koi and Dragon, at phone and desktop width |
 | `town-grid` | The Town's 3×3 grid opened to walk: north of the village, the north-east and south-west corners, and the outer wall, at the phone framing |
 | `grove` | Timberwood's pines standing, then one felled, and an elder felled: each stump's small shadow among the standing trees' |
-| `fishing` | A fishing spot on the river off the bank, the player on the bank fishing it with the rod out, and a catch's splash |
+| `fishing` | A fishing spot on the river off the bank, the player on the bank fishing it with the rod out (the line to its float, the Fishing level and experience over the plate), and a catch's splash with its experience rising |
 | `world` | Every campaign map, the first Endless map, the Soul Dimension and a guild hall where a player arrives, drawn by the game's own world renderer at the phone framing (ground, roads, decor, portals and their labels, camps, the minimap, the Night Forest's dark); players at a gate and at a boss for depth order; the Forest and the Night Forest at the desktop framing |
 | `town` | The Town at the phone framing: the arrival, the same with attack-range research (the camera must not move), the player's zoom at 50% and 150%, the river at the west bridge, Ox, the countryside's baked ground; and the desktop framing |
 | `exchange` | The Trade Chrysanthemum: the road from the village and its sign, the gate, the clerk at the hall's steps, the fountain and its pavilions, the timber street, the avenue south, the countryside beside it, and the whole market at the desktop framing |

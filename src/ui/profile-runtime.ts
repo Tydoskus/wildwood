@@ -102,6 +102,7 @@ export function createProfileRuntime(deps: ProfileRuntimeDeps) {
     prestigeLevel: coop.prestigeLevel,
     weaponMastery: () => client?.weaponMastery?.(),
     craftExperience: () => client?.craftSkills?.(), rewardKills: () => client?.rewardKills?.(),
+    fishingExperience: () => client?.fishingExperience?.() ?? 0,
     localIdentity: coop.localIdentity, localDisplayName: coop.localDisplayName, profileIcon: coop.profileIcon, paintIcon: deps.applyProfileIcon,
     renderName: deps.renderName,
     isGuest: coop.isGuest,

@@ -92,9 +92,11 @@ export function itemInspectionTitle(itemId: string) {
 
 export function itemInspectionButtonLabel(label: string) {
   const trimmed = label.trim();
-  if (!trimmed || trimmed !== trimmed.toUpperCase()) return trimmed;
-  return trimmed.toLowerCase().replace(/(^|[\s/-])([a-z])/g, (_match, separator: string, letter: string) =>
-    `${separator}${letter.toUpperCase()}`);
+  // A rate's "/s" is the one lowercase an all-caps stat line keeps ("ATTACK SPEED +2.34/s").
+  const unit = trimmed.endsWith("/s") ? "/s" : "", text = trimmed.slice(0, trimmed.length - unit.length);
+  if (!text || text !== text.toUpperCase()) return trimmed;
+  return text.toLowerCase().replace(/(^|[\s/-])([a-z])/g, (_match, separator: string, letter: string) =>
+    `${separator}${letter.toUpperCase()}`) + unit;
 }
 
 function section(title: string, count?: string) {

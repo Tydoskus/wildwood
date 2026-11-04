@@ -11,6 +11,7 @@ import { woodcuttingScene } from "../town/woodcutting-scene";
 import { fishingScene } from "../town/fishing-scene";
 import { createFishingRodSprite, FISHING_ROD, FISHING_ROD_OVERRIDES } from "../town/fishing-rod-sprite";
 import { createFishingLine } from "../town/fishing-line";
+import { FISHING_BADGE_HEIGHT, paintFishingBadge } from "../town/fishing-badge";
 import { createFishingSpotRenderer } from "../town/fishing-spot-renderer";
 import { createWoodTreeRenderer } from "../town/wood-tree-renderer";
 import { createStarterChestRenderer } from "./starter-chest-renderer";
@@ -149,6 +150,7 @@ export type WorldRenderRuntimeOptions = {
   drawStatus: (status: ActorStatus) => void;
   drawIdentity: (identity: string | undefined, name: string, power: number | null, centerX: number, headTop: number, color: string, gender?: PlayerGender) => void;
   drawSpeechBubble: (identity: string | undefined, x: number, headTop: number) => void;
+  drawAbovePlate?: (identity: string | undefined, x: number, headTop: number, height: number, paint: (bottom: number) => void) => void;
   publicPlayerName: (identity: string | undefined, name: string | undefined) => string;
   playerPower: (player: PlayerState) => number;
   worldHealthBarHeight: number;
@@ -355,6 +357,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     drawStatus: options.drawStatus,
     drawIdentity: options.drawIdentity,
     drawSpeechBubble: options.drawSpeechBubble,
+    // Over the player's own plate while the rod is out: the Fishing level and experience.
+    drawLocalOverhead: (identity, x, headTop) => {
+      if (fishingScene.rodOut) options.drawAbovePlate?.(identity, x, headTop, FISHING_BADGE_HEIGHT, bottom => paintFishingBadge(options.ctx, bottom));
+    },
     publicName: options.publicPlayerName,
     worldHealthBarHeight: options.worldHealthBarHeight,
     mapId: options.currentMapId,

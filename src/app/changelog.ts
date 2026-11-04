@@ -1,4 +1,11 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.918.1": [
+    "Fishing shows your level and experience over your head, and each catch's experience",
+    "The Skills tab's Fishing bar now fills with every catch",
+    "Attack Speed on weapons is no longer in capitals",
+    "On phones the top bar no longer runs under the zoom buttons, and timers stay on screen under the minimap",
+    "On short phones the item window fits all of a weapon's skills",
+  ],
   "0.918": [
     "Attack speed and crit damage now come from your weapon: every weapon rolls both, and Reforge raises them",
     "Kills no longer give attack speed or crit; attack speed and crit earned from kills are reset (Reflect Only wins and the soul stay)",
@@ -4123,6 +4130,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.918.1": "2026-11-04",
   "0.918": "2026-11-03",
   "0.917.49": "2026-11-02",
   "0.917.48": "2026-11-02",

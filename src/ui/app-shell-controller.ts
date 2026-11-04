@@ -53,6 +53,16 @@ type AppShellDependencies = {
 };
 
 /** Settings, audio lifecycle, fullscreen, and shell account/connection status. */
+/** How much taller than one row the wallets and toggles under the player card have wrapped, for what stacks below them. */
+function watchSecondaryRow() {
+  const row = document.querySelector<HTMLElement>(".hud-secondary-controls");
+  if (!row || typeof ResizeObserver === "undefined") return;
+  new ResizeObserver(() => {
+    const line = Math.max(0, ...[...row.children].map(child => (child as HTMLElement).offsetHeight));
+    document.body.style.setProperty("--hud-secondary-wrap", `${Math.max(0, row.offsetHeight - line)}px`);
+  }).observe(row);
+}
+
 export function createAppShellController(dependencies: AppShellDependencies) {
   let feedbackStorage: Storage | undefined;
   try { feedbackStorage = window.localStorage; } catch {}
@@ -71,6 +81,7 @@ export function createAppShellController(dependencies: AppShellDependencies) {
   const webglWorldToggle = requiredElement<HTMLButtonElement>("webglWorldToggle");
   const fpsToggle = requiredElement<HTMLButtonElement>("fpsToggle");
   const fpsStatus = requiredElement("fpsStatus");
+  watchSecondaryRow();
   const gameFpsStatus = requiredElement("gameFpsStatus");
   const latencyToggle = requiredElement<HTMLButtonElement>("latencyToggle");
   const latencyStatus = requiredElement("latencyStatus");

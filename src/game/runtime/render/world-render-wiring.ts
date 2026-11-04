@@ -106,7 +106,7 @@ export function createWorldRendering(deps: WorldRenderingDeps) {
   const { coop, canvasRuntime, camera, mapController, currentMapId } = deps;
   const { paths, decor, enemies, player, bosses, bossHazards, inventory, mapConfig } = deps.world;
   const { assets, actorShadowSprite, playerAppearanceAssets, enemySprites } = deps.bootstrapAssets;
-  const { drawActorStatus, drawPlayerIdentity, drawSpeechBubble, publicPlayerName } = deps.identityRenderer;
+  const { drawActorStatus, drawPlayerIdentity, drawSpeechBubble, drawAbovePlate, publicPlayerName } = deps.identityRenderer;
   return createWorldRenderRuntime({
     drawMapHazards: () => deps.proceduralBoss.draw(canvasRuntime.ctx, camera),
     ctx: canvasRuntime.ctx,
@@ -181,6 +181,7 @@ export function createWorldRendering(deps: WorldRenderingDeps) {
     drawStatus: drawActorStatus,
     drawIdentity: drawPlayerIdentity,
     drawSpeechBubble,
+    drawAbovePlate,
     publicPlayerName,
     playerPower: deps.playerPower,
     worldHealthBarHeight: WORLD_HEALTH_BAR_HEIGHT, lowPerformanceMode: deps.lowPerformanceMode,

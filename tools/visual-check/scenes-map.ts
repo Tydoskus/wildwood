@@ -111,7 +111,10 @@ export async function grove() {
   woodcuttingScene.felled.clear();
 }
 
-/** The fishing spots on the river: one off the bank, then the player on the bank fishing it, rod out, and a catch's splash. */
+/**
+ * The fishing spots on the river: one off the bank, then the player on the bank fishing it, rod out with the Fishing
+ * level and experience over the plate, and a catch's splash with its experience rising.
+ */
 export async function fishing() {
   const phones = strip();
   const mapId = TOWN_MAP_ID as MapId;
@@ -125,7 +128,8 @@ export async function fishing() {
   const at = { x: feet.x, y: feet.y - TOWN_FEET_OFFSET }, facing = Math.atan2(site.y - feet.y, site.x - feet.x);
   const arrange = (rod: boolean, splash: number) => (state: { player: { facing: number } }) => {
     fishingScene.spots = FISHING_SPOTS.map((spot, index) => ({ spot: index, site: index === 2 ? 1 : 0, ...spot.sites[index === 2 ? 1 : 0] }));
-    Object.assign(fishingScene, { fishing: rod ? 2 : null, rodOut: rod, splash });
+    // Partway through Fishing Lv 23, a Salmon's experience rising off the badge on a catch.
+    Object.assign(fishingScene, { fishing: rod ? 2 : null, rodOut: rod, splash, experience: 5_200, gain: splash ? 63 : 0, gainLeft: splash });
     state.player.facing = facing;
   };
   const views = [

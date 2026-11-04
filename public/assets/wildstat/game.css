@@ -7,10 +7,10 @@
   /* Temporary settings must stay above the floating Auto Farm/Mine/Chop control. */
   #hud > .stat-tracker-settings { z-index: 9; }
   /* Quest tracker: top left under the gem row until dragged. Three quests in play, this map's first and bright. */
-  .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 40px); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: var(--hud-border) solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: var(--ui-shadow); outline: var(--hud-seam); outline-offset: -1px; color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
+  .quest-tracker { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 40px + var(--hud-secondary-wrap, 0px)); left: var(--hud-safe-left); z-index: 5; width: min(196px, 46vw); padding: 0 0 4px; border: var(--hud-border) solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: var(--ui-shadow); outline: var(--hud-seam); outline-offset: -1px; color: #fff; font: 700 11px/1.25 "Wildstat Chat", sans-serif; pointer-events: auto; }
   .quest-tracker[hidden] { display: none; }
   /* Under the FPS readout when it shows, the same 4px apart (body.fps-status-shown, app-shell-controller.ts). */
-  body.fps-status-shown .quest-tracker { top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 74px); }
+  body.fps-status-shown .quest-tracker { top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 74px + var(--hud-secondary-wrap, 0px)); }
   .quest-tracker .quest-tracker-header:active { cursor: grabbing; }
   .quest-tracker.is-world-gesture, .quest-tracker.is-world-gesture * { pointer-events: none; }
   .quest-tracker .quest-tracker-header { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 30px; margin: 0; padding: 4px 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: grab; touch-action: none; }
@@ -71,7 +71,7 @@
   .stat-tracker .positive { color: var(--green); }
   .stat-tracker .negative { color: var(--red); }
   /* DPS breakdown: the stat tracker's card, right side above it until dragged; each row's backdrop fills to its share. */
-  .dps-breakdown { bottom: auto; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 120px); min-width: min(200px, calc(100vw - 24px)); }
+  .dps-breakdown { bottom: auto; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 120px + var(--hud-secondary-wrap, 0px)); min-width: min(200px, calc(100vw - 24px)); }
   .dps-breakdown tbody tr { background: linear-gradient(90deg, rgba(255, 255, 255, .14) var(--share, 0%), transparent var(--share, 0%)); }
   .dps-breakdown footer { min-height: 26px; color: var(--muted); }
   .dps-breakdown-empty { max-width: 200px; margin: 0; padding: 2px 8px 8px; color: var(--muted); opacity: var(--stat-tracker-ink, 1); }
@@ -462,7 +462,7 @@
   #settingsBtn[aria-expanded="true"] { background: transparent; box-shadow: none; }
   .settings-button:active { filter: brightness(1.16); transform: none; }
 
-  .fps-status { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 40px); bottom: auto; left: var(--hud-safe-left); z-index: 5; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 8px; border: var(--hud-border) solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: var(--ui-shadow); outline: var(--hud-seam); outline-offset: -1px; color: #fff; font: 700 13px/1.25 "Wildstat Chat", sans-serif; white-space: nowrap; pointer-events: none; }
+  .fps-status { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 40px + var(--hud-secondary-wrap, 0px)); bottom: auto; left: var(--hud-safe-left); z-index: 5; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 8px; border: var(--hud-border) solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: var(--ui-shadow); outline: var(--hud-seam); outline-offset: -1px; color: #fff; font: 700 13px/1.25 "Wildstat Chat", sans-serif; white-space: nowrap; pointer-events: none; }
   .fps-status[hidden] { display: none; }
 
   .card.settings-panel {
@@ -899,6 +899,11 @@
   .item-inspection-icon img { transform: rotate(var(--item-art-rotation, 0deg)); display: block; width: 140px; height: 140px; object-fit: contain; image-rendering: pixelated; }
   .item-inspection-icon.has-fallback-art { height: 100px; }
   .item-inspection-icon .boot-pixel-icon { height: 15px; transform: scale(3); transform-origin: center top; }
+  /* A short phone gives the art less room, so a weapon's stats and skills fit without scrolling. */
+  @media (max-height: 720px) {
+    .item-inspection-icon { width: 100px; height: 100px; }
+    .item-inspection-icon img { width: 92px; height: 92px; }
+  }
   .item-inspection-copy { display: grid; gap: 8px; min-width: 0; }
   .item-inspection-copy p { max-width: none; margin: 0; color: #d5ddd6; font-size: var(--font-readable-body); line-height: var(--line-height-readable); }
   .item-inspection-context { color: #f0bb61; font-size: var(--font-readable-min); font-weight: 900; letter-spacing: .04em; }
@@ -1306,6 +1311,8 @@
   }
 
   .minimap-meta .hud-timer-column { position: static; justify-self: stretch; width: auto; margin-top: 6px; }
+  /* A timer longer than the minimap is wide wraps under it rather than running off the screen. */
+  .minimap-meta .hud-progress-timer { white-space: normal; }
 
   .hud-progress-timer {
     box-sizing: border-box;
@@ -1771,7 +1778,10 @@
   .hud-gem-wallet { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 6px); left: var(--hud-safe-left); z-index: 5; display: flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 8px 3px 5px; border: var(--hud-border) solid var(--hud-frame); border-radius: var(--hud-radius-small); background: var(--hud-surface); box-shadow: var(--ui-shadow); outline: var(--hud-seam); outline-offset: -1px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; line-height: 1; pointer-events: none; }
   .hud-gem-icon { display: block; width: 20px; height: 20px; object-fit: contain; }
   .hud-gem-balance { color: #fff; font-size: 11px; font-weight: 900; text-shadow: 0 1px #071c29; }
-  .hud-secondary-controls { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 6px); left: var(--hud-safe-left); z-index: 5; display: flex; align-items: center; gap: 3px; pointer-events: auto; }
+  .hud-secondary-controls { position: fixed; top: calc(var(--hud-safe-top) + var(--player-hud-visual-height) + 6px); left: var(--hud-safe-left); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 3px; pointer-events: auto; }
+  /* Wallets and toggles wrap before the zoom buttons (or the minimap, with them hidden); what sits below steps down (app-shell-controller.ts). */
+  .hud-secondary-controls { max-width: calc(100vw - var(--hud-safe-left) - var(--hud-safe-right) - var(--hud-map-size) - 46px); }
+  body.camera-zoom-hidden .hud-secondary-controls { max-width: calc(100vw - var(--hud-safe-left) - var(--hud-safe-right) - var(--hud-map-size) - 6px); }
   .hud-secondary-controls .hud-gem-wallet { position: static; }
   .hud-arrow-chip { margin: 0; color: #fff; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
   .hud-arrow-chip[hidden] { display: none; }
