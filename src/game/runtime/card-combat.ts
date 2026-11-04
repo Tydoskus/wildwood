@@ -87,9 +87,13 @@ export function createCardCombat(deps: {
     if (!(total > 0) || !(seconds > 0)) return;
     const entry = dots.get(target) ?? {};
     const current = entry[kind];
-    const dps = total / seconds;
-    entry[kind] = { dps: Math.max(dps, current?.dps ?? 0), left: Math.max(seconds, current?.left ?? 0), pending: current?.pending ?? 0,
-      tick: current?.tick ?? 0, color: COLORS[kind] };
+    const remainingDamage = current ? Math.max(current.dps * current.left, 0) : 0;
+    const time = Math.max(seconds, current?.left ?? 0);
+    const dps = (total + remainingDamage) / time;
+    entry[kind] = {
+      dps: dps, left: time, pending: current?.pending ?? 0,
+      tick: current?.tick ?? 0, color: COLORS[kind]
+    };
     dots.set(target, entry);
   }
 
