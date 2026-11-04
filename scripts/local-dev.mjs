@@ -3,7 +3,7 @@ import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, createServer } from 'vite';
 import { createLocalDevWork, localChangeKind } from './local-dev-work.mjs';
-import { createLocalWorkspace, localLegacyColumns } from './local-dev-workspace.mjs';
+import { createLocalWorkspace, localColumnsFile, localLegacyColumns } from './local-dev-workspace.mjs';
 import { openBrowser } from './open-browser.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -125,7 +125,7 @@ try {
   let columns = {};
   try {
     const schema = await command(['describe', database, '--server', databaseHost, '--json'], true);
-    columns = localLegacyColumns(JSON.parse(schema));
+    columns = localLegacyColumns(JSON.parse(schema), await localColumnsFile(root));
   } catch (error) {
     if (!/404|database .*not found|no such database|failed to find database/i.test(error.message)) throw error;
   }

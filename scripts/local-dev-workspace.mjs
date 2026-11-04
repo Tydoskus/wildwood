@@ -3,29 +3,39 @@ import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'n
 import { join } from 'node:path';
 import ts from 'typescript';
 
-// An old local prototype appended these columns. Keep them only in that
+// Old local prototypes appended these columns, last in each table and in this order. Keep them only in that
 // database's build; never change the release schema or generated bindings.
 const legacyColumns = {
-  chatMessage: { sql: 'reaction_counts_json', field: 'reactionCountsJson', type: 'String', builder: 't.string().default("{}")', value: '"{}"' },
-  socialMessage: { sql: 'reaction_counts_json', field: 'reactionCountsJson', type: 'String', builder: 't.string().default("{}")', value: '"{}"' },
-  playerLifetime: { sql: 'chat_hearts_received', field: 'chatHeartsReceived', type: 'U64', builder: 't.u64().default(0n)', value: '0n' },
-  bossDefeatWindow: { sql: 'accepted_map_ids', field: 'acceptedMapIds', type: 'Array', elementType: 'String', builder: 't.array(t.string()).default([])', value: '[]' },
+  chatMessage: [{ sql: 'reaction_counts_json', field: 'reactionCountsJson', type: 'String', builder: 't.string().default("{}")', value: '"{}"' }],
+  socialMessage: [{ sql: 'reaction_counts_json', field: 'reactionCountsJson', type: 'String', builder: 't.string().default("{}")', value: '"{}"' }],
+  playerLifetime: [{ sql: 'chat_hearts_received', field: 'chatHeartsReceived', type: 'U64', builder: 't.u64().default(0n)', value: '0n' }],
+  bossDefeatWindow: [{ sql: 'accepted_map_ids', field: 'acceptedMapIds', type: 'Array', elementType: 'String', builder: 't.array(t.string()).default([])', value: '[]' }],
 };
 
-export function localLegacyColumns(schema) {
+/**
+ * More such columns, from branches tried on the local database, listed in local-data/legacy-columns.json as
+ * { "tableName": [{ "sql", "field", "type", "builder", "value" }] } in the same form as those above.
+ */
+export async function localColumnsFile(root) {
+  try { return JSON.parse(await readFile(join(root, 'local-data/legacy-columns.json'), 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return {}; throw error; }
+}
+
+export function localLegacyColumns(schema, extra = {}) {
   const types = schema.sections?.find(section => section.Typespace)?.Typespace.types;
   const tables = schema.sections?.find(section => section.Tables)?.Tables;
   if (!types || !tables) throw new Error('Unrecognized local database schema; no data was changed.');
   const result = {};
-  for (const [name, column] of Object.entries(legacyColumns)) {
+  for (const [name, columns] of Object.entries({ ...legacyColumns, ...extra })) {
     const table = tables.find(table => table.source_name === name);
     const elements = table && types[table.product_type_ref]?.Product?.elements;
-    const existing = elements?.find(element => element.name?.some === column.sql);
-    if (!existing) continue;
-    if (!(column.type in existing.algebraic_type) || (column.elementType && !(column.elementType in existing.algebraic_type[column.type])) || elements.at(-1) !== existing) {
-      throw new Error(`Unexpected legacy column in ${name}; no data was changed.`);
-    }
-    result[name] = column;
+    const found = columns.filter(column => elements?.some(element => element.name?.some === column.sql));
+    if (!found.length) continue;
+    const trailing = elements.slice(-found.length);
+    const matches = found.every((column, index) => trailing[index].name?.some === column.sql && column.type in trailing[index].algebraic_type
+      && (!column.elementType || column.elementType in trailing[index].algebraic_type[column.type]));
+    if (!matches) throw new Error(`Unexpected legacy column in ${name}; no data was changed.`);
+    result[name] = found;
   }
   return result;
 }
@@ -35,28 +45,28 @@ export function preserveLocalColumns(source, columns) {
   const edits = [];
   function visit(node) {
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && columns[node.name.text]) {
-      const column = columns[node.name.text];
       const call = node.initializer;
       if (call && ts.isCallExpression(call) && call.expression.getText(file) === 'table') {
         const row = call.arguments[1];
         if (!row || !ts.isObjectLiteralExpression(row)) throw new Error(`Cannot preserve ${node.name.text}.`);
-        if (!row.properties.some(property => property.name?.getText(file) === column.field)) {
+        const missing = columns[node.name.text].filter(column => !row.properties.some(property => property.name?.getText(file) === column.field));
+        if (missing.length) {
           const last = row.properties.at(-1);
           edits.push({ start: row.end - 1, end: row.end - 1,
-            text: `${last && !source.slice(last.end, row.end).includes(',') ? ',' : ''}\n${column.field}: ${column.builder},\n` });
+            text: `${last && !source.slice(last.end, row.end).includes(',') ? ',' : ''}\n${missing.map(column => `${column.field}: ${column.builder},`).join('\n')}\n` });
         }
       }
     }
     if (ts.isCallExpression(node) && node.arguments.length === 1) {
       const callee = node.expression.getText(file);
       const match = callee.match(/^(\w+\.db\.(\w+))(?:\.(\w+))?\.(insert|update)$/);
-      const column = match && columns[match[2]];
-      if (column) {
+      const kept = match && columns[match[2]];
+      if (kept) {
         const argument = node.arguments[0];
-        const previous = match[4] === 'update' && match[3]
+        const previous = column => match[4] === 'update' && match[3]
           ? `${match[1]}.${match[3]}.find(row.${match[3]})?.${column.field} ?? ` : '';
-        edits.push({ start: argument.getStart(file), end: argument.end,
-          text: `((row: any) => ({ ...row, ${column.field}: row.${column.field} ?? ${previous}${column.value} }))(${argument.getText(file)})` });
+        const fields = kept.map(column => `${column.field}: row.${column.field} ?? ${previous(column)}${column.value}`).join(', ');
+        edits.push({ start: argument.getStart(file), end: argument.end, text: `((row: any) => ({ ...row, ${fields} }))(${argument.getText(file)})` });
       }
     }
     ts.forEachChild(node, visit);
