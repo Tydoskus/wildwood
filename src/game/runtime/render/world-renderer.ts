@@ -1022,8 +1022,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     }
     if (station.label === TOWN_EXCHANGE_LABEL) {
       options.drawExchangeClerk?.(x, y);
-      // Its name hangs over the booth's awnings, as the sellers' do over theirs.
-      drawScreenSpaceAt(ctx, camera.zoom, x, y - 168, () => {
+      // Its name hangs on the hall's lower roof, above its doors.
+      drawScreenSpaceAt(ctx, camera.zoom, x, y - 262, () => {
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         const bob = Math.sin(options.getGameTime() * 2.2) * 2;

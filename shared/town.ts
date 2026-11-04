@@ -61,12 +61,12 @@ export const inTownExchange = (x: number, y: number, margin = 0) =>
 export const TOWN_EXCHANGE_PLAZA = Object.freeze({ left: TOWN_CENTER.x - 500, right: TOWN_CENTER.x + 360, top: TOWN_CENTER.y + 2_450, bottom: TOWN_CENTER.y + 3_060 });
 /**
  * Where the market stands, round its round plaza: the hall to the north, the plaza, the yards along its paths
- * west and east, and the avenue south. The countryside keeps clear of these.
+ * west and east, and the avenue and the street across it south. The countryside keeps clear of these.
  */
 export const TOWN_EXCHANGE_GROUNDS = Object.freeze([
-  Object.freeze({ x: TOWN_CENTER.x - 1_250, y: TOWN_CENTER.y + 2_200, w: 2_400, h: 1_620 }),
-  Object.freeze({ x: TOWN_CENTER.x - 2_250, y: TOWN_CENTER.y + 2_480, w: 1_000, h: 1_000 }),
-  Object.freeze({ x: TOWN_CENTER.x + 1_150, y: TOWN_CENTER.y + 2_480, w: 700, h: 1_000 }),
+  Object.freeze({ x: TOWN_CENTER.x - 1_250, y: TOWN_CENTER.y + 2_200, w: 2_400, h: 1_800 }),
+  Object.freeze({ x: TOWN_CENTER.x - 2_250, y: TOWN_CENTER.y + 2_480, w: 1_000, h: 1_440 }),
+  Object.freeze({ x: TOWN_CENTER.x + 1_150, y: TOWN_CENTER.y + 2_480, w: 700, h: 1_440 }),
 ]);
 /**
  * The plaza's middle, where its fountain stands, in line with the clerk; how far the plaza reaches across, and down

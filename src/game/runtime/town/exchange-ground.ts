@@ -9,11 +9,16 @@ const { x: CX, y: CY } = TOWN_EXCHANGE_CENTER, R = TOWN_EXCHANGE_PLAZA_RADIUS, D
 /** Half a paved path's width. */
 const WALK = 80;
 
+/** The paved road in from the gate, and the streets along the hall's front (from its foot) and across the avenue. */
+const ROAD_IN = TOWN_EXCHANGE_ROAD[TOWN_EXCHANGE_ROAD.length - 1];
+const FRONT = TOWN_EXCHANGE_POSITION.y - 40, SOUTH = CY + 610, STREET = 120, STREET_HALF_LENGTH = 1_370;
+
 /**
  * The Trade Chrysanthemum's ground, painted once into the Town's ground tiles: the dirt road down from the village
  * in its road tiles (forest-road.ts), then the market's own paving over the meadow. A round plaza of cobbles inside
- * a ring of dressed stone, a gold chrysanthemum laid in the cobbles round the fountain, and flagstone paths west,
- * east and south, and up to the hall's steps.
+ * a ring of dressed stone, a gold chrysanthemum laid in the cobbles round the fountain, and flagstone ways round it:
+ * the road paved from the gate in, a street along the hall's front joined to the plaza in front of its steps, paths
+ * west, east and south, and a street across the south one.
  */
 export const TOWN_EXCHANGE_GROUND = Object.freeze({
   paths: Object.freeze([...TOWN_EXCHANGE_ROAD]) as readonly WorldPath[],
@@ -25,10 +30,13 @@ export const TOWN_EXCHANGE_GROUND = Object.freeze({
   grass: "#61864e",
   plaza: Object.freeze({ x: CX, y: CY, rx: R, ry: R * DEPTH }),
   walks: Object.freeze([
-    { x: TOWN_CENTER.x - 2_250, y: CY - WALK, w: CX - R + 30 - (TOWN_CENTER.x - 2_250), h: WALK * 2 },
-    { x: CX + R - 30, y: CY - WALK, w: TOWN_CENTER.x + 1_850 - (CX + R - 30), h: WALK * 2 },
-    { x: CX - WALK, y: CY + R * DEPTH - 20, w: WALK * 2, h: 780 - (R * DEPTH - 20) },
-    { x: CX - 170, y: TOWN_EXCHANGE_POSITION.y - 50, w: 340, h: CY - R * DEPTH + 30 - (TOWN_EXCHANGE_POSITION.y - 50) },
+    { x: ROAD_IN.x + ROAD_IN.w / 2 - 60, y: TOWN_EXCHANGE_POSITION.y - 180, w: 120, h: CY - 60 - (TOWN_EXCHANGE_POSITION.y - 180) },
+    { x: CX - STREET_HALF_LENGTH, y: FRONT, w: STREET_HALF_LENGTH * 2, h: STREET },
+    { x: CX - STREET_HALF_LENGTH, y: SOUTH, w: STREET_HALF_LENGTH * 2, h: STREET },
+    { x: TOWN_CENTER.x - 2_160, y: CY - WALK, w: CX - R + 30 - (TOWN_CENTER.x - 2_160), h: WALK * 2 },
+    { x: CX + R - 30, y: CY - WALK, w: TOWN_CENTER.x + 1_760 - (CX + R - 30), h: WALK * 2 },
+    { x: CX - WALK, y: CY + R * DEPTH - 20, w: WALK * 2, h: 830 - (R * DEPTH - 20) },
+    { x: CX - 170, y: FRONT + STREET - 20, w: 340, h: CY - R * DEPTH + 30 - (FRONT + STREET - 20) },
   ]) as readonly Rect[],
 });
 
@@ -41,36 +49,41 @@ const COBBLES = ["#aaa59b", "#b4ad9f", "#9e9a90", "#ada38d", "#bab4a8"] as const
 const GOLD = "#e3b041", GOLD_UNDER = "#7a5518";
 /** The ring of dressed stone round the plaza. */
 const RING_WIDTH = 42;
+const KERB_WIDTH = 10;
 
 type View = { left: number; top: number; right: number; bottom: number };
 const touches = (area: Rect, view: View, margin = 0) =>
   area.x < view.right + margin && area.x + area.w > view.left - margin && area.y < view.bottom + margin && area.y + area.h > view.top - margin;
 
-/** A flagstone path: rows of stones along it, joints staggered, between kerbs along its long sides. */
-function paintWalk(c: CanvasRenderingContext2D, walk: Rect, ox: number, oy: number) {
-  const upright = walk.w < walk.h, length = upright ? walk.h : walk.w, width = upright ? walk.w : walk.h;
+/** Its kerb: a band of grey stone round its edge, outlined. Every kerb is laid before any flagstones, so where two
+ * ways meet, each one's stones cover the other's kerb. */
+function paintKerb(c: CanvasRenderingContext2D, walk: Rect, ox: number, oy: number) {
+  c.fillStyle = KERB;
+  c.fillRect(walk.x - ox, walk.y - oy, walk.w, walk.h);
+  c.strokeStyle = KERB_EDGE;
+  c.lineWidth = 3;
+  c.strokeRect(walk.x - ox + 1.5, walk.y - oy + 1.5, walk.w - 3, walk.h - 3);
+}
+
+/** Its flagstones inside the kerb: rows of stones along it, joints staggered. */
+function paintFlags(c: CanvasRenderingContext2D, walk: Rect, ox: number, oy: number) {
+  const upright = walk.w < walk.h, length = (upright ? walk.h : walk.w) - KERB_WIDTH * 2, width = (upright ? walk.w : walk.h) - KERB_WIDTH * 2;
   c.save();
-  c.translate(walk.x - ox, walk.y - oy);
-  // An upright path is laid as a level one turned a quarter: its length runs down the page.
+  c.translate(walk.x + KERB_WIDTH - ox, walk.y + KERB_WIDTH - oy);
+  // An upright way is laid as a level one turned a quarter: its length runs down the page.
   if (upright) c.transform(0, 1, 1, 0, 0, 0);
   c.fillStyle = FLAG;
   c.fillRect(0, 0, length, width);
   c.strokeStyle = FLAG_SEAM;
   c.lineWidth = 2;
-  const rows = 4, row = (width - 20) / rows;
+  const rows = Math.max(2, Math.round(width / 35)), row = width / rows;
   c.beginPath();
+  for (let index = 0; index <= rows; index++) { c.moveTo(0, index * row); c.lineTo(length, index * row); }
   for (let index = 0; index < rows; index++) {
-    const top = 10 + index * row, random = townRandom(Math.round(walk.x), Math.round(walk.y), index);
-    c.moveTo(0, top); c.lineTo(length, top);
+    const top = index * row, random = townRandom(Math.round(walk.x), Math.round(walk.y), index);
     for (let x = random() * 50; x < length; x += 44 + random() * 30) { c.moveTo(x, top); c.lineTo(x, top + row); }
   }
   c.stroke();
-  // The kerbs: a strip of grey stone along each long side, outlined.
-  c.fillStyle = KERB;
-  c.fillRect(0, 0, length, 10); c.fillRect(0, width - 10, length, 10);
-  c.strokeStyle = KERB_EDGE;
-  c.lineWidth = 3;
-  c.beginPath(); c.moveTo(0, 1.5); c.lineTo(length, 1.5); c.moveTo(0, width - 1.5); c.lineTo(length, width - 1.5); c.stroke();
   c.restore();
 }
 
@@ -134,6 +147,8 @@ function paintPlaza(c: CanvasRenderingContext2D, view: View, ox: number, oy: num
 
 /** Paints the market's paving that falls in one ground tile (world rect). */
 export function paintExchangeGround(context: CanvasRenderingContext2D, view: View, ox: number, oy: number) {
-  for (const walk of TOWN_EXCHANGE_GROUND.walks) if (touches(walk, view, 4)) paintWalk(context, walk, ox, oy);
+  const walks = TOWN_EXCHANGE_GROUND.walks.filter(walk => touches(walk, view, 4));
+  for (const walk of walks) paintKerb(context, walk, ox, oy);
+  for (const walk of walks) paintFlags(context, walk, ox, oy);
   if (touches({ x: CX - R, y: CY - R * DEPTH, w: R * 2, h: R * DEPTH * 2 }, view, 4)) paintPlaza(context, view, ox, oy);
 }

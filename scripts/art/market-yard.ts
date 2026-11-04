@@ -1,11 +1,12 @@
-// The market's smaller props: the yards' racks, stacks, carts, tubs and barrels, the districts' signs, the
-// avenue's guardian lion, stone lanterns and flower beds. Each draws from its foot, in world units.
+// The market's smaller props: the yards' racks, stacks, carts, tubs, crates and barrels, the districts' signs, the
+// guardian lions, stone lanterns, flower beds and benches. Each draws from its foot, in world units.
 import { FISH_COLORS } from "../../src/game/runtime/town/fishing-runtime";
+import { ORE_COLORS } from "../../src/game/runtime/town/ore-rock-renderer";
 import {
   block, bloom, CLOTH, GILT, GOLD, groundShadow, ICE, ink, LEATHER, OUTLINE, PALE_WOOD, post, SHADOW, STEEL, STONE, WHITE_BLOOM, WOOD, type Tone,
 } from "./market-paint";
 import {
-  arrow, bow, chestplate, FLETCHES, fish, helmet, logBack, logEnd, logLying, LOGS, oreLump, ORES, staff, sword,
+  arrow, bow, chestplate, crate, crystalCluster, FLETCHES, fish, helmet, logBack, logEnd, logLying, LOGS, oreLump, ORES, staff, starshard, sword,
 } from "./market-goods";
 
 type Paint = (c: CanvasRenderingContext2D) => void;
@@ -143,6 +144,28 @@ const SIGN_PAINTERS: Readonly<Record<string, Paint>> = {
   "sign-arrows": c => sign(c, () => { arrow(c, -24, -80, 24, -122, FLETCHES[0]); arrow(c, 24, -80, -24, -122, FLETCHES[1]); }),
   "sign-weapons": c => sign(c, () => { sword(c, -19, -80, 54, .72); sword(c, 19, -80, 54, -.72); }),
   "sign-armor": c => sign(c, () => chestplate(c, 0, -82, 22)),
+  "sign-crystal": c => sign(c, () => { crystalCluster(c, -6, -80, 34, ORE_COLORS.arcane_crystal); starshard(c, 20, -110, 7); }),
+};
+
+/** An open crate of crystals, one more cluster leaning on its side. */
+const crystalCrate: Paint = c => {
+  groundShadow(c, 0, -3, 40, 6);
+  crystalCluster(c, -8, -30, 30, ORE_COLORS.arcane_crystal);
+  crystalCluster(c, 13, -30, 22, ORE_COLORS.arcane_crystal);
+  crate(c, 0, 0, 58, 32);
+  crystalCluster(c, 36, 0, 20, ORE_COLORS.arcane_crystal);
+};
+
+/** A plank bench on two stone feet, seen a little from above. */
+const bench: Paint = c => {
+  groundShadow(c, 0, -3, 50, 6);
+  for (const x of [-34, 34]) block(c, x - 8, -21, 16, 21, STONE, 2);
+  c.beginPath(); c.rect(-48, -37, 96, 11); ink(c, PALE_WOOD.light, 2.5);
+  c.beginPath(); for (const y of [-33.5, -29.5]) { c.moveTo(-46, y); c.lineTo(46, y); }
+  c.lineWidth = 1.2; c.strokeStyle = PALE_WOOD.dark; c.stroke();
+  block(c, -48, -26, 96, 7, PALE_WOOD, 2.5);
+  c.fillStyle = GILT.base;
+  for (const x of [-42, 42]) { c.beginPath(); c.arc(x, -22.5, 2, 0, Math.PI * 2); c.fill(); }
 };
 
 /** A stone guardian lion sitting up on a plinth, a ball under one paw. */
@@ -226,4 +249,5 @@ const flowerBed: Paint = c => {
 export const YARD_PAINTERS: Readonly<Record<string, Paint>> = {
   "weapon-rack": weaponRack, "armor-stand": armorStand, "lumber-stack": lumberStack, "ore-cart": oreCart, "fish-tub": fishTub,
   "arrow-barrel": arrowBarrel, ...SIGN_PAINTERS, "lion-statue": lionStatue, "stone-lantern": stoneLantern, "flower-bed": flowerBed,
+  "crystal-crate": crystalCrate, bench,
 };
