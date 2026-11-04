@@ -1,7 +1,7 @@
 // The savePlayerProgress body. The client sends its whole stat block, but only
 // the loadout and cosmetic slots are read; every stat is rebuilt from the
-// stored row and server constants (see docs/ENGINEERING.md, "Progression
-// authority"). The reducer declaration and its argument schema stay in index.ts.
+// stored row and server constants. The reducer declaration and its argument
+// schema stay in index.ts.
 import type { ModuleReducerCtx } from "./index";
 import { syncWornSkill } from "./worn-skill";
 import { requireControllingPlayer } from "./session-guards";

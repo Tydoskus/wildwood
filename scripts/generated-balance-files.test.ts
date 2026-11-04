@@ -7,7 +7,7 @@ import { LIVE_BALANCE } from "../src/balance/live-balance";
 // Every generated balance file is regenerated here from its committed inputs
 // and compared byte for byte, so a hand edit or a stale generation fails.
 // To change one, change its input (or generator) and rerun the generator named
-// in the file's first line. See docs/balance-bake.md for the ownership table.
+// in the file's first line.
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("generated balance files match their generators", () => {

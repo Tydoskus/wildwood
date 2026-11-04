@@ -382,7 +382,7 @@ describe("shared/player-stats.ts against the golden numbers", () => {
   });
 });
 
-// Every stat path agrees with the world (docs/player-stats.md).
+// Every stat path agrees with the world.
 describe("every path agrees with the world", () => {
   const [, mid, endgame] = STAT_FIXTURES;
   const rowsOf = (fixture: StatFixture) => profileStatDisplayRows(profileOf(fixture), formatArmorReduction, fixtureAttackCap(fixture), fixture.research,

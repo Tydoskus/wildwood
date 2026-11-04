@@ -66,7 +66,7 @@ npm --prefix mobile run ios  # build, sync both shells, open Xcode
 npm --prefix mobile run android
 ```
 
-Native releases bundle a complete fallback game. Signed OTA updates apply at the next cold launch: on Android, every push to main can publish one automatically once it is switched on, and developer-channel testing stays available by hand. Native code/dependency and save-format changes still need a regular app release; protocol bumps do not. See [server configuration and OTA](../docs/server-config-and-ota.md) for baselines, signing, automatic publishing, promotion, and rollback.
+Native releases bundle a complete fallback game. Signed OTA updates apply at the next cold launch: on Android, every push to main can publish one automatically once it is switched on, and developer-channel testing stays available by hand. Native code/dependency and save-format changes still need a regular app release; protocol bumps do not.
 
 ## Scope and verification
 
@@ -82,7 +82,7 @@ are no server/schema changes or release/deploy steps in these commands. The
 native wrapper now includes AdMob demo rewarded ads and a RevenueCat Test Store
 purchase lab, enabled only by building with `--test-purchases` for local debug
 builds. Default builds leave shop purchases disabled, and Android release builds
-reject Test Store assets. See [commerce testing](../docs/commerce-testing.md). Web builds
+reject Test Store assets. Web builds
 retain their existing ad placeholder.
 
 The user owns visual/device QA: movement, notch/home indicator spacing, keyboard

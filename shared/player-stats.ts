@@ -1,6 +1,6 @@
 /**
  * The player's final stats, in one place. Every client view reads them from
- * here (docs/player-stats.md says which one passes what). Pure: callers pass
+ * here. Pure: callers pass
  * the run's stats, the loadout and the bonuses in play as plain data.
  */
 import { armorMoveSpeedFactor, armorSkillChanceFactor } from "./armor-class-perks";

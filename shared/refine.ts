@@ -7,14 +7,14 @@ import { chanceWithLuck } from "./luck-research";
 export { REFINE_MAX, REFINE_STEP_PAST_TEN, REFINE_STEP_TO_TEN, normalizeRefineLevel, refineMultiplier } from "./refine-multiplier";
 
 /**
- * Refining, after Ragnarok Online: every item refines on its own from +0 to +30 at the
+ * Refining: every item refines on its own from +0 to +30 at the
  * Town anvil, one ore a try, decided on the spot. Up to its safe limit a try always works; past it the odds
  * fall, and a failed try costs only its ore: the item keeps its level. Gems never buy odds or protection.
  *
  * This is its own layer, separate from the slot tiers (+N on the Weapon, Helmet and Armor tracks).
  */
 
-/** Ragnarok's weapon levels: an item's grade follows its Tier, four tiers to a grade (the last one three). */
+/** An item's refine grade follows its Tier, four tiers to a grade (the last one three). */
 export type RefineGrade = 1 | 2 | 3 | 4;
 
 /**
@@ -65,14 +65,14 @@ export const GRADE_ORES: Readonly<Record<RefineGrade, GradeOreId>> = { 1: "coppe
 export const STARSHARD_FROM_LEVEL = 11;
 
 /**
- * Where a try stops being certain. Weapons as Ragnarok's weapon levels: the higher the grade, the lower the
- * limit. Helmets and armor are +4 at every grade, as Ragnarok's armor.
+ * Where a try stops being certain. For weapons, the higher the grade, the lower the limit. Helmets and armor
+ * are +4 at every grade.
  */
 export const WEAPON_SAFE_LIMITS: Readonly<Record<RefineGrade, number>> = { 1: 7, 2: 6, 3: 5, 4: 4 };
 export const ARMOR_SAFE_LIMIT = 4;
 
 /**
- * The chance a try past the safe limit works, by the level it is for: Ragnarok's classic table to +10 (rounded),
+ * The chance a try past the safe limit works, by the level it is for: a fixed table to +10,
  * then far lower to +30. A fail costs only the ore and raises the next try's chance (refineChanceAfterFails): a
  * top-grade item about 26 tries to +10, about 1,300 to +20 and about 14,600 to +30, every try from +11 a Starshard as well.
  */

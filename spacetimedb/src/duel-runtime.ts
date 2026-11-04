@@ -4,8 +4,8 @@
 // optional chat announcement, and the expired-request sweep. The duel tables, the schema
 // registration and the requestDuel/acceptDuel/pulseDuel/resolveScheduledDuel
 // reducer declarations stay in index.ts; this module only owns the bodies they
-// call. Membership checks keep going through the duel.byChallenger index (see
-// docs/development.md). Helpers that still live in index.ts arrive through
+// call. Membership checks keep going through the duel.byChallenger index.
+// Helpers that still live in index.ts arrive through
 // createDuelRuntime's deps so the moved code reads exactly as it did.
 import { soulAttackCapFor, soulStatsFor, withSoulStats } from "./soul-dimension";
 import { ScheduleAt, Timestamp } from "spacetimedb";

@@ -40,7 +40,7 @@ export type DevDeletionRequest = {
   status: string;
 };
 
-/** Requests are to be fulfilled within this long (docs/account-deletion-operations.md). */
+/** Requests are to be fulfilled within this long. */
 export const DELETION_DEADLINE_MS = 30 * 86_400_000;
 
 export type DevConsole = {

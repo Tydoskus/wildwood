@@ -118,8 +118,7 @@ families use static layers; selected new families use the exported idle/walk/att
 sheets through `src/game/runtime/enemies/enemy-animation.ts`. The exporter itself still
 does not automatically replace game art or choose gameplay identities, hitboxes,
 attack-impact timing, or rewards. Deliberate promotion uses
-`scripts/import-enemy-sprite.mjs`; see `docs/enemy-art-families.md` for current
-assignments, texture budgets and the unchanged in-game hit/death presentation.
+`scripts/import-enemy-sprite.mjs`.
 
 ## Objective checks
 

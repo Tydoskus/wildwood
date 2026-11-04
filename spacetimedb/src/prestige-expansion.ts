@@ -1,6 +1,6 @@
 import { table, t } from "spacetimedb/server";
 
-// The launch countdown for prestige past 20 and the new perks. Nothing reads it; the table goes in the next release that breaks clients (docs/pending-client-break.md).
+// The launch countdown for prestige past 20 and the new perks. Nothing reads it; the table goes in the next release that breaks clients.
 export const prestigeExpansion = table({ name: "prestige_expansion", public: true }, {
   id: t.u8().primaryKey(), launchedAt: t.timestamp(), unlocksAt: t.timestamp(),
 });

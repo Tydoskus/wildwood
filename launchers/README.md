@@ -11,4 +11,4 @@ On macOS, double-click the tool you need:
 - **Release Wildstat.command** — run the guided production release workflow, including checks, commit, and push.
 - **Publish Server.command** — build and publish the server module after a compatibility preflight; data is never cleared.
 
-Keep these files inside this folder so they can find the project one level up. You can make a Finder alias for a tool you use often. Documentation is in [the development guide](../docs/development.md) and [map editor guide](../tools/map-editor/README.md).
+Keep these files inside this folder so they can find the project one level up. You can make a Finder alias for a tool you use often. The map editor has its own [guide](../tools/map-editor/README.md).

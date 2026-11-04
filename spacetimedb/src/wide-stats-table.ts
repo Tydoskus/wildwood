@@ -9,7 +9,7 @@ export const playerInventory = table({ name: "player_inventory", public: true },
 });
 
 // player_wide_stats and player_combat_rating moved onto player_progress (migration 57) and nothing reads
-// them; they go in the next release that breaks clients (docs/pending-client-break.md).
+// them; they go in the next release that breaks clients.
 export const playerWideStats = table({ name: "player_wide_stats", public: true }, {
   identity: t.identity().primaryKey(), maxHp: t.f64(), damage: t.f64(), armor: t.f64(), regen: t.f64(),
 });

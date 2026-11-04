@@ -14,15 +14,12 @@ WildStat is early-access.
 
 Found a bug? Use `/bug` in game or [open an issue](https://github.com/Tydoskus/wildwood/issues).
 
-For local setup and development, see the [development guide](docs/development.md).
-
 For native iPhone and Android test builds, see the [phone preview guide](mobile/README.md).
 
 ## Repository layout
 
 - [launchers/](launchers/) — double-click tools for the map editor, sprite aligner, local game, and releases.
 - [config/](config/) — Vite build and TypeScript configurations. Run the existing `npm run …` commands from the repository root.
-- [docs/](docs/) — development guides, [engineering notes](docs/ENGINEERING.md), [SpacetimeDB setup](docs/SPACETIME.md), and [art style](docs/art_style.md).
 - `src/`, `shared/`, `spacetimedb/` — client code, shared rules, and server module.
 - `public/`, `art-source/` — shipped assets and editable source art.
 - `tools/`, `scripts/` — browser tools (including the Balance Lab) and development automation.

@@ -29,7 +29,7 @@ export const leaderboardPageTables = {
   /** Players to recompute at the next snapshot although they are offline: they left, or something changed them. */
   leaderboardDirty: table({ name: "leaderboard_dirty", public: false }, { identity: t.identity().primaryKey() }),
   // Unused: emptied by the first full snapshot, and dropped in the next
-  // release that breaks clients (docs/pending-client-break.md).
+  // release that breaks clients.
   leaderboardPosition: table({ public: false }, {
     identity: t.identity().primaryKey(), ranks: t.array(t.u32()),
   }),

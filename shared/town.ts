@@ -235,7 +235,7 @@ export const TOWN_OX_POSITION = stationIn(8, 120, 100);
 /** How close a player's feet come to Ox's before his shop opens. */
 export const TOWN_OX_REACH = 60;
 /**
- * The Smith refines gear (shared/refine.ts), after Ragnarok's refiner. He
+ * The Smith refines gear (shared/refine.ts). He
  * works outdoors at the blue forge house right of the Slot Upgrades station's building (door 6), the one with crossed
  * swords on its sign: in its yard, between the weapon rack and the forge, behind the anvil. Players walk in
  * from the road on the left. Where his feet are.
