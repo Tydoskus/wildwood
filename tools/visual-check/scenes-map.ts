@@ -3,7 +3,10 @@ import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
 import { SOUL_MAP_ID } from "../../shared/soul-dimension";
 import { WOOD_TREE_NODES } from "../../shared/woodcutting";
 import { woodcuttingScene } from "../../src/game/runtime/town/woodcutting-scene";
-import { TOWN_CENTER, TOWN_EXCHANGE_CENTER, TOWN_EXCHANGE_PLAZA, TOWN_EXCHANGE_POSITION, TOWN_MAP_ID, TOWN_WALK_AREA, TOWN_WEST_BRIDGE } from "../../shared/town";
+import { fishingScene, resetFishingScene } from "../../src/game/runtime/town/fishing-scene";
+import { townFeetClear } from "../../src/game/runtime/town/town-path";
+import { FISHING_REACH, FISHING_SPOTS } from "../../shared/fishing";
+import { TOWN_CENTER, TOWN_EXCHANGE_CENTER, TOWN_EXCHANGE_PLAZA, TOWN_EXCHANGE_POSITION, TOWN_FEET_OFFSET, TOWN_MAP_ID, TOWN_WALK_AREA, TOWN_WEST_BRIDGE } from "../../shared/town";
 import { TOWN_OX_DECOR } from "../../src/game/town-world";
 import { attackRangeWithResearch } from "../../shared/utility-research";
 import { guildHallMapId } from "../../shared/guild-hall";
@@ -106,6 +109,32 @@ export async function grove() {
   ];
   for (const view of views) { await view.draw(); }
   woodcuttingScene.felled.clear();
+}
+
+/** The fishing spots on the river: one off the bank, then the player on the bank fishing it, rod out, and a catch's splash. */
+export async function fishing() {
+  const phones = strip();
+  const mapId = TOWN_MAP_ID as MapId;
+  const site = FISHING_SPOTS[2].sites[1];
+  // The clear bank nearest the spot, in reach of it, as the player's feet.
+  let feet = { x: site.x, y: site.y }, best = Infinity;
+  for (let dx = -FISHING_REACH; dx <= FISHING_REACH; dx += 4) for (let dy = -FISHING_REACH; dy <= FISHING_REACH; dy += 4) {
+    const distance = Math.hypot(dx, dy);
+    if (distance < best && distance <= FISHING_REACH - 20 && townFeetClear(site.x + dx, site.y + dy)) { best = distance; feet = { x: site.x + dx, y: site.y + dy }; }
+  }
+  const at = { x: feet.x, y: feet.y - TOWN_FEET_OFFSET }, facing = Math.atan2(site.y - feet.y, site.x - feet.x);
+  const arrange = (rod: boolean, splash: number) => (state: { player: { facing: number } }) => {
+    fishingScene.spots = FISHING_SPOTS.map((spot, index) => ({ spot: index, site: index === 2 ? 1 : 0, ...spot.sites[index === 2 ? 1 : 0] }));
+    Object.assign(fishingScene, { fishing: rod ? 2 : null, rodOut: rod, splash });
+    state.player.facing = facing;
+  };
+  const views = [
+    await mapView({ mapId, ...PHONE, parent: phones, title: "fishing · a spot off the bank", at, zoomSteps: 6, arrange: arrange(false, 0) }),
+    await mapView({ mapId, ...PHONE, parent: phones, title: "fishing · rod out", at, zoomSteps: 6, arrange: arrange(true, 0) }),
+    await mapView({ mapId, ...PHONE, parent: phones, title: "fishing · a catch's splash", at, zoomSteps: 6, arrange: arrange(true, .6) }),
+  ];
+  for (const view of views) await view.draw();
+  resetFishingScene();
 }
 
 /** The Forest's grass and the Town's, side by side at the phone framing and at 150%: the same tufts at one size. */

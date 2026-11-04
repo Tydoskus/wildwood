@@ -497,6 +497,13 @@
       "filled:u32",
       "placedAt:timestamp"
     ],
+    "my_fishing": [
+      "identity:identity",
+      "experience:u32",
+      "fishCaught:u32",
+      "lastCatchAt:timestamp",
+      "lastFish:string"
+    ],
     "my_gear_slots": [
       "key:string",
       "identity:identity",
@@ -914,6 +921,10 @@
       "playerY:f64",
       "facing:f64",
       "emittedAt:timestamp"
+    ],
+    "player_fishing_level": [
+      "identity:identity",
+      "level:u32"
     ],
     "player_free_respec": [
       "identity:identity",

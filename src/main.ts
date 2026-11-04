@@ -315,7 +315,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     joystick: joystickEl,
     stick: stickEl,
     running: () => session.isRunning(),
-    onTapPlayer: (x, y) => !inTutorial() ? openPlayerAtScreenPoint(x, y) : false,
+    onTapPlayer: (x, y) => !inTutorial() ? openPlayerAtScreenPoint(x, y) || soulDimension.tapTown(x, y) : false,
     onEscape: () => inTutorial() && playerProfileEl.hidden ? true : handleInputEscape(),
     desktop: {
       canMove: () => Boolean(session?.isRunning()) && !session.isPaused() && player.hp > 0 && !isArenaScene()

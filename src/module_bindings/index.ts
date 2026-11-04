@@ -54,6 +54,7 @@ import CancelExchangeListingReducer from "./cancel_exchange_listing_reducer";
 import CancelExchangeOfferReducer from "./cancel_exchange_offer_reducer";
 import CancelGemPurchaseReducer from "./cancel_gem_purchase_reducer";
 import CancelItemUpgradeReducer from "./cancel_item_upgrade_reducer";
+import CatchFishReducer from "./catch_fish_reducer";
 import ChallengeGuildReducer from "./challenge_guild_reducer";
 import ChangeDisplayNameReducer from "./change_display_name_reducer";
 import ChangeMapReducer from "./change_map_reducer";
@@ -326,6 +327,7 @@ import MyEquipmentOffersRow from "./my_equipment_offers_table";
 import MyExchangeCollectRow from "./my_exchange_collect_table";
 import MyExchangeListingsRow from "./my_exchange_listings_table";
 import MyExchangeOffersRow from "./my_exchange_offers_table";
+import MyFishingRow from "./my_fishing_table";
 import MyGearSlotsRow from "./my_gear_slots_table";
 import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
@@ -386,6 +388,7 @@ import PlayerCosmeticRefineRow from "./player_cosmetic_refine_table";
 import PlayerCraftLevelRow from "./player_craft_level_table";
 import PlayerDailyQuestRow from "./player_daily_quest_table";
 import PlayerDeathFrameRow from "./player_death_frame_table";
+import PlayerFishingLevelRow from "./player_fishing_level_table";
 import PlayerFreeRespecRow from "./player_free_respec_table";
 import PlayerGearSlotsRow from "./player_gear_slots_table";
 import PlayerGemDropRow from "./player_gem_drop_table";
@@ -827,6 +830,17 @@ const tablesSchema = __schema({
     ],
     event: true,
   }, PlayerDeathFrameRow),
+  playerFishingLevel: __table({
+    name: 'player_fishing_level',
+    indexes: [
+      { accessor: 'identity', name: 'player_fishing_level_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_fishing_level_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerFishingLevelRow),
   playerFreeRespec: __table({
     name: 'player_free_respec',
     indexes: [
@@ -1570,6 +1584,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyExchangeOffersRow),
+  myFishing: __table({
+    name: 'my_fishing',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyFishingRow),
   myGearSlots: __table({
     name: 'my_gear_slots',
     indexes: [
@@ -1923,6 +1944,7 @@ const reducersSchema = __reducers(
   __reducerSchema("cancel_exchange_offer", CancelExchangeOfferReducer),
   __reducerSchema("cancel_gem_purchase", CancelGemPurchaseReducer),
   __reducerSchema("cancel_item_upgrade", CancelItemUpgradeReducer),
+  __reducerSchema("catch_fish", CatchFishReducer),
   __reducerSchema("challenge_guild", ChallengeGuildReducer),
   __reducerSchema("change_display_name", ChangeDisplayNameReducer),
   __reducerSchema("change_map", ChangeMapReducer),

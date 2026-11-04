@@ -72,7 +72,7 @@ export function createWorldPlaces(deps: WorldPlacesDeps) {
     message: deps.showMessage, burst: deps.spawnBurst, sendToTown: () => mapController.teleportHome(),
     researchCritMultiplier: deps.research.criticalDamageMultiplier,
     levelUp: (level, multiplier) => later.showProgressCompletion("Soul Level", `Lv ${level} · Rewards ${multiplier}×`, "✦", "#d9b8ff"),
-    attackCap: coop.attackCap, travel: mapController.travelFromHome, clearInput, fadeToWorld: later.fadeToWorld,
+    attackCap: coop.attackCap, travel: mapController.travelFromHome, clearInput, fadeToWorld: later.fadeToWorld, camera: deps.camera,
   });
   const guildHall = createGuildHall({
     source, player, decor: world.decor, currentMapId, invalidateDepthOrder: later.invalidateDepthOrder, clearInput,

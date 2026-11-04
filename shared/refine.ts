@@ -39,6 +39,23 @@ export const REFINE_ORES = {
   frost_arrow: { name: "Frost Arrow", grade: null },
   piercing_arrow: { name: "Piercing Arrow", grade: null },
   star_arrow: { name: "Star Arrow", grade: null },
+  // Fish from the Town's river (fishing.ts): only for collecting.
+  minnow: { name: "Minnow", grade: null },
+  perch: { name: "Perch", grade: null },
+  bluegill: { name: "Bluegill", grade: null },
+  eel: { name: "Eel", grade: null },
+  trout: { name: "Trout", grade: null },
+  carp: { name: "Carp", grade: null },
+  salmon: { name: "Salmon", grade: null },
+  tuna: { name: "Tuna", grade: null },
+  lobster: { name: "Lobster", grade: null },
+  catfish: { name: "Catfish", grade: null },
+  swordfish: { name: "Swordfish", grade: null },
+  pike: { name: "Pike", grade: null },
+  jellyfish: { name: "Jellyfish", grade: null },
+  shark: { name: "Shark", grade: null },
+  anglerfish: { name: "Anglerfish", grade: null },
+  golden_koi: { name: "Golden Koi", grade: null },
 } as const;
 export type OreId = keyof typeof REFINE_ORES;
 /** The four ores a grade refines with. */

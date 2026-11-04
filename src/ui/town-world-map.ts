@@ -7,6 +7,7 @@ import { ORE_COLORS } from "../game/runtime/town/ore-rock-renderer";
 import { LOG_COLORS } from "../game/runtime/town/wood-tree-renderer";
 import { miningScene } from "../game/runtime/town/mining-scene";
 import { woodcuttingScene } from "../game/runtime/town/woodcutting-scene";
+import { fishingScene } from "../game/runtime/town/fishing-scene";
 import { drawPortalMapMarker } from "../game/portal-presentation";
 import type { MapId, WorldPath } from "../game/world";
 
@@ -80,6 +81,12 @@ export function drawTownWorldMap(context: CanvasRenderingContext2D, width: numbe
   for (const node of MINING_NODES) dot(node.x, node.y, ORE_COLORS[node.ore].light, miningScene.bare.has(node.id));
   for (const tree of WOOD_TREE_NODES) dot(tree.x, tree.y, LOG_COLORS[tree.log].face, woodcuttingScene.felled.has(tree.id));
   context.globalAlpha = 1;
+  // Fishing spots where they are now: a bigger pale blue mark each.
+  for (const spot of fishingScene.spots) {
+    const [px, py] = at(spot.x, spot.y);
+    context.fillStyle = "#101010"; context.fillRect(px - 4, py - 4, 8, 8);
+    context.fillStyle = "#9fe3ff"; context.fillRect(px - 3, py - 3, 6, 6);
+  }
 
   for (const portal of scene.portals) {
     const [x, y] = at(portal.x, portal.y);

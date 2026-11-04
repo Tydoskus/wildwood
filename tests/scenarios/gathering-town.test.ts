@@ -14,6 +14,10 @@ import { profileSkillRows } from "../../src/ui/profile-skills";
 import { writeMiningLevel } from "../../spacetimedb/src/mining";
 import { clearSpotNear, fillBag, gatherer, GROVE_ENTRY, HILLS_ENTRY, serverGatherer, standingAt } from "./harness/gather";
 import { takeGold } from "../../spacetimedb/src/gold";
+import { FISHING_REACH, fishingCatchSeconds, fishingSpotAt, isFishId } from "../../shared/fishing";
+import { targetCameraZoom } from "../../src/game/runtime/render/camera";
+import { BASE_ATTACK_RANGE } from "../../src/game/constants";
+import { SCENARIO_START_MS } from "./harness/server";
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -174,6 +178,41 @@ describe("Tools at the Smith", () => {
     // Walking off with his window open closes it once she is past his reach, where its buttons would be refused.
     await ann.tab.hold("KeyA", 1_000);
     expect(ann.tab.shown("smithTitle")).toBe(false);
+  });
+});
+
+describe("Fishing", () => {
+  /** A mouse click on the world at a world point, the phone framing the player as the game's camera does. */
+  function clickWorld(tab: GameTab, player: { x: number; y: number }, at: { x: number; y: number }) {
+    const viewport = { width: 390, height: 844 }, zoom = targetCameraZoom(BASE_ATTACK_RANGE, viewport);
+    const clientX = viewport.width / 2 + (at.x - player.x) * zoom, clientY = viewport.height * .6 + (at.y - player.y) * zoom;
+    const click = Object.assign(new (tab.window as any).Event("pointerdown", { bubbles: true, cancelable: true }),
+      { pointerType: "mouse", button: 0, isPrimary: true, clientX, clientY });
+    tab.element("game").dispatchEvent(click);
+  }
+
+  it("clicking a spot from the bank fishes it: each catch's fish lands in the bag and raises Fishing, until the spot moves on", async () => {
+    // A minute before the first spot moves on.
+    const world = gameWorld({ start: fishingSpotAt(0, SCENARIO_START_MS).movesAtMs - 60_000 });
+    const spot = fishingSpotAt(0, world.now());
+    const bank = clearSpotNear(spot, FISHING_REACH - 30, 50);
+    const ann = await gatherer(world, "Ann", { at: standingAt(bank) });
+    const caught = () => world.db.playerFishing.identity.find(ann.player.identity)?.fishCaught ?? 0;
+    clickWorld(ann.tab, standingAt(bank), spot);
+    await ann.tab.play(fishingCatchSeconds(0) * 1_000 + 1_500);
+    expect(caught()).toBe(1);
+    const fish = Object.entries(ann.ores()).filter(([id]) => isFishId(id));
+    expect(fish).toHaveLength(1);
+    expect(fish[0][1]).toBe(1);
+    expect(ann.tab.coop.ores()[fish[0][0] as OreId]).toBe(1);
+    expect(world.db.playerFishing.identity.find(ann.player.identity)?.experience).toBeGreaterThan(0);
+    // She fishes on until the spot moves to another site, then stops.
+    await ann.tab.play(spot.movesAtMs - world.now() + 2_000);
+    const atMove = caught();
+    expect(atMove).toBeGreaterThan(1);
+    expect(fishingSpotAt(0, world.now()).site).not.toBe(spot.site);
+    await ann.tab.play(fishingCatchSeconds(0) * 2_000);
+    expect(caught()).toBe(atMove);
   });
 });
 

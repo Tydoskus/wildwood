@@ -27,6 +27,7 @@ import { recordAnalyticsMapVisit } from "./analytics";
 import { noteMapDeparture } from "./enemy-defeats";
 import { removeMiningData } from "./mining";
 import { removeWoodcuttingData } from "./woodcutting";
+import { removeFishingData } from "./fishing";
 import { removeWeaponMastery } from "./weapon-mastery";
 import { removeCraftSkills } from "./crafting";
 import { removeTools } from "./tools";
@@ -112,6 +113,7 @@ export function resetWholeSave(ctx: any, activePlayer: any) {
   }
   removeMiningData(ctx, ctx.sender); // Mining is earned across runs too: the pickaxe goes back to the Smith.
   removeWoodcuttingData(ctx, ctx.sender); // So is Woodcutting, and the hatchet with it.
+  removeFishingData(ctx, ctx.sender); // And Fishing.
   removeWeaponMastery(ctx, ctx.sender);
   removeCraftSkills(ctx, ctx.sender);
   removeTools(ctx, ctx.sender);

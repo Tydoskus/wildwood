@@ -4,6 +4,7 @@ import { GEAR_GRADES, GEAR_GRADE_NAMES, GRADE_MASTERY_LEVEL, type GearGrade } fr
 import { CRAFT_LEVEL, CRAFT_MAX_LEVEL, CRAFT_SKILLS, CRAFT_SKILL_NAMES, MATERIAL_NAMES, craftExperienceForLevel, craftLevel, type CraftSkill } from "../../shared/crafting";
 import { MINING_VEINS } from "../../shared/mining";
 import { WOOD_STANDS } from "../../shared/woodcutting";
+import { FISH, FISHING_MAX_LEVEL, fishingExperienceForLevel, fishingLevel } from "../../shared/fishing";
 import { SOUL_STAT_DETAILS, SOUL_STAT_ORDER, SOUL_TIER_COUNT, SOUL_TIER_KILL_TYPES, soulTier, soulTierKillsNeeded, type RewardKillCounts } from "../../shared/soul-dimension";
 import { formatCompactNumber } from "../../shared/compact-number";
 
@@ -15,10 +16,11 @@ export type ProfileSkillRow = {
   /** Your own profile only: what the skill opens next. */
   next?: string;
 };
-/** Your own points, which only your profile has: Mastery points and craft experience. */
+/** Your own points, which only your profile has: Mastery points, craft and Fishing experience. */
 export type OwnSkillPoints = {
   mastery?: Readonly<Partial<Record<WeaponSchool, bigint | number>>>;
   crafts?: Readonly<Partial<Record<CraftSkill, bigint | number>>>;
+  fishing?: number;
 };
 
 const KILL_LABELS: Readonly<Record<(typeof SOUL_TIER_KILL_TYPES)[number], string>> = {
@@ -40,8 +42,21 @@ function gatheringRow(kind: string, name: string, value: number | null | undefin
     : { kind, group: "Gathering", name, level, next: "Everything Open" };
 }
 
+/** Fishing is a level from 1 to 99: the next fish it opens is the goal. */
+function fishingRow(level: number | null | undefined, experience: number | undefined, own: boolean): ProfileSkillRow {
+  const base = { kind: "fishing", group: "Gathering" as const, name: "Fishing" };
+  if (!own) return { ...base, level: level == null ? "Not Started" : `Lv ${level}` };
+  // Before the live experience arrives, the level the profile already has stands in.
+  const points = Math.max(0, experience ?? (level ? fishingExperienceForLevel(level) : 0)), reached = fishingLevel(points);
+  if (points === 0 && level == null) return { ...base, level: "Not Started", next: `Next: ${FISH[1].name} at Lv ${FISH[1].level}` };
+  if (reached >= FISHING_MAX_LEVEL) return { ...base, level: `Lv ${reached} Max` };
+  const floor = fishingExperienceForLevel(reached), fish = FISH.find(each => each.level > reached);
+  return { ...base, level: `Lv ${reached}`, progress: { into: points - floor, needed: fishingExperienceForLevel(reached + 1) - floor },
+    next: fish ? `Next: ${fish.name} at Lv ${fish.level}` : "Every Fish Open" };
+}
+
 /** Every skill on the Skills tab: levels for anyone, progress and the next unlock on your own (`own`). */
-export function profileSkillRows(profile: Pick<PlayerProfileData, "mastery" | "mining" | "woodcutting" | "crafts">, own?: OwnSkillPoints): ProfileSkillRow[] {
+export function profileSkillRows(profile: Pick<PlayerProfileData, "mastery" | "mining" | "woodcutting" | "fishing" | "crafts">, own?: OwnSkillPoints): ProfileSkillRow[] {
   const rows: ProfileSkillRow[] = [];
   for (const school of WEAPON_SCHOOLS) {
     const base = { kind: school, group: "Weapon Mastery" as const, name: WEAPON_SCHOOL_NAMES[school] };
@@ -53,6 +68,7 @@ export function profileSkillRows(profile: Pick<PlayerProfileData, "mastery" | "m
   }
   rows.push(gatheringRow("mining", "Mining", profile.mining, MINING_VEINS.map(vein => ({ at: vein.mining, name: MATERIAL_NAMES[vein.ore] })), Boolean(own)));
   rows.push(gatheringRow("woodcutting", "Woodcutting", profile.woodcutting, WOOD_STANDS.map(stand => ({ at: stand.woodcutting, name: `${stand.name}s` })), Boolean(own)));
+  rows.push(fishingRow(profile.fishing, own?.fishing, Boolean(own)));
   for (const skill of CRAFT_SKILLS) {
     const base = { kind: skill, group: "Crafting" as const, name: CRAFT_SKILL_NAMES[skill] };
     const known = profile.crafts?.[skill];

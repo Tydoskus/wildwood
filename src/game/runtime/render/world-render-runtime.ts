@@ -8,6 +8,9 @@ import { miningScene } from "../town/mining-scene";
 import { HATCHET_OVERRIDES, WOODCUTTING_HATCHET } from "../town/hatchet-sprite";
 import { toolSprite } from "../town/tool-sprites";
 import { woodcuttingScene } from "../town/woodcutting-scene";
+import { fishingScene } from "../town/fishing-scene";
+import { createFishingRodSprite, FISHING_ROD, FISHING_ROD_OVERRIDES } from "../town/fishing-rod-sprite";
+import { createFishingSpotRenderer } from "../town/fishing-spot-renderer";
 import { createWoodTreeRenderer } from "../town/wood-tree-renderer";
 import { createStarterChestRenderer } from "./starter-chest-renderer";
 import { drawSoulWellFall } from "../soul/soul-well-fall";
@@ -194,6 +197,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   if (pickaxeSprite) options.playerAppearanceAssets.equipment[MINING_PICKAXE] = { sprite: pickaxeSprite };
   const hatchetSprite = toolSprite("hatchet", 0);
   if (hatchetSprite) options.playerAppearanceAssets.equipment[WOODCUTTING_HATCHET] = { sprite: hatchetSprite };
+  const rodSprite = createFishingRodSprite();
+  if (rodSprite) options.playerAppearanceAssets.equipment[FISHING_ROD] = { sprite: rodSprite };
   // The tool out, if any: the pickaxe in the Copper Hills coloured by its level, the hatchet in Timberwood its level's axe.
   const inHand = (id: string, tool: "pickaxe" | "hatchet", level: number, plain: HTMLImageElement) => {
     const asset = options.playerAppearanceAssets.equipment[id], sprite = (level > 0 && toolSprite(tool, level)) || plain;
@@ -201,7 +206,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     return id;
   };
   const toolInHand = () => miningScene.pickaxeOut && pickaxeSprite ? inHand(MINING_PICKAXE, "pickaxe", miningScene.toolLevel, pickaxeSprite)
-    : woodcuttingScene.hatchetOut && hatchetSprite ? inHand(WOODCUTTING_HATCHET, "hatchet", woodcuttingScene.toolLevel, hatchetSprite) : null;
+    : woodcuttingScene.hatchetOut && hatchetSprite ? inHand(WOODCUTTING_HATCHET, "hatchet", woodcuttingScene.toolLevel, hatchetSprite)
+    : fishingScene.rodOut && rodSprite ? FISHING_ROD : null;
   const drawEntityShadow: DrawShadow = (x, y, width, alpha) => {
     // Arena scenes are visually separate from the current world map and retain
     // their shadows. Night Forest relies on its vignette to ground world actors.
@@ -310,6 +316,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       ...(rendered.rightHandItem === MINING_PICKAXE ? { throwClock: miningScene.swingClock, presentationOverrides: PICKAXE_OVERRIDES } : {}),
       // Chopping in Timberwood: the hatchet's axe, held at its own grip (hatchet-sprite.ts).
       ...(rendered.rightHandItem === WOODCUTTING_HATCHET ? { throwClock: woodcuttingScene.swingClock, presentationOverrides: HATCHET_OVERRIDES } : {}),
+      // Fishing in the Town's river: the rod held still over the water.
+      ...(rendered.rightHandItem === FISHING_ROD ? { throwClock: 0, presentationOverrides: FISHING_ROD_OVERRIDES } : {}),
       gameTime: rendered.gameTime ?? options.gameTime(),
       skinTone: rendered.skinTone ?? options.skinTone(rendered.identity ?? rendered.id) ?? DEFAULT_SKIN_TONE,
       alpha,
@@ -428,9 +436,12 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         time: options.gameTime, active: () => isTownMap(options.currentMapId()) && !lowPerformance() }),
       createSoulWater({ ctx: options.ctx, camera: options.camera, water: () => options.assets.soulWater, shore: () => options.assets.soulShore,
         viewport: options.viewport, time: options.gameTime, active: () => !lowPerformance() }));
+    // The fishing spots lie on the water, under everyone on the bank.
+    const drawFishingSpots = createFishingSpotRenderer({ ctx: options.ctx, camera: options.camera, viewport: options.viewport, time: options.gameTime,
+      active: () => isTownMap(options.currentMapId()) });
     soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.townVillageGround, interiors: () => options.assets.soulInteriors,
       decor: options.decor, drawProp: drawSoulProp, baked: true,
-      drawWater: drawRiver,
+      drawWater: () => { drawRiver(); drawFishingSpots(); },
       viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isTownMap(options.currentMapId()) });
     const drawGroveShadows = createGroveShadowRenderer({ ctx: options.ctx, camera: options.camera, viewport: options.viewport,
       drawProp: drawSoulProp, active: () => isTownMap(options.currentMapId()) });

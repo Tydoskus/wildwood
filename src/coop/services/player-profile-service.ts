@@ -13,6 +13,7 @@ import { activeCardsOfRow } from "../../../shared/active-cards";
 import { parseBonusOff } from "../../../shared/bonus-toggles";
 import { isWeaponSchool, masteryLevel, type WeaponSchool } from "../../../shared/weapon-mastery";
 import { CRAFT_SKILLS, craftLevel, type CraftSkill } from "../../../shared/crafting";
+import { fishingLevel } from "../../../shared/fishing";
 import type { LeaderboardEntry, PlayerProfileData } from "../contracts";
 import type { ProfileDirectory } from "./profile-directory";
 import type { ProgressionService } from "./progression-service";
@@ -181,6 +182,14 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
         const row = identity === dependencies.localIdentity() ? [...(db?.myWoodcutting?.iter() ?? [])][0]
           : [...(db?.playerWoodcuttingLevel?.iter() ?? [])].find(row => row.identity.toHexString() === identity);
         return row ? row.woodcutting : null;
+      })(),
+      fishing: (() => {
+        const db = dependencies.connection()?.db;
+        if (identity === dependencies.localIdentity()) {
+          const own = [...(db?.myFishing?.iter() ?? [])][0];
+          return own ? fishingLevel(own.experience) : null;
+        }
+        return [...(db?.playerFishingLevel?.iter() ?? [])].find(row => row.identity.toHexString() === identity)?.level ?? null;
       })(),
       mastery: (() => {
         const db = dependencies.connection()?.db;
@@ -369,6 +378,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.playerWornStaffSkill.where(row => row.identity.eq(dbIdentity)),
           tables.playerMiningLevel.where(row => row.identity.eq(dbIdentity)),
           tables.playerWoodcuttingLevel.where(row => row.identity.eq(dbIdentity)),
+          tables.playerFishingLevel.where(row => row.identity.eq(dbIdentity)),
           tables.playerMasteryLevel.where(row => row.identity.eq(dbIdentity)),
           tables.playerCraftLevel.where(row => row.identity.eq(dbIdentity)),
           tables.player.where((player) => player.identity.eq(dbIdentity)),

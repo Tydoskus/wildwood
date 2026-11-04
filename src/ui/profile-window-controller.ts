@@ -55,6 +55,8 @@ export function createProfileWindowController(elements: {
   weaponMastery?: () => Readonly<Record<WeaponSchool, bigint>> | undefined;
   /** Your own craft experience (my_craft_skills) and soul tier kills, live. */
   craftExperience?: () => Readonly<Record<CraftSkill, bigint>> | undefined;
+  /** Your own Fishing experience, for its progress to the next level. */
+  fishingExperience?: () => number;
   rewardKills?: () => RewardKillCounts | undefined;
   localIdentity: () => string | undefined; localDisplayName: () => string | undefined; profileIcon: (identity?: string) => number; paintIcon: (element: HTMLElement, index: number, identity?: string) => void;
   renderName: (element: HTMLElement, identity: string, name: string, gender?: PlayerGender) => void; isGuest: (identity: string) => boolean; isOnline: (identity: string) => boolean; presenceText: (profile: Profile, online: boolean) => string;
@@ -232,7 +234,7 @@ export function createProfileWindowController(elements: {
     const prestigeLevel = own ? api.prestigeLevel?.() ?? profile.prestigeLevel ?? 0 : profile.prestigeLevel ?? 0;
     elements.prestigeRow.hidden = prestigeLevel <= 0;
     elements.prestige.textContent = `${prestigeLevel} (${formatPercentMultiplier(Math.round(prestigeLevel * PRESTIGE_STAT_GAIN_PER_LEVEL * 100))} stat gain)`;
-    if (elements.skillsPanel) renderProfileSkills(elements.skillsPanel, profileSkillRows(profile, own ? { mastery: api.weaponMastery?.(), crafts: api.craftExperience?.() } : undefined));
+    if (elements.skillsPanel) renderProfileSkills(elements.skillsPanel, profileSkillRows(profile, own ? { mastery: api.weaponMastery?.(), crafts: api.craftExperience?.(), fishing: api.fishingExperience?.() } : undefined));
     if (elements.soulTier) renderProfileSoulTier(elements.soulTier, own ? api.rewardKills?.() ?? {} : undefined);
     api.renderStats(profile, elements.statGrid);
     loading.hide();

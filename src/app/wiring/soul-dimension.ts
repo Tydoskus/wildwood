@@ -41,5 +41,6 @@ export function createSoulDimension(deps: Parameters<typeof createSoulDimensionR
   });
   const levelHud = createSoulLevelHud();
   return { ...runtime, defeated: (enemy: EnemyState) => dummy.defeated(enemy) || runtime.defeated(enemy),
-    update: (dt: number) => { runtime.update(dt); town.update(dt); dummy.update(); const level = runtime.soulLevel(); levelHud.render(isSoulMap(deps.currentMapId()) ? level : null); }, refreshTown: town.refresh, openWindow: () => window.open(), closeWindow: () => window.close() };
+    update: (dt: number) => { runtime.update(dt); town.update(dt); dummy.update(); const level = runtime.soulLevel(); levelHud.render(isSoulMap(deps.currentMapId()) ? level : null); },
+    refreshTown: town.refresh, tapTown: town.tap, openWindow: () => window.open(), closeWindow: () => window.close() };
 }

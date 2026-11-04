@@ -1114,6 +1114,9 @@ export type MyExchangeListings = __Infer<typeof MyExchangeListings>;
 export const MyExchangeOffers = __t.object("MyExchangeOffers", {});
 export type MyExchangeOffers = __Infer<typeof MyExchangeOffers>;
 
+export const MyFishing = __t.object("MyFishing", {});
+export type MyFishing = __Infer<typeof MyFishing>;
+
 export const MyGearSlots = __t.object("MyGearSlots", {});
 export type MyGearSlots = __Infer<typeof MyGearSlots>;
 
@@ -1764,6 +1767,21 @@ export const PlayerEquipmentLock = __t.object("PlayerEquipmentLock", {
   copyId: __t.u64(),
 });
 export type PlayerEquipmentLock = __Infer<typeof PlayerEquipmentLock>;
+
+export const PlayerFishing = __t.object("PlayerFishing", {
+  identity: __t.identity(),
+  experience: __t.u32(),
+  fishCaught: __t.u32(),
+  lastCatchAt: __t.timestamp(),
+  lastFish: __t.string(),
+});
+export type PlayerFishing = __Infer<typeof PlayerFishing>;
+
+export const PlayerFishingLevel = __t.object("PlayerFishingLevel", {
+  identity: __t.identity(),
+  level: __t.u32(),
+});
+export type PlayerFishingLevel = __Infer<typeof PlayerFishingLevel>;
 
 export const PlayerFreeRespec = __t.object("PlayerFreeRespec", {
   identity: __t.identity(),

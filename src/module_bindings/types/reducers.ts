@@ -26,6 +26,7 @@ import CancelExchangeListingReducer from "../cancel_exchange_listing_reducer";
 import CancelExchangeOfferReducer from "../cancel_exchange_offer_reducer";
 import CancelGemPurchaseReducer from "../cancel_gem_purchase_reducer";
 import CancelItemUpgradeReducer from "../cancel_item_upgrade_reducer";
+import CatchFishReducer from "../catch_fish_reducer";
 import ChallengeGuildReducer from "../challenge_guild_reducer";
 import ChangeDisplayNameReducer from "../change_display_name_reducer";
 import ChangeMapReducer from "../change_map_reducer";
@@ -229,6 +230,7 @@ export type CancelExchangeListingParams = __Infer<typeof CancelExchangeListingRe
 export type CancelExchangeOfferParams = __Infer<typeof CancelExchangeOfferReducer>;
 export type CancelGemPurchaseParams = __Infer<typeof CancelGemPurchaseReducer>;
 export type CancelItemUpgradeParams = __Infer<typeof CancelItemUpgradeReducer>;
+export type CatchFishParams = __Infer<typeof CatchFishReducer>;
 export type ChallengeGuildParams = __Infer<typeof ChallengeGuildReducer>;
 export type ChangeDisplayNameParams = __Infer<typeof ChangeDisplayNameReducer>;
 export type ChangeMapParams = __Infer<typeof ChangeMapReducer>;

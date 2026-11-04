@@ -152,6 +152,8 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerWoodcutting", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerChoppedTree", columns: ["identity"], pk: "key", mode: "index", index: "identity" },
   { table: "playerWoodcuttingLevel", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerFishing", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerFishingLevel", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerChatHearts", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerChatMute", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerCombatRating", columns: ["identity"], pk: "identity", mode: "key" },

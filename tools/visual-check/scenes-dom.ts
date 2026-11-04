@@ -140,7 +140,7 @@ async function icons() {
   }, { ...inventory, selectedItemId: "" }, "EQUIPMENT", {
     onInspect: () => {}, upgradeLevel: () => 0, slotTier: () => 7, refineLevel, slotCapacity: items.length + copies.length,
     copies, nextSlotCost: 150n,
-    ores: { iron_ore: 12, pine_log: 900, steel_arrow: 1_240, fire_arrow: 80, piercing_arrow: 12_500 }, nockedArrow: "steel_arrow",
+    ores: { iron_ore: 12, pine_log: 900, steel_arrow: 1_240, fire_arrow: 80, piercing_arrow: 12_500, trout: 37, shark: 3, golden_koi: 1 }, nockedArrow: "steel_arrow",
   });
   const preview = createInventoryCharacterPreview(byId<HTMLCanvasElement>("inventoryCharacterCanvas"), await playerAppearance());
   const drawPreview = () => preview.draw({ visible: true, inventory, skinTone: 2, power: 54_321 });

@@ -9,11 +9,12 @@ import { soulWellFall } from "../soul/soul-well-fall";
 import type { PlayerState } from "../types";
 import { createMiningRuntime, type MiningSource } from "./mining-runtime";
 import { createWoodcuttingRuntime, type WoodcuttingSource } from "./woodcutting-runtime";
+import { createFishingRuntime, type FishingSource } from "./fishing-runtime";
 import type { InventoryState } from "../../inventory";
 import type { OreCounts } from "../../../../shared/ore-bag";
 import { bagSlotCapacity } from "../../../../shared/gems";
 
-export type TownSource = Omit<MiningSource & WoodcuttingSource, "research"> & {
+export type TownSource = Omit<MiningSource & WoodcuttingSource & FishingSource, "research"> & {
   /** What the bag holds besides its items: kept copies, ore stacks, and how many slots are bought. */
   equipmentCopies?: () => readonly unknown[];
   ores?: () => OreCounts;
@@ -131,6 +132,8 @@ export function createTownRuntime(deps: {
   /** Darkens the screen, runs the action once it is black, and brings the world back around the player. */
   fadeToWorld?: (onBlack: () => void, durationMs?: number) => void;
   clearInput?: () => void;
+  /** Where the view is, for a tap on a fishing spot. */
+  camera?: { x: number; y: number; zoom: number };
 }) {
   let windowKey = "";
   const source = () => deps.source();
@@ -146,6 +149,7 @@ export function createTownRuntime(deps: {
   };
   const mining = createMiningRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
   const woodcutting = createWoodcuttingRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
+  const fishing = createFishingRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
 
   /** Brings the props around the player up to date. */
   function refreshWindow(force = false) {
@@ -304,7 +308,11 @@ export function createTownRuntime(deps: {
       const free = step(dt);
       mining.update(dt, free);
       woodcutting.update(dt, free);
+      fishing.update(dt, free);
     },
+    /** A tap or click on the screen: true when it picked a fishing spot in reach, so the click does not walk. */
+    tap: (clientX: number, clientY: number) => Boolean(deps.camera)
+      && fishing.tap(deps.camera!.x + clientX / deps.camera!.zoom, deps.camera!.y + clientY / deps.camera!.zoom),
     /** Forces the window to rebuild, as after the map loads. */
     refresh: () => refreshWindow(true),
   };
