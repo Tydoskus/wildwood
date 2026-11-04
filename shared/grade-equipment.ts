@@ -1,4 +1,4 @@
-import { SWORD_DAMAGE_FACTOR, SWORD_REACH } from "./campaign-equipment";
+import { DAGGER_DAMAGE_FACTOR, DAGGER_REACH, SWORD_DAMAGE_FACTOR, SWORD_REACH } from "./campaign-equipment";
 import {
   ARMOR_CLASSES, ARMOR_CLASS_NAMES, BOOT_STYLES, BOOT_STYLE_NAMES, BOOT_STYLE_STAT, GEAR_GRADES, GEAR_GRADE_NAMES, GRADE_BONUS_PERCENT, GRADE_ITEM_TIER, GRADE_ROLL_RANGE,
   armorBonusPercent, bootBonusPercent, isArmorClass, isBootStyle, isGearGrade, type ArmorClass, type BootStyle, type GearGrade,
@@ -7,12 +7,12 @@ import type { ItemDefinition } from "./items";
 import { itemStatLine } from "./item-stat-line";
 
 /**
- * The graded gear: a bow, sword and staff per grade, a helmet and armor per class and grade, and boots per style
+ * The graded gear: a bow, sword, staff and dagger per grade, a helmet and armor per class and grade, and boots per style
  * and grade. Bought from the
  * Smith or crafted, never dropped, so no map's loot lists them. They are kept like the Smith's Starter Staff
  * (TOWN_DROP): in the bag, and can be thrown away.
  */
-export const GRADE_WEAPON_KINDS = ["bow", "sword", "staff"] as const;
+export const GRADE_WEAPON_KINDS = ["bow", "sword", "staff", "dagger"] as const;
 export type GradeWeaponKind = typeof GRADE_WEAPON_KINDS[number];
 export const GRADE_ARMOR_KINDS = ["helmet", "armor"] as const;
 export type GradeArmorKind = typeof GRADE_ARMOR_KINDS[number];
@@ -36,6 +36,10 @@ const WEAPON_NAMES: Readonly<Record<GradeWeaponKind, readonly string[]>> = {
   staff: [
     "Sprouting Staff", "Crooked Staff", "Banded Staff", "Walking Stick", "Orb Staff", "Seer Staff", "Crystal Staff", "Claw Staff",
     "Orbclaw Staff", "Crescent Staff", "Ramskull Staff", "Horned Staff", "Starbloom Staff", "Sunburst Staff", "Serpent Staff",
+  ],
+  dagger: [
+    "Shiv", "Skinning Knife", "Dirk", "Stiletto", "Kris", "Rondel", "Kukri", "Fang Dagger",
+    "Talon Dagger", "Viper Dagger", "Crescent Dagger", "Shadow Dagger", "Moon Dagger", "Wraith Dagger", "Starfang Dagger",
   ],
 };
 const ARMOR_NAMES: Readonly<Record<ArmorClass, Readonly<Record<GradeArmorKind, readonly string[]>>>> = {
@@ -108,6 +112,15 @@ function gradeWeapon(grade: GearGrade, kind: GradeWeaponKind): ItemDefinition {
       id, name, slot: "HAND", acquisition: "TOWN_DROP",
       description: "A sword that increases damage. It strikes up close.",
       stats: [itemStatLine("DAMAGE", percent)], weapon: { mode: "MELEE", range: SWORD_REACH, damageMultiplierBonus: percent / 100, rollRange: GRADE_ROLL_RANGE[grade], tier },
+    };
+  }
+  if (kind === "dagger") {
+    const percent = percentText(GRADE_BONUS_PERCENT[grade] * DAGGER_DAMAGE_FACTOR);
+    return {
+      id, name, slot: "HAND", acquisition: "TOWN_DROP",
+      description: "A dagger that increases damage. It strikes fast, up close.",
+      stats: [itemStatLine("DAMAGE", percent)],
+      weapon: { mode: "MELEE", range: DAGGER_REACH, damageMultiplierBonus: percent / 100, rollRange: GRADE_ROLL_RANGE[grade], tier, dagger: true },
     };
   }
   const percent = percentText(GRADE_BONUS_PERCENT[grade]);

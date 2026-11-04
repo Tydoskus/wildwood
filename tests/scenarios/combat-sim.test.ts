@@ -255,6 +255,14 @@ describe("weapon skills in a pack", { timeout: 60_000 }, () => {
     const answer = serverPays({ mapId: "beginner_desert", weapon, damage: skilled.damage, attackRate: 3, skills }, skilled.kills, 30.5);
     expect(answer).toEqual({ paid: skilled.total, error: null });
   });
+
+  it("the server pays every kill a dagger makes with its quicker strikes, Backstab and Poison", async () => {
+    const skills = { backstab: 15, poison: 15, dodge: 15 };
+    const dagger = await packFight("crude_dagger", skills);
+    expect(dagger.total).toBeGreaterThan(0);
+    const answer = serverPays({ mapId: "beginner_desert", weapon: "crude_dagger", damage: dagger.damage, attackRate: 3, skills }, dagger.kills, 30.5);
+    expect(answer).toEqual({ paid: dagger.total, error: null });
+  });
 });
 
 describe("a fast clock", { timeout: 60_000 }, () => {

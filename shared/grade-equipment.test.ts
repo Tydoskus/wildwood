@@ -13,8 +13,8 @@ import { regularMapLoot } from "./regular-map-loot";
 
 
 describe("graded gear", () => {
-  it("has a bow, sword and staff per grade, a helmet and armor per class and grade, and boots per style and grade", () => {
-    expect(GRADE_EQUIPMENT_IDS).toHaveLength(15 * 3 + 15 * 4 * 2 + 15 * 3);
+  it("has a bow, sword, staff and dagger per grade, a helmet and armor per class and grade, and boots per style and grade", () => {
+    expect(GRADE_EQUIPMENT_IDS).toHaveLength(15 * 4 + 15 * 4 * 2 + 15 * 3);
     expect(gradeItemId("boots", "rare", "ranger")).toBe("rare_ranger_boots");
     expect(new Set(GRADE_EQUIPMENT_IDS).size).toBe(GRADE_EQUIPMENT_IDS.length);
     expect(gradeItemId("bow", "rare")).toBe("rare_bow");

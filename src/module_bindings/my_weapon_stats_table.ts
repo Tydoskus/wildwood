@@ -18,4 +18,7 @@ export default __t.row({
   offerId: __t.u64().name("offer_id"),
   attackSpeed: __t.f32().name("attack_speed"),
   critDamage: __t.f32().name("crit_damage"),
+  backstab: __t.f32(),
+  poison: __t.f32(),
+  dodge: __t.f32(),
 });

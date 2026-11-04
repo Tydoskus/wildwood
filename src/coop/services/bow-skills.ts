@@ -2,7 +2,7 @@ import { tables, type DbConnection } from "../../module_bindings";
 import type { BowSkillRoll } from "../../../shared/bow-skills";
 import { isSkillSword, type SwordSkillRoll } from "../../../shared/sword-skills";
 import { isSkillStaff, type StaffSkillRoll } from "../../../shared/staff-skills";
-import { weaponSkillScore, type WeaponSkillRoll } from "../../../shared/weapon-skills";
+import { weaponSkillScore, weaponStatRollOf, type WeaponSkillRoll } from "../../../shared/weapon-skills";
 import { createEquipmentCopies } from "./equipment-copies";
 import { onTableChange, subscribeTables } from "./table-watch";
 
@@ -68,9 +68,9 @@ export function createBowSkills(notify: () => void) {
       for (const row of connection.db.myStaffSkills.iter()) {
         if (row.copyId === 0n && row.offerId === 0n) next.set(row.itemId, { meteor: row.meteor, chain: row.chain, frostNova: row.frostNova });
       }
-      // A graded weapon's speed and crit ride beside its skills (my_weapon_stats); first copies here too.
+      // A graded weapon's speed and crit ride beside its skills (my_weapon_stats), a dagger's skills with them; first copies here too.
       for (const row of connection.db.myWeaponStats.iter()) {
-        if (row.copyId === 0n && row.offerId === 0n) next.set(row.itemId, { ...next.get(row.itemId), attackSpeed: row.attackSpeed, critDamage: row.critDamage });
+        if (row.copyId === 0n && row.offerId === 0n) next.set(row.itemId, { ...next.get(row.itemId), ...weaponStatRollOf(row) });
       }
       const kept = hydrated ? betterRollsKept(seen, next, copies.changedLocally) : [];
       for (const [itemId, roll] of next) seen.set(itemId, roll);

@@ -34,6 +34,8 @@ import { isBow } from "../../shared/bow-skills";
 import { arrowOffenseBound } from "../../shared/arrows";
 import { arrowInPlay } from "./arrows";
 import { staffSkillRollFor } from "./staff-skills";
+import { daggerSkillDamageMultiplier, isSkillDagger } from "../../shared/dagger-skills";
+import { firstStatRoll } from "./weapon-stat-roll";
 import type { ModuleReducerCtx as GameReducerContext } from "./index";
 import { readCritRating, readPlayerProgress } from "./wide-stats";
 import { weaponMasteryPoints } from "./weapon-mastery";
@@ -148,7 +150,8 @@ export function createCombatReport(deps: CombatReportDeps) {
   }
   function skillRollsFor(ctx: GameReducerContext, weapon: string) {
     return { bow: isSkillBow(weapon) ? bowSkillRollFor(ctx, ctx.sender, weapon) : null, sword: swordSkillRollFor(ctx, ctx.sender, weapon),
-      staff: isStaff(weapon) ? staffSkillRollFor(ctx, ctx.sender, weapon) : null };
+      staff: isStaff(weapon) ? staffSkillRollFor(ctx, ctx.sender, weapon) : null,
+      dagger: isSkillDagger(weapon) ? firstStatRoll(ctx, ctx.sender, weapon) : null };
   }
 
   /**
@@ -246,6 +249,8 @@ export function createCombatReport(deps: CombatReportDeps) {
       const staff = isStaff(loadout.weapon);
       const staffReach = rolls.staff
         ? staffSkillReachMultiplier(rollWithProficiency(rolls.staff, mastery.level, loadout.skillFactor), technique.meteorFalls) : 1;
+      // A dagger's Poison deals a strike's damage again and its Backstab crits harder (dagger-skills.ts).
+      const daggerDamage = rolls.dagger ? daggerSkillDamageMultiplier(rollWithProficiency(rolls.dagger, mastery.level, loadout.skillFactor)) : 1;
       const armorReduction = armorFor(statsFor(withSoulStats(saved, soul, minInterval)).armor).reduction;
       // A nocked arrow, while the bow in hand has some to shoot (arrows.ts).
       const arrow = arrowOffenseBound(isBow(loadout.weapon) ? arrowInPlay(ctx, ctx.sender) : null);
@@ -258,8 +263,8 @@ export function createCombatReport(deps: CombatReportDeps) {
         reach: (prestigeReachMultiplier(ranks, armorReduction) + cardBound.reflect * WORLD_REFLECT_SHARE * preArmorFactor(armorReduction))
           * bowSkillReachMultiplier(bowSkills, technique.stormWaves) * staffReach * cardBound.reach
           * swordSkillReachMultiplier(swordSkills, technique.whirlwindTicks, technique.cleave) * arrow.reach,
-        // A bolt hits a little harder than an arrow, and casts come slower.
-        weapon: loadout.weapon, boltDamage: staff ? STAFF_BOLT_DAMAGE_FACTOR : 1,
+        // A bolt hits a little harder than an arrow, and casts come slower; a dagger's skills add to its strikes.
+        weapon: loadout.weapon, weaponDamage: (staff ? STAFF_BOLT_DAMAGE_FACTOR : 1) * daggerDamage,
         cardDamage: cardBound.damage * arrow.damage,
         // Hunter's Mark, Hex and Volley hit harder; Momentum swings faster; Bloodlust heals each swing.
         techniqueDamage: technique.damage, attackSpeed: technique.attackSpeed, healPerSwing: technique.healPerSwing,
@@ -286,7 +291,7 @@ export function createCombatReport(deps: CombatReportDeps) {
         if (!gear) return { dps: 0, attackInterval: attackIntervalForProgress(progress), projectiles: 1 };
         const attackInterval = weaponAttackInterval(gear.weapon, attackIntervalWithGear(attackIntervalForProgress(progress), gear.rating.speed, minInterval))
           / gear.attackSpeed;
-        const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.boltDamage * gear.critical(progress.critRating) * gear.swing
+        const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.weaponDamage * gear.critical(progress.critRating) * gear.swing
           * gear.cardDamage * gear.techniqueDamage * gear.projectiles / attackInterval : 0;
         // Reflect throws a hit back as it arrived before armor
         // (capped at max health outside Reflect Only). What got through can

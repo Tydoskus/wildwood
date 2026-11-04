@@ -14,7 +14,7 @@ import { WEAPON_SCHOOL_NAMES, masteryLevel, type WeaponSchool } from "./weapon-m
  */
 export type MasteryLevels = Readonly<Partial<Record<WeaponSchool, number>>>;
 
-const WEAPON_SCHOOL: Readonly<Record<GradeWeaponKind, WeaponSchool>> = { bow: "archery", sword: "swordplay", staff: "sorcery" };
+const WEAPON_SCHOOL: Readonly<Record<GradeWeaponKind, WeaponSchool>> = { bow: "archery", sword: "swordplay", staff: "sorcery", dagger: "swordplay" };
 
 /** One line of the shop: a weapon, a class's helmet or armor, or a style's boots. */
 export type GradeShopLine = { kind: GradeWeaponKind } | { kind: GradeArmorKind; armorClass: ArmorClass } | { kind: "boots"; bootStyle: BootStyle };

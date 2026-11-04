@@ -1,5 +1,5 @@
 import { tables, type DbConnection } from "../../module_bindings";
-import { weaponSkillRollOf, type WeaponSkillRoll } from "../../../shared/weapon-skills";
+import { weaponSkillRollOf, weaponStatRollOf, type WeaponSkillRoll } from "../../../shared/weapon-skills";
 import { isSkillStaff } from "../../../shared/staff-skills";
 import { reducerErrorMessage } from "./reducer-errors";
 import { createIgnoredDrops } from "./ignored-drops";
@@ -13,7 +13,7 @@ export type EquipmentOffer = { id: bigint; itemId: string; roll: WeaponSkillRoll
 export type EquipmentCopyResult = { ok: boolean; error?: string };
 
 type Target = { connection: DbConnection; isCurrent: () => boolean };
-/** Staff rolls (my_staff_skills) and speed and crit rolls (my_weapon_stats) of kept copies and offers, by "copy:<id>" or "offer:<id>". */
+/** Staff rolls (my_staff_skills) and speed, crit and dagger rolls (my_weapon_stats) of kept copies and offers, by "copy:<id>" or "offer:<id>". */
 type StaffRolls = ReadonlyMap<string, WeaponSkillRoll>;
 const rollOf = (row: WeaponSkillRoll & { id: bigint; itemId: string }, staff: StaffRolls, stats: StaffRolls, kind: "copy" | "offer") => ({
   ...(isSkillStaff(row.itemId) ? staff.get(`${kind}:${row.id}`) ?? { meteor: 0, chain: 0, frostNova: 0 } : weaponSkillRollOf(row)),
@@ -83,7 +83,7 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
       const next = new Map<string, WeaponSkillRoll>();
       for (const row of connection.db.myWeaponStats.iter()) {
         if (row.copyId === 0n && row.offerId === 0n) continue;
-        next.set(row.copyId ? `copy:${row.copyId}` : `offer:${row.offerId}`, { attackSpeed: row.attackSpeed, critDamage: row.critDamage });
+        next.set(row.copyId ? `copy:${row.copyId}` : `offer:${row.offerId}`, weaponStatRollOf(row));
       }
       stats = next;
       readCopies(); readOffers();

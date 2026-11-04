@@ -13,6 +13,7 @@ export const DAMAGE_SOURCE_NAMES = {
   "staff-direct": "Staff Bolt", "staff-splash": "Bolt Blast", "staff-chain": "Chain", "staff-meteor": "Meteor",
   "card-koi": "Koi Crits", "card-splash": "Splash", "card-chain": "Chain Lightning", "card-reap": "Reap",
   "card-burn": "Burn", "card-poison": "Poison", "card-reflect-splash": "Prism", "reflect": "Reflect",
+  "dagger-hit": "Dagger", "dagger-backstab": "Backstab",
 } as const;
 export type DamageSource = keyof typeof DAMAGE_SOURCE_NAMES;
 

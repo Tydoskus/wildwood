@@ -3,6 +3,8 @@ import { GRADE_ITEM_DEFINITIONS, isGradeItemId, type GradeItemId } from "../../s
 import type { ItemDefinition } from "../../shared/items";
 import { normalizeRefineLevel } from "../../shared/refine-multiplier";
 import type { ItemPresentation, WorldLegPresentation } from "./item-presentation";
+import { WEAPON_ALIGNMENT_DEFAULTS } from "./equipment-alignment";
+import { isDagger } from "../../shared/dagger-skills";
 
 /** A staff is held upright and casts (player-appearance.ts); its art is already the in-hand size (import-vendor-staffs.mjs). */
 export const staffPresentation = (source: string): ItemPresentation => ({
@@ -23,8 +25,9 @@ export const gradeSkinForRefine = (refineLevel: unknown): GradeSkin => {
   return level >= 20 ? "r20" : level >= 10 ? "r10" : "base";
 };
 
+// A dagger has no art of its own yet: it is its grade's sword, held smaller.
 const vendorPartSource = (id: string, skin: GradeSkin = "base") =>
-  `assets/wildstat/player-parts/${id.replace(/_/g, "-")}${skin === "base" ? "" : `-${skin}`}.webp`;
+  `assets/wildstat/player-parts/${id.replace(/_dagger$/, "_sword").replace(/_/g, "-")}${skin === "base" ? "" : `-${skin}`}.webp`;
 
 /** The sprite a graded piece is drawn with at a refine level (graded boots: their bag icon); undefined for any other item. */
 export function gradeItemSkin(itemId: string | undefined, refineLevel: unknown = 0) {
@@ -45,7 +48,8 @@ const vendorPartPresentations = (definitions: Readonly<Record<string, ItemDefini
     // size (scripts/art/import-vendor-swords.mjs), so all of them share its alignment.
     if (item.weapon?.mode === "MELEE") return [id, {
       inventory: { source, equippedWidth: 32, equippedHeight: 28 },
-      world: { kind: "SPRITE", source, layer: "HAND", top: 116, handAction: "SWING", weaponCategory: "SWORD" },
+      world: { kind: "SPRITE", source, layer: "HAND", top: 116, handAction: "SWING", weaponCategory: "SWORD",
+        ...(isDagger(id) ? { alignment: { ...WEAPON_ALIGNMENT_DEFAULTS.SWORD, scale: .7 } } : {}) },
     }];
     if (item.weapon?.projectile === "BOLT") return [id, staffPresentation(source)];
     if (item.slot === "HAND") return [id, {

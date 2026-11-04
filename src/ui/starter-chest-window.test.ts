@@ -21,7 +21,7 @@ function modal(document: Document) {
 }
 const cards = (dialog: HTMLDialogElement) => [...dialog.querySelectorAll<HTMLElement>(".starter-chest-card")];
 
-it("shows three cards, a Crude Bow, Sword and Staff, each with art, school and what it does", () => {
+it("shows four cards, a Crude Bow, Sword, Staff and Dagger, each with art, school and what it does", () => {
   const document = page();
   const chest = createStarterChestWindow({ choose: vi.fn(), showMessage: vi.fn() });
   const dialog = modal(document);
@@ -29,7 +29,7 @@ it("shows three cards, a Crude Bow, Sword and Staff, each with art, school and w
   expect(dialog.open).toBe(true);
   expect(dialog.querySelector(".window-banner")!.textContent).toBe("Choose Your Weapon");
   expect(cards(dialog).map(card => [card.querySelector("strong")!.textContent, card.querySelector(".smith-shop-grade")!.textContent])).toEqual([
-    ["Crude Bow", "Archery"], ["Crude Sword", "Swordplay"], ["Crude Staff", "Sorcery"],
+    ["Crude Bow", "Archery"], ["Crude Sword", "Swordplay"], ["Crude Staff", "Sorcery"], ["Crude Dagger", "Swordplay"],
   ]);
   // The sword's card gives the bonus the Crude Sword really has, not its 1.5x over the bow.
   const swordBonus = Number((1 + GRADE_ITEM_DEFINITIONS.crude_sword.weapon!.damageMultiplierBonus!).toFixed(2));

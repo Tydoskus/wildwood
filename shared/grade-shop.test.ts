@@ -7,11 +7,11 @@ import { GRADE_GOLD_PRICE } from "./gear-grades";
 import { masteryPointsForLevel } from "./weapon-mastery";
 
 describe("the Smith's gear for gold", () => {
-  it("has a line for every graded piece: three weapons, a helmet and armor per class, boots per style", () => {
-    expect(GRADE_SHOP_LINES).toHaveLength(14);
+  it("has a line for every graded piece: four weapons, a helmet and armor per class, boots per style", () => {
+    expect(GRADE_SHOP_LINES).toHaveLength(15);
     const offered = GRADE_SHOP_LINES.map(line => gradeShopOffer(line, new Set()).itemId);
     expect(offered.every(id => GRADE_EQUIPMENT_IDS.includes(id))).toBe(true);
-    expect(new Set(offered).size).toBe(14);
+    expect(new Set(offered).size).toBe(15);
     expect(offered.slice(-3)).toEqual(["crude_ranger_boots", "crude_warrior_boots", "crude_mystic_boots"]);
     for (const id of GRADE_EQUIPMENT_IDS) expect(GRADE_SHOP_LINES).toContainEqual(gradeShopLineOf(id));
   });

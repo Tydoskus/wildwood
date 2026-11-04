@@ -12,7 +12,7 @@ import { formatMultiplierChange } from "./number-format";
 export type WornLoadout = { equippedRightHand?: string; equippedLeftHand?: string; equippedHead?: string; equippedChest?: string; equippedFeet?: string };
 
 const SCHOOL_WEAPON: Readonly<Record<WeaponSchool, GradeWeaponKind>> = { archery: "bow", swordplay: "sword", sorcery: "staff" };
-const KIND_NAMES = { bow: "Bow", sword: "Sword", staff: "Staff", helmet: "Helmet", armor: "Armor", boots: "Boots" } as const;
+const KIND_NAMES = { bow: "Bow", sword: "Sword", staff: "Staff", dagger: "Dagger", helmet: "Helmet", armor: "Armor", boots: "Boots" } as const;
 
 /** "For Your Bow": the weapon a school fights with. */
 export const schoolWeaponName = (school: WeaponSchool) => KIND_NAMES[SCHOOL_WEAPON[school]];

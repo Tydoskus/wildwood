@@ -103,7 +103,10 @@ type Ctx = any;
 const sameIdentity = (a: Identity, b: Identity) => a.toHexString() === b.toHexString();
 const byId = (a: { id: bigint }, b: { id: bigint }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-/** A kept copy's or an offer's roll: a staff's skills from player_staff_skill, any other's from its own columns, and its speed and crit. */
+/**
+ * A kept copy's or an offer's roll: a staff's skills from player_staff_skill, a bow's or a sword's from its own
+ * columns, and its speed and crit, a dagger's skills with them.
+ */
 export const copyRollOf = (ctx: Ctx, copy: any): WeaponSkillRoll =>
   ({ ...(isSkillStaff(copy.itemId) ? staffCopyRoll(ctx, copy.id) : weaponSkillRollOf(copy)), ...copyStatRoll(ctx, copy.id) });
 const offerRollOf = (ctx: Ctx, offer: any): WeaponSkillRoll =>
@@ -118,7 +121,7 @@ export function deleteCopy(ctx: Ctx, copy: any) {
   if (isSkillStaff(copy.itemId)) forgetStaffCopyRoll(ctx, copy.id);
   forgetCopyStatRoll(ctx, copy.id);
 }
-/** A kept copy's roll beside its row: a staff's skills, and any graded weapon's speed and crit. */
+/** A kept copy's roll beside its row: a staff's skills, and any graded weapon's speed and crit (a dagger's skills too). */
 function setCopyRoll(ctx: Ctx, identity: Identity, itemId: string, copyId: bigint, roll: WeaponSkillRoll) {
   setStaffCopyRoll(ctx, identity, itemId, copyId, roll);
   setCopyStatRoll(ctx, identity, itemId, copyId, roll);
@@ -278,7 +281,7 @@ function salvage(ctx: Ctx, itemId: string) {
   if (ore) addOres(ctx, ctx.sender, ore, 1);
 }
 
-/** Deletes the first copy's roll, bow, sword or staff. */
+/** Deletes the first copy's roll, bow, sword, staff or dagger. */
 function forgetFirstCopyRoll(ctx: Ctx, identity: Identity, itemId: string) {
   forgetFirstStatRoll(ctx, identity, itemId);
   if (isSkillStaff(itemId)) { forgetStaffSkillRoll(ctx, identity, itemId); return; }

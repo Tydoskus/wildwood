@@ -11,7 +11,7 @@ import { gradeShopOffer } from "./grade-shop";
 describe("crafting graded gear", () => {
   it("gives each craft its lines, every graded piece made by exactly one", () => {
     const ids = (skill: keyof typeof CRAFT_LINES) => CRAFT_LINES[skill].map(line => gradeShopOffer(line, new Set()).itemId);
-    expect(ids("smithing")).toEqual(["crude_sword", "crude_medium_helmet", "crude_medium_armor", "crude_heavy_helmet", "crude_heavy_armor", "crude_warrior_boots"]);
+    expect(ids("smithing")).toEqual(["crude_sword", "crude_dagger", "crude_medium_helmet", "crude_medium_armor", "crude_heavy_helmet", "crude_heavy_armor", "crude_warrior_boots"]);
     expect(ids("fletching")).toEqual(["crude_bow", "crude_light_helmet", "crude_light_armor", "crude_ranger_boots"]);
     expect(ids("enchanting")).toEqual(["crude_staff", "crude_magic_helmet", "crude_magic_armor", "crude_mystic_boots"]);
     expect(GRADE_EQUIPMENT_IDS.every(isCraftable)).toBe(true);

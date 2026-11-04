@@ -25,6 +25,8 @@ import { swordSkillBossDamageMultiplier } from "../../../shared/sword-skills";
 import type { WeaponSkillRoll } from "../../../shared/weapon-skills";
 import { createSwordSkillRuntime, type SwordSkillEffects } from "./sword-skill-runtime";
 import { createStaffSkillRuntime, type StaffSkillEffects } from "./staff-skill-runtime";
+import { createDaggerSkillRuntime } from "./dagger-skill-runtime";
+import { daggerSkillDamageMultiplier, isDagger } from "../../../shared/dagger-skills";
 import {
   STAFF_BOLT_DAMAGE_FACTOR, STAFF_BOLT_SPEED_FACTOR, STAFF_SPLASH_RADIUS, isStaff, rollBoltSkillProcs, staffSkillBossDamageMultiplier,
   weaponAttackInterval, weaponHitFactor,
@@ -266,6 +268,11 @@ export function createPlayerCombatController(options: {
     streak: (fromX, fromY, toX, toY, color) => options.skillEffects
       ? options.skillEffects.spawnSkillStreak(fromX, fromY, toX, toY, color, 3, .28, true) : streak(fromX, fromY, toX, toY, color),
   });
+  // A dagger's poison is a damage over time, as a Poison card's is, and does not stack with one.
+  const daggerSkills = createDaggerSkillRuntime({
+    player, equippedWeapon: options.equippedWeapon, roll: weaponSkills, random, isDueling, spawnBurst,
+    poison: (target, damage, seconds) => cardCombat.damageOverTime(target, "poison", damage, seconds),
+  });
   // Reflect draws from a marble bag, so its rate corrects itself instead of
   // running dry for a hundred hits at 6%. Only hits it could answer draw.
   const reflectBag = createMarbleBag(random);
@@ -379,13 +386,17 @@ export function createPlayerCombatController(options: {
     const angle = Math.atan2(targetAimY(target) - player.y, target.x - player.x);
     const hit = raycastProjectile(player.x, player.y, player.x + Math.cos(angle) * attackRange(), player.y + Math.sin(angle) * attackRange(), 0);
     if (!hit) { techniques.swingMissed(); return; }
-    const critical = (!hit.enemy.isBoss || Boolean(options.hitPersonalBoss)) && Math.random() < researchCriticalChance();
+    // A dagger strikes as a sword does; a Backstab crits more often and harder.
+    const dagger = isDagger(options.equippedWeapon()), backstab = daggerSkills.backstab(hit.enemy);
+    const critical = (!hit.enemy.isBoss || Boolean(options.hitPersonalBoss)) && Math.random() < researchCriticalChance() + backstab.critChance;
     // Double Strike lands the same blow twice rather than hitting harder, so a
     // second kill can come out of one swing.
-    const damage = weaponDamage(critical);
+    const damage = weaponDamage(critical) * (critical ? 1 + backstab.critDamage : 1);
     const strikes = Math.random() < doubleStrikeChance() ? 2 : 1;
-    for (let strike = 0; strike < strikes; strike++) applyPlayerHit(hit.enemy, damage, critical, angle, 'sword-hit');
+    const source = backstab.critChance > 0 ? 'dagger-backstab' : dagger ? 'dagger-hit' : 'sword-hit';
+    for (let strike = 0; strike < strikes; strike++) applyPlayerHit(hit.enemy, damage, critical, angle, source);
     swordSkills.swing(hit.enemy, damage, critical, angle);
+    daggerSkills.poison(hit.enemy, damage);
     // Cleave, Bloodlust and Momentum (mastery-techniques.ts).
     for (const cleaved of techniques.cleaveTargets(hit.enemy, attackRange())) {
       applyPlayerHit(cleaved, damage * techniques.cleaveShare, critical, Math.atan2(cleaved.y - player.y, cleaved.x - player.x), 'sword-cleave');
@@ -701,7 +712,8 @@ export function createPlayerCombatController(options: {
 
   function damagePlayer(amount: number, source?: EnemyState | BossTarget | null) {
     if (isDueling() || player.hurtClock > 0) return false;
-    // Cards: a dodge spends the attack and lands nothing; guards lower the hit, and a shield takes what armor lets through.
+    // A dagger's Dodge and the cards' spend the attack and land nothing; guards lower the hit, and a shield takes what armor lets through.
+    if (daggerSkills.dodge()) return true;
     const guarded = cardCombat.incoming(amount, source);
     if (guarded === null) return true;
     // Swordplay's Guard and Mana Shield lower it as the cards do; Reflect still answers the hit as it arrived.
@@ -962,7 +974,7 @@ export function createPlayerCombatController(options: {
   function expectedFullDps() {
     const double = 1 + Math.max(0, doubleStrikeChance());
     return expectedDps() * (isMeleeWeapon(options.equippedWeapon())
-      ? double + swordSkillBossDamageMultiplier(weaponSkills()) - 1
+      ? double + swordSkillBossDamageMultiplier(weaponSkills()) - 1 + daggerSkillDamageMultiplier(isDagger(options.equippedWeapon()) ? weaponSkills() : null) - 1
       : isStaff(options.equippedWeapon()) ? double * staffSkillBossDamageMultiplier(weaponSkills())
       : double * (1 + bowSkillChance(weaponSkills(), "arrowStorm") * ARROW_STORM_SCORE_WEIGHT));
   }

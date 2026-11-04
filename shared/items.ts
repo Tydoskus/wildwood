@@ -124,6 +124,8 @@ export type ItemDefinition = {
     rollRange?: { min: number; max: number };
     /** The map tier a stat-bearing bow, sword or staff was authored at (1-15). */
     tier?: number;
+    /** A dagger: a melee weapon that strikes faster and closer than a sword, with its own skills (dagger-skills.ts). */
+    dagger?: boolean;
   };
 };
 

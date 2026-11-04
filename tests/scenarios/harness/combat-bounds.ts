@@ -4,6 +4,7 @@ import { bowSkillKey } from "../../../spacetimedb/src/bow-skills";
 import { swordSkillKey } from "../../../spacetimedb/src/sword-skills";
 import { staffSkillKey } from "../../../spacetimedb/src/staff-skills";
 import { withDefeatClock } from "../../../spacetimedb/src/enemy-defeats";
+import { weaponRollLevels } from "../../../shared/items";
 import type { SimPlayer } from "./sim";
 
 /** The kills a sim claims over `seconds` of play, as its kill report would send them. */
@@ -33,6 +34,13 @@ export function serverPays(build: ClaimBuild, kills: Record<string, number>, sec
     const skills = build.skills!;
     if ("arrowStorm" in skills) db.playerBowSkill.insert({ key: bowSkillKey(ann.identity, build.weapon), identity: ann.identity, itemId: build.weapon, arrowStorm: 0, ricochet: 0, piercingShot: 0, ...skills });
     else if ("whirlwind" in skills) db.playerSwordSkill.insert({ key: swordSkillKey(ann.identity, build.weapon), identity: ann.identity, itemId: build.weapon, whirlwind: 0, deflect: 0, shockwave: 0, ...skills });
+    // A dagger's skills ride in its weapon roll row, beside its speed and crit: those at the middle of their range,
+    // as a sim's weapon with no roll known plays them.
+    else if ("backstab" in skills) {
+      const middle = weaponRollLevels(build.weapon, 0, "attackSpeed");
+      db.playerWeaponStat.insert({ key: `${ann.identity.toHexString()}:${build.weapon}`, identity: ann.identity, itemId: build.weapon,
+        copyId: 0n, offerId: 0n, attackSpeed: middle, critDamage: middle, backstab: 0, poison: 0, dodge: 0, ...skills });
+    }
     else db.playerStaffSkill.insert({ key: staffSkillKey(ann.identity, build.weapon), identity: ann.identity, itemId: build.weapon, copyId: 0n, offerId: 0n, meteor: 0, chain: 0, frostNova: 0, ...skills });
   });
   // She has been playing a while: her clocks have nothing banked, so this fight's own time pays for its kills.

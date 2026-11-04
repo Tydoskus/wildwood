@@ -45,6 +45,10 @@ function staff(id: string, name: string, tier: number): ItemDefinition {
   };
 }
 
+/** Daggers hit a little softer than a bow of their grade and reach less far than a sword, striking faster (dagger-skills.ts). */
+export const DAGGER_DAMAGE_FACTOR = .8;
+export const DAGGER_REACH = 60;
+
 export const CAMPAIGN_EQUIPMENT = {
   // Swords, at each map's bow odds (shared/items.ts has the first maps' as constants; a map with no regular bow,
   // Lava Lake, takes its helmet's).

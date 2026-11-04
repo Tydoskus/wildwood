@@ -829,7 +829,10 @@
       "copyId:u64",
       "offerId:u64",
       "attackSpeed:f32",
-      "critDamage:f32"
+      "critDamage:f32",
+      "backstab:f32",
+      "poison:f32",
+      "dodge:f32"
     ],
     "my_woodcutting": [
       "identity:identity",
@@ -1231,7 +1234,10 @@
       "copyId:u64",
       "offerId:u64",
       "attackSpeed:f32",
-      "critDamage:f32"
+      "critDamage:f32",
+      "backstab:f32",
+      "poison:f32",
+      "dodge:f32"
     ],
     "player_wide_stats": [
       "identity:identity",

@@ -18,14 +18,14 @@ export const MATERIAL_NAMES: Readonly<Record<string, string>> = {
   copper_ore: "Copper Ore", iron_ore: "Iron Ore", mithril_ore: "Mithril Ore", adamant_ore: "Adamant Ore", starshard: "Starshard",
 };
 
-export type CraftKind = "bow" | "sword" | "staff" | "helmet" | "armor";
+export type CraftKind = "bow" | "sword" | "staff" | "helmet" | "armor" | "dagger";
 export type Materials = Readonly<Record<string, number>>;
 
 /** The craft that makes a piece. */
 export function craftSkillFor(kind: CraftKind, armorClass?: ArmorClass): CraftSkill {
   if (kind === "bow") return "fletching";
   if (kind === "staff") return "enchanting";
-  if (kind === "sword") return "smithing";
+  if (kind === "sword" || kind === "dagger") return "smithing";
   return armorClass === "light" ? "fletching" : armorClass === "magic" ? "enchanting" : "smithing";
 }
 

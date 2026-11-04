@@ -14,6 +14,7 @@ import { parseBonusOff } from "../../../shared/bonus-toggles";
 import { isWeaponSchool, masteryLevel, type WeaponSchool } from "../../../shared/weapon-mastery";
 import { CRAFT_SKILLS, craftLevel, type CraftSkill } from "../../../shared/crafting";
 import { fishingLevel } from "../../../shared/fishing";
+import { daggerSkillsOf, isSkillDagger } from "../../../shared/dagger-skills";
 import type { LeaderboardEntry, PlayerProfileData } from "../contracts";
 import type { ProfileDirectory } from "./profile-directory";
 import type { ProgressionService } from "./progression-service";
@@ -99,6 +100,13 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     );
   }
 
+  /** A player's weapon rolls: our own from my_weapon_stats, another's from the profile's player_weapon_stat subscription. */
+  function weaponStatRows(identity: string) {
+    const db = dependencies.connection()?.db;
+    return identity === dependencies.localIdentity() ? [...(db?.myWeaponStats?.iter() ?? [])]
+      : [...(db?.playerWeaponStat?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
+  }
+
   function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     const progress = dependencies.progression.progressFor(identity);
     const lifetime = dependencies.progression.lifetimeFor(identity);
@@ -131,14 +139,9 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           : [...(db?.playerItemRefine?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
         return Object.fromEntries(rows.map(row => [row.itemId, row.level]));
       })(),
-      // Their weapons' rolled speed and crit (first copies), from my_weapon_stats or the profile's player_weapon_stat subscription.
-      weaponStats: (() => {
-        const db = dependencies.connection()?.db;
-        const rows = identity === dependencies.localIdentity() ? [...(db?.myWeaponStats?.iter() ?? [])]
-          : [...(db?.playerWeaponStat?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
-        return Object.fromEntries(rows.filter(row => !row.copyId && !row.offerId)
-          .map(row => [row.itemId, { attackSpeed: row.attackSpeed, critDamage: row.critDamage }]));
-      })(),
+      // Their weapons' rolled speed and crit (first copies).
+      weaponStats: Object.fromEntries(weaponStatRows(identity).filter(row => !row.copyId && !row.offerId)
+        .map(row => [row.itemId, { attackSpeed: row.attackSpeed, critDamage: row.critDamage }])),
       // Their looks' kept refines, from my_cosmetic_refines or the profile's player_cosmetic_refine subscription.
       cosmeticRefines: (() => {
         const db = dependencies.connection()?.db;
@@ -155,6 +158,12 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
       })(),
       wornSkill: ((): { itemId: string; roll: Record<string, number> } | null => {
         const db = dependencies.connection()?.db;
+        // A dagger's skills are its first copy's weapon roll row.
+        const weapon = progress.equippedRightHand || progress.equippedLeftHand || "";
+        if (isSkillDagger(weapon)) {
+          const row = weaponStatRows(identity).find(row => row.itemId === weapon && !row.copyId && !row.offerId);
+          return row ? { itemId: weapon, roll: daggerSkillsOf(row) } : null;
+        }
         // Your own weapon reads its roll from my_bow_skills / my_sword_skills / my_staff_skills; another player's
         // from player_worn_skill, or player_worn_staff_skill for a staff.
         if (identity === dependencies.localIdentity()) {

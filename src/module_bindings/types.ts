@@ -2486,6 +2486,9 @@ export const PlayerWeaponStat = __t.object("PlayerWeaponStat", {
   offerId: __t.u64(),
   attackSpeed: __t.f32(),
   critDamage: __t.f32(),
+  backstab: __t.f32(),
+  poison: __t.f32(),
+  dodge: __t.f32(),
 });
 export type PlayerWeaponStat = __Infer<typeof PlayerWeaponStat>;
 

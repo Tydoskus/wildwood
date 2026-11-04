@@ -31,7 +31,7 @@ export const DEFLECT_RETURN_SPEED = 600;
 export function swordSkillTier(itemId: unknown): number | null {
   const weapon = itemDefinition(itemId)?.weapon;
   const tier = weapon?.tier;
-  return weapon?.mode === "MELEE" && Number.isInteger(tier) && tier! >= 1 && tier! <= 15 ? tier! : null;
+  return weapon?.mode === "MELEE" && !weapon.dagger && Number.isInteger(tier) && tier! >= 1 && tier! <= 15 ? tier! : null;
 }
 export const isSkillSword = (itemId: unknown) => swordSkillTier(itemId) !== null;
 
