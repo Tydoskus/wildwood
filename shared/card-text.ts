@@ -1,6 +1,6 @@
 import { CARD_CHANCE_CAP, CARD_DODGE_CAP, CARD_EFFECT_DEFAULTS, CARD_GUARD_CAP } from "./card-effects";
 import { PRISM_MAX_TARGETS } from "./card-bounds";
-import { type CardDefinition, type CardEffect, type CardEffectId, type CardSlot } from "./cards";
+import { endlessRolledFrom, type CardDefinition, type CardEffect, type CardEffectId, type CardSlot } from "./cards";
 import { MAP_DISPLAY_NAMES } from "./rules";
 import type { RewardType } from "./enemy-definitions";
 import { formatMultiplierChange } from "./compact-number";
@@ -121,8 +121,12 @@ const killWord = (card: CardDefinition, many: boolean) =>
 
 /** "Endless 11–20", "Endless 51+": the maps whose Wardens drop a card. */
 const endlessBand = ({ from, to }: { from: number; to?: number }) => `Endless ${from}${to === undefined ? "+" : `–${to}`}`;
-/** Where a card drops: its map, or for a Warden card its band, "Endless 11–20". */
-const cardWhere = (card: CardDefinition) => card.endless ? endlessBand(card.endless) : mapName(card.mapId);
+/** Where a card drops: its map, a Warden card's band ("Endless 11–20"), or a Needle or Striker card's Endless levels. */
+const cardWhere = (card: CardDefinition) => {
+  if (card.endless) return endlessBand(card.endless);
+  const from = endlessRolledFrom(card);
+  return from === null ? mapName(card.mapId) : `Endless ${from}, ${from + 15}, ${from + 30}…`;
+};
 
 /** "Elite · Tutorial Forest". */
 export const cardOrigin = (card: CardDefinition) =>

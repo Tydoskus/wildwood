@@ -80,11 +80,13 @@ it('carries the final campaign tuning into Endless while earlier map tuning stay
   settings.maps[last].bossHealth = 5;
   settings.maps[last].bossDamage = 6;
   const changed = resolveMapBalance('endless_1', settings, 1);
-  expect(changed.lanes.Cindermaw.hp).toBeCloseTo(baseline.lanes.Cindermaw.hp * 2, -2);
-  expect(changed.lanes.Cindermaw.damage).toBeCloseTo(baseline.lanes.Cindermaw.damage * 3, -2);
-  expect(changed.lanes.Cindermaw.reward.amount).toBeCloseTo(baseline.lanes.Cindermaw.reward.amount * 4, -2);
-  expect(changed.boss!.hp).toBeCloseTo(baseline.boss!.hp * 5, -2);
-  expect(changed.boss!.damage).toBeCloseTo(baseline.boss!.damage * 6, -3);
+  // Each number is rounded to 6 significant digits, so the factors hold to that.
+  const factor = (after: number, before: number) => after / before;
+  expect(factor(changed.lanes.Cindermaw.hp, baseline.lanes.Cindermaw.hp)).toBeCloseTo(2, 4);
+  expect(factor(changed.lanes.Cindermaw.damage, baseline.lanes.Cindermaw.damage)).toBeCloseTo(3, 4);
+  expect(factor(changed.lanes.Cindermaw.reward.amount, baseline.lanes.Cindermaw.reward.amount)).toBeCloseTo(4, 4);
+  expect(factor(changed.boss!.hp, baseline.boss!.hp)).toBeCloseTo(5, 4);
+  expect(factor(changed.boss!.damage, baseline.boss!.damage)).toBeCloseTo(6, 4);
   expect(changed.boss!.rewards).toEqual({});
   settings.maps.tutorial_forest.bossHealth = 9;
   expect(resolveMapBalance('endless_1', settings, 1).boss!.hp).toBe(changed.boss!.hp);

@@ -20,6 +20,8 @@ import { isHiddenCosmeticItem, HIDDEN_COSMETIC_ITEM_ID, resolveEquipmentAppearan
 import { lentLooksFor } from "./patreon";
 import { researchInPlay } from "./bonus-toggles";
 import { soulStatsFor } from "./soul-dimension";
+import { hasWeaponStats } from "../../shared/weapon-stat-rolls";
+import { firstStatRoll } from "./weapon-stat-roll";
 
 export function defaultPlayerProgress(identity: any) {
   return {
@@ -232,12 +234,13 @@ export function itemUpgradeLevelFor(ctx: any, identity: any, itemId: unknown) {
 }
 
 /**
- * What a worn item's stat stands on: its slot's tier and its own refine (item-refine.ts). An equipment slot
- * always holds an item's first copy, so the refine is the first copy's.
+ * What a worn item's stat stands on: its slot's tier, its own refine (item-refine.ts) and a weapon's rolled speed
+ * and crit (weapon-stat-roll.ts). An equipment slot always holds an item's first copy, so they are the first copy's.
  */
 export function itemLevelFor(ctx: any, identity: any, itemId: unknown): ItemLevel {
   const canonical = canonicalItemId(itemId);
-  return { tier: itemUpgradeLevelFor(ctx, identity, itemId), refine: canonical ? refineLevelFor(ctx, identity, canonical) : 0 };
+  return { tier: itemUpgradeLevelFor(ctx, identity, itemId), refine: canonical ? refineLevelFor(ctx, identity, canonical) : 0,
+    ...(canonical && hasWeaponStats(canonical) ? firstStatRoll(ctx, identity, canonical) : {}) };
 }
 
 export function progressHasItem(progress: any, itemId: string) {

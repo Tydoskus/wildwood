@@ -7,11 +7,11 @@ import { compareKillBudget, killTargets, normalizeKillBudget, DEFAULT_KILL_BUDGE
 import { generateMap, generatedBossStats, proceduralMapId, proceduralMapNumber, type ProceduralMapId } from "../../shared/procedural-maps";
 import { BOSS_REGEN_FRACTION_PER_SECOND, bossHitsToDefeat } from "../../shared/boss-regeneration";
 import { simulationTravelSeconds } from "./gameplay-model";
-import { rollBossGold, rollKillGold } from "../../shared/gold";
+import { mapGoldFactor, rollBossGold, rollKillGold } from "../../shared/gold";
 import { luckMultiplier } from "../../shared/luck-research";
 import { SMITH_VISIT_SECONDS, nextSmithPurchase, type MasteryPointsBySchool } from "./smith-purchases";
 import { armorMoveSpeedFactor } from "../../shared/armor-class-perks";
-import { bootMoveSpeedFactor, hasBootStat } from "../../shared/items";
+import { bootMoveSpeedFactor, hasBootStat, weaponRatings } from "../../shared/items";
 import { TAILWIND_SECONDS, TAILWIND_SPEED_BONUS, duelMasteryFold, hasTechnique } from "../../shared/mastery-techniques";
 import {
   masteryAttackRange, masteryInPlay, masteryLevel, masteryPointsForReport, weaponSchool,
@@ -1123,7 +1123,9 @@ function powerComponentsForState(state: EffectiveStatsState): PowerComponents {
 }
 
 function criticalMultiplierFor(state: EffectiveStatsState) {
-  return criticalDamageMultiplier({ researchRank: state.research.criticalDamage, rating: state.stats.critRating, capRank: state.research.critCap });
+  // The run's rating with the weapon's; the gear factors give its attack speed.
+  const weapon = state.equipped.weapon, rating = (state.stats.critRating ?? 0) + (weapon ? weaponRatings(weapon, simulationUpgradeLevel(state, weapon)).crit : 0);
+  return criticalDamageMultiplier({ researchRank: state.research.criticalDamage, rating, capRank: state.research.critCap });
 }
 
 /** The Mastery the build fights with: the school of the weapon in hand, at its level. */
@@ -2275,7 +2277,7 @@ function simulateTrial(
     mapRecord.regularKills += 1;
     if (!fallback) mapRecord.fullClears = Math.min(...sites.map((site) => site.kills));
     state.lastKillAt = state.time - LOOT_AND_RETARGET_SECONDS;
-    state.gold += rollKillGold(1, goldRandom, goldChanceMultiplier(state));
+    state.gold += rollKillGold(1, goldRandom, goldChanceMultiplier(state), mapGoldFactor(farmMap.id));
     addMastery(state, masteryPointsForReport(1, false));
     if (state.time >= smithVisitAt) visitSmith();
     recordHistory();

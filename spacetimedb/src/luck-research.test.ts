@@ -51,17 +51,17 @@ describe("luck research on the server", () => {
 
   it("raises card drops with Card Luck, unless switched off", () => {
     const f = crystalFixture();
-    const award = () => f.transaction(() => awardCardDrops(f.ctx, f.ctx.sender, "tutorial_forest", [{ enemy: "Needle", count: 1 }], 0));
+    const award = () => f.transaction(() => awardCardDrops(f.ctx, f.ctx.sender, "tutorial_forest", [{ enemy: "Bramble", count: 1 }], 0));
     always(f, 1.4 / CARD_DROP_OUTCOMES.regular);
     award();
-    expect(cardCount(f.ctx, f.ctx.sender, "needle_card")).toBe(0);
+    expect(cardCount(f.ctx, f.ctx.sender, "bramble_card")).toBe(0);
     luck(f, { cardLuck: 10 });
     switchedOff(f, "research.cardLuck");
     award();
-    expect(cardCount(f.ctx, f.ctx.sender, "needle_card")).toBe(0);
+    expect(cardCount(f.ctx, f.ctx.sender, "bramble_card")).toBe(0);
     f.db.playerBonusToggle.identity.delete(f.ctx.sender);
     award();
-    expect(cardCount(f.ctx, f.ctx.sender, "needle_card")).toBe(1);
+    expect(cardCount(f.ctx, f.ctx.sender, "bramble_card")).toBe(1);
   });
 
   it("raises the gold drop chance with Gold Luck, and drops no gear", () => {

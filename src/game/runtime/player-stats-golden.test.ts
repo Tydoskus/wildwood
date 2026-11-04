@@ -21,6 +21,7 @@ import { createRewardDisplay } from "./reward-display";
 import { createPlayerStatsRuntime, type PlayerStatsSource } from "./player-stats-runtime";
 import { fixtureAttackCap, fixtureCardIds, fixtureCardStats, fixtureItemLevel, STAT_FIXTURES, type StatFixture } from "../../../tests/helpers/player-stats-fixture";
 import type { PlayerState } from "./types";
+import { attackIntervalWithGear } from "../../../shared/stat-rating";
 
 // Golden numbers for every client path that works out the player's final stats.
 // They pin today's results, so moving a path onto shared/player-stats.ts cannot change one silently.
@@ -73,8 +74,9 @@ function worldStats(fixture: StatFixture) {
     armor: research.effectiveArmor(),
     regen: live.regenerationPerSecond(),
     moveSpeed: live.moveSpeed(),
-    attackInterval: player.attackRate,
-    weaponInterval: weaponAttackInterval(rightHand, player.attackRate),
+    // As player-combat-controller.ts fires: the run's interval with the weapon's rating.
+    attackInterval: attackIntervalWithGear(player.attackRate, research.weaponRatings().speed, fixtureAttackCap(fixture)),
+    weaponInterval: weaponAttackInterval(rightHand, attackIntervalWithGear(player.attackRate, research.weaponRatings().speed, fixtureAttackCap(fixture))),
     range: weaponAttackRange(rightHand, player.attackRange),
     critChance: research.criticalChance(),
     critMultiplier: research.criticalDamageMultiplier(fixture.soul?.critDamage ?? 0),
@@ -113,7 +115,7 @@ function profileRows(fixture: StatFixture) {
 function autoFarmStats(fixture: StatFixture) {
   const player = worldPlayer(fixture), itemLevel = fixtureItemLevel(fixture);
   const research = createResearchController({ player, getRanks: () => fixture.research, isDueling: () => false, maxPlayerStat: 1e300, saveProgress: () => {},
-    prestigePerks: () => fixture.perks, cards: () => fixtureCardStats(fixture), equippedWeapon: () => fixture.loadout.rightHand });
+    prestigePerks: () => fixture.perks, cards: () => fixtureCardStats(fixture), equippedWeapon: () => fixture.loadout.rightHand, itemLevel });
   const evaluator = createFarmEvaluator({
     base: () => ({ maxHp: player.baseMaxHp, damage: player.damage, attackRate: player.attackRate, armor: player.armor, regen: player.regen }),
     equipment: () => inventoryOf(fixture), research: () => fixture.research, upgradeLevel: itemLevel, rewardMultiplier: () => 1,
@@ -231,64 +233,64 @@ describe("player stat golden fixtures", () => {
     const fixture = STAT_FIXTURES[1];
     expect(worldStats(fixture)).toMatchInlineSnapshot(`
       {
-        "armor": 75.2724,
-        "attackInterval": 0.7,
+        "armor": 300.2486256,
+        "attackInterval": 0.3333333333,
         "critChance": 0.14,
-        "critMultiplier": 1.30087403,
-        "damage": 826.6252176,
+        "critMultiplier": 5,
+        "damage": 4084.337326,
         "doubleStrikeChance": 0,
-        "maxHp": 6836.3904,
+        "maxHp": 25754.3664,
         "moveSpeed": 301.04,
         "range": 274,
         "reflectChance": 0.015,
-        "regen": 14.22828,
+        "regen": 55.91025,
         "skillChanceFactor": 1,
         "splitShotChance": 0,
         "statGain": 1.1,
-        "weaponInterval": 0.6086956522,
+        "weaponInterval": 0.2898550725,
       }
     `);
     expect(profileRows(fixture)).toMatchInlineSnapshot(`
       [
-        "health | 4,200 1.63 = 6,836 | Tech ×1.16, Equipment ×1.29, Slot Upgrade ×1.09",
-        "damage | 380 2.18 = 827 | Tech ×1.2, Equipment ×1.36, Slot Upgrade ×1.13, Refine ×1.1, Class Set ×1.05, Cards ×1.02",
-        "armor | 45 1.67 = 75 (23.4% Block) | Tech ×1.12, Boots ×1.45, Cards ×1.03",
-        "attack | 1.43/s 1.15 = 1.64/s (1.64/s) 3.00/s Cap | Equipment +15% (Bow)",
+        "health | 4,200 6.13 = 25,754 | Tech ×1.16, Equipment ×4.06, Slot Upgrade ×1.3",
+        "damage | 380 10.75 = 4,084 | Tech ×1.2, Equipment ×4.83, Slot Upgrade ×1.38, Refine ×1.25, Class Set ×1.05, Cards ×1.02",
+        "armor | 45 6.67 = 300 (36.9% Block) | Tech ×1.12, Boots ×5.78, Cards ×1.03",
+        "attack | 3.00/s (Max) 1.15 = 3.45/s (3.45/s) 3.00/s Cap | Equipment +1.57/s, Equipment +15% (Bow)",
         "range | 250 1.10 = 274 | Tech +20 range, Mastery +4 range",
-        "regen | 9.00/s 1.58 = 14.2/s | Tech ×1.1, Equipment ×1.29, Slot Upgrade ×1.07, Refine ×1.04",
+        "regen | 9.00/s 6.21 = 55.9/s | Tech ×1.1, Equipment ×4.06, Slot Upgrade ×1.24, Refine ×1.12",
         "speed | 250 1.20 = 301 | Tech +10%, Tech +9 speed, Armor +6%",
         "stat-gain | 1.10 1.00 = ×1.1 | Tech ×1.1",
         "critical | 0% 14% = 14% | Tech +4%, Equipment +10% (Bow)",
-        "critical-damage | 1.05× 0.25× = 1.30× (1.30×) 5× Cap | Tech +0.15×",
+        "critical-damage | 1.05× 3.95× = 5.00× (Max) (5.00×) 5× Cap | Tech +0.07×, Equipment +4.89×",
         "riposte | 0% 1.5% = 1.5% (Reflects 100% of each hit before armor, up to half your max health; no cap in Reflect Only; half in duels) | Cards +1.5%",
       ]
     `);
-    expect(profilePower(profileOf(fixture), fixture.soul)).toMatchInlineSnapshot(`9124`);
+    expect(profilePower(profileOf(fixture), fixture.soul)).toMatchInlineSnapshot(`57033`);
     expect(autoFarmStats(fixture)).toMatchInlineSnapshot(`
       {
-        "armor": 75.2724,
-        "attackRate": 0.7,
-        "damage": 826.6252176,
-        "dps": 1230.63518,
-        "maxHp": 6836.3904,
-        "power": 9124.281281,
-        "regen": 14.22828,
+        "armor": 300.2486256,
+        "attackRate": 0.3333333333,
+        "damage": 4084.337326,
+        "dps": 19114.69868,
+        "maxHp": 25754.3664,
+        "power": 57033.14472,
+        "regen": 55.91025,
       }
     `);
     expect(trackerStats(fixture)).toMatchInlineSnapshot(`
       {
-        "armor": 75.2724,
-        "damage": 826.6252176,
-        "maxHp": 6836.3904,
-        "regen": 14.22828,
+        "armor": 300.2486256,
+        "damage": 4084.337326,
+        "maxHp": 25754.3664,
+        "regen": 55.91025,
       }
     `);
     expect(rewardPopups(fixture)).toMatchInlineSnapshot(`
       {
-        "armor": 1.839992,
-        "damage": 2.392862472,
-        "health": 1.7904832,
-        "regen": 1.739012,
+        "armor": 7.339410848,
+        "damage": 11.82308173,
+        "health": 6.7451912,
+        "regen": 6.833475,
         "speed": 1.1,
       }
     `);
@@ -299,65 +301,65 @@ describe("player stat golden fixtures", () => {
     expect(worldStats(fixture)).toMatchInlineSnapshot(`
       {
         "armor": 5259.48,
-        "attackInterval": 0.4499293879,
+        "attackInterval": 0.2941176471,
         "critChance": 0.47,
-        "critMultiplier": 3.239197796,
-        "damage": 7532994.731,
+        "critMultiplier": 8,
+        "damage": 296176787.3,
         "doubleStrikeChance": 0.08,
-        "maxHp": 51466816.77,
+        "maxHp": 1945705662,
         "moveSpeed": 441.91,
         "range": 138,
         "reflectChance": 0.24,
-        "regen": 14288.6688,
+        "regen": 530376.9489,
         "skillChanceFactor": 1,
         "splitShotChance": 0.08,
         "statGain": 2.576,
-        "weaponInterval": 0.4499293879,
+        "weaponInterval": 0.2941176471,
       }
     `);
     expect(profileRows(fixture)).toMatchInlineSnapshot(`
       [
-        "health | 2.50m 20.57 = 51.5m | Soul +1,500, Tech ×2.1, Equipment ×2.2, Slot Upgrade ×2.27, Refine ×2.04, Cards ×0.96",
-        "damage | 180,400 41.76 = 7.53m | Soul +400, Tech ×2.2, Equipment ×2.8, Slot Upgrade ×2.54, Refine ×2.29, Class Set ×1.05, Cards ×1.11",
+        "health | 2.50m 777.82 = 1.95b | Soul +1,500, Tech ×2.1, Equipment ×51.19, Slot Upgrade ×3.27, Refine ×2.29, Cards ×0.96",
+        "damage | 180,400 1641.78 = 296m | Soul +400, Tech ×2.2, Equipment ×76.28, Slot Upgrade ×3.37, Refine ×2.49, Class Set ×1.05, Cards ×1.11",
         "armor | 2,460 2.14 = 5,259 (57.7% Block) | Soul +60, Tech ×2, Cards ×1.07",
-        "attack | 2.22/s 1.00 = 2.22/s (2.22/s) 3.40/s Cap | Soul +0.000/s",
+        "attack | 3.40/s (Max) 1.00 = 3.40/s (Max) (3.40/s) 3.40/s Cap | Soul +0.000/s, Equipment +1.18/s",
         "range | 75 1.84 = 138 | Tech +50 range, Prestige +10 range, Cards +3 range",
-        "regen | 912/s 15.67 = 14.3k/s | Soul +12.0/s, Tech ×1.9, Equipment ×2.2, Slot Upgrade ×2.2, Refine ×1.79, Cards ×0.95",
+        "regen | 912/s 581.55 = 530k/s | Soul +12.0/s, Tech ×1.9, Equipment ×51.19, Slot Upgrade ×3.16, Refine ×1.99, Cards ×0.95",
         "speed | 250 1.77 = 442 | Tech +50%, Tech +15 speed, Prestige +6%, Cards +0.9%, Boots +25 speed",
         "stat-gain | 1.40 1.84 = ×2.58 | Tech ×1.4, Prestige ×1.6, Guild ×1.15",
         "critical | 0% 47% = 47% | Tech +20%, Prestige +25%, Cards +2%",
-        "critical-damage | 1.05× 2.19× = 3.24× (3.24×) 8× Cap | Tech +0.93×, Prestige +0.56×, Soul +0.09×",
+        "critical-damage | 1.05× 6.95× = 8.00× (Max) (8.00×) 8× Cap | Tech +0.00×, Prestige +0.00×, Soul +0.09×, Equipment +8.95×",
         "double-strike | 0% 8% = 8% (Chance a hit lands twice) | Prestige +8%",
         "split-shot | 0% 8% = 8% (Chance to strike a second enemy) | Prestige +8%",
         "riposte | 0% 24% = 24% (Reflects 100% of each hit before armor, up to half your max health; no cap in Reflect Only; half in duels) | Prestige +24%",
       ]
     `);
-    expect(profilePower(profileOf(fixture), fixture.soul)).toMatchInlineSnapshot(`105231650`);
+    expect(profilePower(profileOf(fixture), fixture.soul)).toMatchInlineSnapshot(`8690279216`);
     expect(autoFarmStats(fixture)).toMatchInlineSnapshot(`
       {
         "armor": 5259.48,
-        "attackRate": 0.4499293879,
-        "damage": 7532994.731,
-        "dps": 34362928.47,
-        "maxHp": 51466816.77,
-        "power": 105231650.3,
-        "regen": 14288.6688,
+        "attackRate": 0.2941176471,
+        "damage": 296176787.3,
+        "dps": 4320034619,
+        "maxHp": 1945705662,
+        "power": 8690279216,
+        "regen": 530376.9489,
       }
     `);
     expect(trackerStats(fixture)).toMatchInlineSnapshot(`
       {
         "armor": 5259.48,
-        "damage": 7532994.731,
-        "maxHp": 51466816.77,
-        "regen": 14288.6688,
+        "damage": 296176787.3,
+        "maxHp": 1945705662,
+        "regen": 530376.9489,
       }
     `);
     expect(rewardPopups(fixture)).toMatchInlineSnapshot(`
       {
         "armor": 5.507488,
-        "damage": 107.566488,
-        "health": 52.99960824,
-        "regen": 40.3592224,
+        "damage": 4229.220643,
+        "health": 2003.652922,
+        "regen": 1498.082259,
         "speed": 2.576,
       }
     `);

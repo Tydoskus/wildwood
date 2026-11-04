@@ -3,7 +3,7 @@ import { isProceduralMap, proceduralMapNumber } from "../../shared/procedural-ma
 import type { OfflineActivity, OfflineProgressSummary } from "../coop/services/offline-progress-watch";
 import { REFINE_ORES } from "../../shared/refine";
 import { formatCompactNumber } from "./number-format";
-import { offlineGold } from "../../shared/gold";
+import { mapGoldFactor, offlineGold } from "../../shared/gold";
 
 export function offlineMapName(mapId: string) {
   if (isProceduralMap(mapId)) return `Endless ${proceduralMapNumber(mapId)}`;
@@ -115,7 +115,7 @@ export function createOfflineProgressSummary(dependencies: {
 
   function fightRows(summary: OfflineProgressSummary) {
     const rows = offlineStatLines(summary).map(line => statRow(line.kind, line.label, line.amount));
-    const gold = offlineGold(summary.kills);
+    const gold = offlineGold(summary.kills, mapGoldFactor(summary.mapId));
     if (gold > 0) rows.push(statRow("gold", "Gold", `+${formatCompactNumber(gold)}`));
     return rows;
   }

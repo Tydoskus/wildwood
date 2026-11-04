@@ -1243,6 +1243,9 @@ export type MyUpgradeBenchThirdSlot = __Infer<typeof MyUpgradeBenchThirdSlot>;
 export const MyWeaponMastery = __t.object("MyWeaponMastery", {});
 export type MyWeaponMastery = __Infer<typeof MyWeaponMastery>;
 
+export const MyWeaponStats = __t.object("MyWeaponStats", {});
+export type MyWeaponStats = __Infer<typeof MyWeaponStats>;
+
 export const MyWoodcutting = __t.object("MyWoodcutting", {});
 export type MyWoodcutting = __Infer<typeof MyWoodcutting>;
 
@@ -2456,6 +2459,17 @@ export const PlayerWeaponMastery = __t.object("PlayerWeaponMastery", {
   points: __t.u64(),
 });
 export type PlayerWeaponMastery = __Infer<typeof PlayerWeaponMastery>;
+
+export const PlayerWeaponStat = __t.object("PlayerWeaponStat", {
+  key: __t.string(),
+  identity: __t.identity(),
+  itemId: __t.string(),
+  copyId: __t.u64(),
+  offerId: __t.u64(),
+  attackSpeed: __t.f32(),
+  critDamage: __t.f32(),
+});
+export type PlayerWeaponStat = __Infer<typeof PlayerWeaponStat>;
 
 export const PlayerWideStats = __t.object("PlayerWideStats", {
   identity: __t.identity(),

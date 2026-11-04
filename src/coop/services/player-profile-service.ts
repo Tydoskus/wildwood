@@ -130,6 +130,14 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           : [...(db?.playerItemRefine?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
         return Object.fromEntries(rows.map(row => [row.itemId, row.level]));
       })(),
+      // Their weapons' rolled speed and crit (first copies), from my_weapon_stats or the profile's player_weapon_stat subscription.
+      weaponStats: (() => {
+        const db = dependencies.connection()?.db;
+        const rows = identity === dependencies.localIdentity() ? [...(db?.myWeaponStats?.iter() ?? [])]
+          : [...(db?.playerWeaponStat?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
+        return Object.fromEntries(rows.filter(row => !row.copyId && !row.offerId)
+          .map(row => [row.itemId, { attackSpeed: row.attackSpeed, critDamage: row.critDamage }]));
+      })(),
       // Their looks' kept refines, from my_cosmetic_refines or the profile's player_cosmetic_refine subscription.
       cosmeticRefines: (() => {
         const db = dependencies.connection()?.db;
@@ -352,6 +360,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           tables.profileSoulStats.where(row => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((upgrade) => upgrade.identity.eq(dbIdentity)),
           tables.playerItemRefine.where(row => row.identity.eq(dbIdentity)),
+          tables.playerWeaponStat.where(row => row.identity.eq(dbIdentity)),
           tables.playerCosmeticRefine.where(row => row.identity.eq(dbIdentity)),
           tables.playerActiveCard.where(row => row.identity.eq(dbIdentity)),
           tables.playerPrestigeCardPerk.where(row => row.identity.eq(dbIdentity)),
@@ -450,7 +459,7 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
       playerProfile(identity = dependencies.localIdentity()) {
         const profile = cachedPlayerProfile(identity);
         return profile
-          ? { ...profile, progress: { ...profile.progress }, itemUpgradeLevels: { ...profile.itemUpgradeLevels }, itemRefines: { ...profile.itemRefines }, ...(profile.cosmeticRefines ? { cosmeticRefines: { ...profile.cosmeticRefines } } : {}), ...(profile.activeCards ? { activeCards: { ...profile.activeCards } } : {}), lifetime: { ...profile.lifetime } }
+          ? { ...profile, progress: { ...profile.progress }, itemUpgradeLevels: { ...profile.itemUpgradeLevels }, itemRefines: { ...profile.itemRefines }, ...(profile.weaponStats ? { weaponStats: { ...profile.weaponStats } } : {}), ...(profile.cosmeticRefines ? { cosmeticRefines: { ...profile.cosmeticRefines } } : {}), ...(profile.activeCards ? { activeCards: { ...profile.activeCards } } : {}), lifetime: { ...profile.lifetime } }
           : null;
       },
       activePlayerMap(identity = dependencies.localIdentity()) {

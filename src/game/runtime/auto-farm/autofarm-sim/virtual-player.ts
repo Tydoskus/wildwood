@@ -62,7 +62,7 @@ import type { PlayerPowerStats } from '../../../../../shared/player-power';
 import { AUTO_FARM_ADVANCE_KEY, writeMovePower } from '../auto-farm-plan';
 import { ITEM_DEFINITIONS, type ItemId } from '../../../../../shared/items';
 import { effectivePlayerPowerStats, unroundedPlayerPower } from '../../../../../shared/player-power';
-import { rollBossGold, rollKillGold } from '../../../../../shared/gold';
+import { mapGoldFactor, rollBossGold, rollKillGold } from '../../../../../shared/gold';
 import { luckMultiplier } from '../../../../../shared/luck-research';
 import { masteryAttackRange, masteryInPlay, masteryPointsForReport, masteryPointsInPlay, weaponSchool } from '../../../../../shared/weapon-mastery';
 import { SMITH_VISIT_SECONDS, nextSmithPurchase, type MasteryPointsBySchool } from '../../../../balance/smith-purchases';
@@ -371,7 +371,7 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: {
   /** An accepted kill report: gold rolls (Gold Luck in; no cards), Mastery to the right hand's school, then the Smith when a visit is due. */
   function earn(killCount: number, firstBossClear: boolean) {
     if (!economy) return;
-    gold += rollKillGold(killCount, goldRandom, luckMultiplier('gearLuck', research.gearLuck)) + (firstBossClear ? rollBossGold(goldRandom) : 0);
+    gold += rollKillGold(killCount, goldRandom, luckMultiplier('gearLuck', research.gearLuck), mapGoldFactor(currentMapId)) + (firstBossClear ? rollBossGold(goldRandom) : 0);
     if (!masteryOff) {
       const school = weaponSchool(inventory.equippedRightHand);
       masteryPoints = { ...masteryPoints, [school]: (masteryPoints[school] ?? 0) + masteryPointsForReport(killCount, firstBossClear) };
@@ -552,7 +552,8 @@ export function createVirtualPlayer(profile: VirtualPlayerProfile, options: {
     prestigeReflect: () => prestigePerkValue(perks, 'riposte'),
     bowSkills: () => profile.bowSkills,
     weaponMastery: masteryNow, equippedRightHand: () => inventory.equippedRightHand,
-    equippedWeapon: weapon, equippedHead: () => inventory.equippedHead, equippedChest: () => inventory.equippedChest, equippedFeet: () => inventory.equippedFeet,
+    equippedWeapon: weapon, weaponRating: () => researchController.weaponRatings().speed,
+    equippedHead: () => inventory.equippedHead, equippedChest: () => inventory.equippedChest, equippedFeet: () => inventory.equippedFeet,
     healthMultiplierBonus, minAttackInterval, reflectOnly: () => Boolean(profile.reflectOnly),
     effectiveArmor: researchController.effectiveArmor, isDueling: () => false,
     hitGeneratedBoss: (enemy, damage) => { if (!enemy.generatedBoss) return false; personalBosses.hit(currentMapId, damage); return true; },

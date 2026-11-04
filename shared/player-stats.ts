@@ -93,7 +93,7 @@ export const procChance = (perkChance: number, cards: CardTotals, effect: "doubl
 export function playerCoreStats(inputs: PlayerStatInputs) {
   const { base, loadout } = inputs;
   const factors = playerStatFactors({ equippedHead: loadout.head, equippedChest: loadout.chest, equippedFeet: loadout.feet,
-    equippedRightHand: loadout.rightHand, equippedLeftHand: loadout.leftHand }, inputs.research, levelOf(inputs), inputs.cards ?? NO_CARDS);
+    equippedRightHand: loadout.rightHand, equippedLeftHand: loadout.leftHand }, inputs.research, levelOf(inputs), inputs.cards ?? NO_CARDS, inputs.attackCap);
   return { factors, stats: applyPlayerStatFactors(factors, { ...base, attackRate: base.attackInterval }) };
 }
 
@@ -103,8 +103,9 @@ export function playerCoreStats(inputs: PlayerStatInputs) {
  */
 export function playerStatPower(inputs: PlayerStatInputs) {
   const { factors, stats } = playerCoreStats(inputs), ranks = ranksOf(inputs), perks = inputs.perks ?? null;
+  // The crit rating with the weapon's (player-power.ts applyPlayerStatFactors).
   const critMultiplier = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: cleanSoulStats(inputs.soul).critDamage,
-    rating: inputs.base.critRating, capRank: ranks.critCap, card: factors.cards.critDamage }).multiplier;
+    rating: stats.critRating, capRank: ranks.critCap, card: factors.cards.critDamage }).multiplier;
   return unroundedPlayerPower({ ...stats, critChance: critChanceFor(ranks, perks, factors.cards.critChance, weaponOf(inputs.loadout)), critMultiplier });
 }
 
@@ -126,9 +127,10 @@ export function computePlayerStats(inputs: PlayerStatInputs) {
   const { factors, stats: core } = playerCoreStats(inputs);
   const { gear, research, cards } = factors;
   const capInterval = attackCapInterval(inputs.attackCap);
-  const attackInterval = Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, capInterval, base.attackInterval);
+  // Attack speed and crit with the weapon's rating (player-power.ts applyPlayerStatFactors).
+  const attackInterval = Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, capInterval, core.attackRate);
   const critChance = critChanceFor(ranks, perks, cards.critChance, weapon);
-  const critDamage = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: soul.critDamage, rating: base.critRating, capRank: ranks.critCap,
+  const critDamage = criticalDamage({ researchRank: ranks.criticalDamage, perks, soul: soul.critDamage, rating: core.critRating, capRank: ranks.critCap,
     card: cards.critDamage });
   const moveSpeed = playerMoveSpeed(inputs);
   const range = weaponAttackRange(weapon, base.attackRange);
@@ -165,7 +167,10 @@ export function computePlayerStats(inputs: PlayerStatInputs) {
       regen: research.regen * gear.regen * cards.regen,
       moveSpeed: moveSpeed / Math.max(1, base.moveSpeed),
     },
-    sources: statSources(inputs, ranks, soul, factors, critDamage),
+    sources: { ...statSources(inputs, ranks, soul, factors, critDamage),
+      // What the weapon's rating adds to attacks a second, on top of the run's own.
+      attackSpeed: { soul: soulAttackSpeedBonus(soul.attackSpeed),
+        equipment: Math.max(0, 1 / attackInterval - 1 / Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, capInterval, base.attackInterval)) } },
   };
 }
 
@@ -193,8 +198,6 @@ function statSources(inputs: PlayerStatInputs, ranks: ResearchRanks, soul: SoulS
     damage: { soul: soul.damage, techPercent: ranks.warcraft * 2, ...damage, classSet: classSetDamageMultiplier(weapon, head, chest), cards: cards.damage },
     armor: { soul: soul.armor, techPercent: ranks.precision * 2, boots: factors.gear.armor, cards: cards.armor },
     regen: { soul: soul.regen, techPercent: ranks.regeneration * 2, ...regen, cards: cards.regen },
-    /** The soul adds attacks a second flat. */
-    attackSpeed: { soul: soulAttackSpeedBonus(soul.attackSpeed) },
     /** Inside the saved range already: Utility research and Long Shot. */
     range: { tech: Math.min(5, Math.max(0, ranks.utilityAttackRange ?? 0)) * 10, prestige: prestigePerkValue(perks, "longShot") },
     moveSpeed: {

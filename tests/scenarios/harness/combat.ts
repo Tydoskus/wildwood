@@ -63,9 +63,9 @@ export async function sendQueuedKills(tab: GameTab) {
   await tab.play(100);
 }
 
-/** The amount on the newest reward popup in the pickup log, or null when none shows. */
+/** The amount on the newest reward popup in the pickup log, or null when none shows. A quest's progress line is no reward. */
 export function popupAmount(tab: GameTab) {
-  const popup = tab.element("pickupLog").firstElementChild;
+  const popup = [...tab.element("pickupLog").children].find(entry => !entry.classList.contains("quest-progress-toast"));
   const match = /\d+(?:\.\d+)?/.exec(popup?.textContent ?? "");
   return match ? Number(match[0]) : null;
 }

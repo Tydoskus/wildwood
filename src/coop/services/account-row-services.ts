@@ -1,6 +1,7 @@
 import type { DbConnection } from "../../module_bindings";
 import { createOfflineProgressPreference } from "./offline-progress-watch";
 import { createBowSkills } from "./bow-skills";
+import { weaponStatLevel } from "../../../shared/weapon-skills";
 import { createAdGemReward } from "./ad-gem-reward";
 import { createChatMute } from "./chat-mute";
 import { createRunTimingRows } from "./run-timing-service";
@@ -188,8 +189,8 @@ export function createAccountRowServices(connection: () => DbConnection | null, 
       placeExchangeOffer: afterGathering(exchange.api.placeExchangeOffer),
       collectExchange: afterGathering(exchange.api.collectExchange),
       fallIntoWell: afterGathering(soulDimension.api.fallIntoWell),
-      /** An item's slot tier and refine (items.ts ItemLevel). */
-      itemLevel: (itemId: string): ItemLevel => itemLevelParts(itemRefine.api.itemLevel(itemId)),
+      /** An item's slot tier and refine, and a weapon's rolled speed and crit (items.ts ItemLevel). */
+      itemLevel: (itemId: string): ItemLevel => ({ ...itemLevelParts(itemRefine.api.itemLevel(itemId)), ...weaponStatLevel(bowSkills.api.weaponSkills(itemId)) }),
       /** The active card slots of each type in play. */
       cardSlots,
       /** The active cards that count now: each type's first slots in play. */

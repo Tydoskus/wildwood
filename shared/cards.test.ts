@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  ALPHA_CARD_DROP_BOOST, CARDS, CARD_DROP_OUTCOMES, DESIGNED_CARD_DROP_OUTCOMES, cardDropChance, cardMeterFull, cardDefinition,
-  cardForBoss, cardForEnemy, cardKillChance, cardSureByKills, type CardEffectId,
-} from "./cards";
+import { ALPHA_CARD_DROP_BOOST, CARDS, CARD_DROP_OUTCOMES, DESIGNED_CARD_DROP_OUTCOMES, cardDropChance, cardMeterFull, cardDefinition, cardForBoss, cardForEnemy, cardKillChance, cardSureByKills, type CardEffectId, endlessRolledFrom } from "./cards";
 import { CAMPAIGN_MAPS } from "./campaign-registry";
 import { ENEMY_TYPES } from "./enemy-definitions";
 import { enemyDefeatDefinition } from "./enemy-defeats";
@@ -29,11 +26,22 @@ describe("the cards", () => {
       }
       expect(cardForBoss(map.id), map.id).toMatchObject({ enemy: map.bossName, mapId: map.id, tier: index + 1, rarity: "boss" });
     });
-    // Nothing else but the Endless Warden cards and the tree cards: no card for an enemy that is not on its map.
-    expect(CARDS.filter(card => !card.endless && !card.tree)).toHaveLength(enemies + CAMPAIGN_MAPS.length);
+    // Nothing else but the Endless Warden cards, the tree cards, and each map's Needle and Striker cards, which drop on Endless.
+    const endlessRolled = CARDS.filter(card => endlessRolledFrom(card) !== null);
+    expect(endlessRolled).toHaveLength(2 * CAMPAIGN_MAPS.length);
+    expect(CARDS.filter(card => !card.endless && !card.tree)).toHaveLength(enemies + CAMPAIGN_MAPS.length + endlessRolled.length);
     expect(new Set(CARDS.map(card => card.id)).size).toBe(CARDS.length);
     expect(CARDS.every(card => cardDefinition(card.id) === card)).toBe(true);
     expect(cardDefinition("not_a_card")).toBeUndefined();
+  });
+
+  it("rolls each map's Needle and Striker cards on its Endless levels, by the camp's stat", () => {
+    for (const [number, mapIndex] of [[1, 1], [15, 15], [16, 1], [42, 12]]) {
+      const map = CAMPAIGN_MAPS[mapIndex - 1];
+      const rolled = new Set(Array.from({ length: 32 }, (_, site) => cardForEnemy(`endless_${number}`, `site:${site}`)?.enemy));
+      expect([...rolled].sort(), `endless_${number}`).toEqual(CARDS.filter(card => card.mapId === map.id && /(Needle|Striker)$/.test(card.enemy))
+        .map(card => card.enemy).sort());
+    }
   });
 
   it("gives every card known effects with real values, and map cards their own map", () => {

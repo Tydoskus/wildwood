@@ -8,7 +8,7 @@ import { connectClient } from "./harness/client";
 import { createBowSkills } from "../../src/coop/services/bow-skills";
 import { craftMaterialsKey, gradeCraftMaterials } from "../../shared/grade-craft";
 import type { ScenarioPlayer, ScenarioWorld } from "./harness/server";
-import { BASIC_PAPER_HAT, DIAMOND_GALAXY_ARMOR, GALAXY_BOW, IRON_BOW, SAMURAI_HAT, STARTER_BOW, STARTER_STONE } from "../../shared/items";
+import { BASIC_PAPER_HAT, DIAMOND_GALAXY_ARMOR, GALAXY_BOW, IRON_BOW, SAMURAI_HAT, STARTER_BOW, STARTER_STONE, weaponRatings } from "../../shared/items";
 import { EQUIPMENT_OFFER_LIFETIME_MS } from "../../shared/equipment-copies";
 import { cardDefinition, cardMeterFull } from "../../shared/cards";
 import { cardName } from "../../shared/card-text";
@@ -24,6 +24,7 @@ import { readPlayerProgress } from "../../spacetimedb/src/wide-stats";
 import { BUILD_SLOTS } from "../../shared/builds";
 import { goldFor } from "../../spacetimedb/src/gold";
 import { gradeShopSalePrice } from "../../shared/grade-shop";
+import { attackIntervalWithGear } from "../../shared/stat-rating";
 
 type BowRoll = { arrowStorm: number; ricochet: number; piercingShot: number };
 const NO_ROLL: BowRoll = { arrowStorm: 0, ricochet: 0, piercingShot: 0 };
@@ -81,11 +82,13 @@ const cardsHeld = (world: ScenarioWorld, player: ScenarioPlayer, cardId: string)
 const activeHand = (world: ScenarioWorld, player: ScenarioPlayer) => [...(world.db.playerActiveCard.identity.find(player.identity)?.hand ?? [])];
 
 describe("cards", () => {
-  it("GEAR-16 a first card gets its found moment, the Cards tab equips one, and a Quick Draw card speeds attacks without losing the run's rating", async () => {
+  it("GEAR-16 a first card gets its found moment, the Cards tab equips one, and a Quick Draw card speeds up the weapon's attacks", async () => {
     const world = gameWorld({ seed: 3 });
     const ann = world.join("Ann");
+    // A graded bow: its attack speed rating is what Quick Draw's raise lifts.
+    ann.patch("playerProgress", { inventoryJson: JSON.stringify(["rare_bow"]), equippedRightHand: "rare_bow" });
     meterAlmostFull(world, ann, "bramble_card");
-    meterAlmostFull(world, ann, "needle_card");
+    meterAlmostFull(world, ann, "mossback_card");
     world.setup(ctx => addCard(ctx as never, ann.identity, "dune_needle_card", 1));
     // A find from an earlier session is old news: no moment on the next visit.
     world.setup(ctx => {
@@ -121,17 +124,19 @@ describe("cards", () => {
     expect(cardsHeld(world, ann, "bramble_card")).toBe(2);
     await tab.play(1_000);
     expect(tab.shown("cardFoundName")).toBe(false);
-    // With Card Found Popups off, a first Needle card comes without one.
+    // With Card Found Popups off, a first Mossback card comes without one.
     tab.tap("cardFoundPopupsToggle");
     await vi.advanceTimersByTimeAsync(5_000);
-    reportKills(world, session, 1, 5_000, "Needle");
+    reportKills(world, session, 1, 5_000, "Mossback");
     deliverRows(tab);
-    expect(cardsHeld(world, ann, "needle_card")).toBe(1);
+    expect(cardsHeld(world, ann, "mossback_card")).toBe(1);
     await tab.play(1_000);
     expect(tab.shown("cardFoundName")).toBe(false);
 
     // The Cards tab: Weapon, the Dune Needle card, Equip.
-    const rateBefore = ann.progress().attackRate as number;
+    const played = () => attackIntervalWithGear(ann.progress().attackRate as number,
+      weaponRatings("rare_bow", tab.coop.itemLevel("rare_bow")).speed, tab.coop.attackCapInPlay?.());
+    const rateBefore = played();
     tab.tap("inventoryBtn");
     tab.tap("inventoryCardsTab");
     const cards = () => tab.element("inventoryContent");
@@ -144,12 +149,11 @@ describe("cards", () => {
     // Shown in its slot as well as among the cards owned.
     await playUntil(tab, () => cards().querySelectorAll("[data-card-id=dune_needle_card]").length === 2, "the card shows in its slot");
 
-    // The next kill report brings the Quick Draw cap in: faster attacks at the same rating.
+    // The Quick Draw cap lifts the top of the bow's curve: faster attacks.
     await vi.advanceTimersByTimeAsync(5_000);
     reportKills(world, session, 1, 5_000);
     deliverRows(tab);
-    const rateWith = ann.progress().attackRate as number;
-    expect(rateWith).toBeLessThan(rateBefore);
+    expect(played()).toBeLessThan(rateBefore);
 
     // Off again: back to the same attack speed, nothing lost.
     press(tab, [...cards().querySelectorAll("[data-card-id=dune_needle_card]")][0]);
@@ -158,7 +162,7 @@ describe("cards", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     reportKills(world, session, 1, 5_000);
     deliverRows(tab);
-    expect(ann.progress().attackRate).toBeCloseTo(rateBefore, 9);
+    expect(played()).toBeCloseTo(rateBefore, 9);
   }, 60_000);
 
   it("GEAR-16 cards and the active ones stay through prestige, move to the account on sign-in, and go with the bag on Reset Save", () => {
@@ -688,7 +692,7 @@ describe("weapon skill news", () => {
     expect(skills.bowSkills("crude_bow")).not.toBeNull();
     expect(news).toEqual([]);
 
-    // Reforging the bow and the sword merges fresh rolls in: each roll that went up is told once.
+    // Reforging the bow and the sword merges fresh rolls in: each roll that went up (skills, speed or crit) is told once.
     let raised = 0;
     for (const itemId of ["crude_bow", "crude_sword", "crude_bow", "crude_sword", "crude_bow", "crude_sword"]) {
       const before = JSON.stringify(skills.api.weaponSkills(itemId));
@@ -698,7 +702,7 @@ describe("weapon skill news", () => {
     }
     expect(raised).toBeGreaterThan(0);
     expect(news).toHaveLength(raised);
-    expect(news.every(entry => entry.after > entry.before)).toBe(true);
+    expect(news.every(entry => entry.after > entry.before || entry.statsRaised)).toBe(true);
     expect(new Set(news.map(entry => entry.itemId)).size).toBe(2);
 
     // A better copy chosen on this tab is the player's own doing: no news.

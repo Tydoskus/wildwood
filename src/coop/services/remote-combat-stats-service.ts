@@ -83,7 +83,11 @@ function finitePositive(value: number, fallback: number) {
  * The rest of a player's public rows, as profiles read them: refines, active cards, perks, soul, Mastery levels,
  * switched-off bonuses and challenges. Not public, so left out: Tailwind's live share and the Mastery techniques.
  */
-export type RemoteStatRows = Omit<PublicStatRows<ResearchRow>, "research"> & { refines?: readonly { itemId: string; level: number }[] };
+export type RemoteStatRows = Omit<PublicStatRows<ResearchRow>, "research"> & {
+  refines?: readonly { itemId: string; level: number }[];
+  /** player_weapon_stat: each weapon's rolled speed and crit; first copies are the ones with no copy or offer id. */
+  weaponStats?: readonly { itemId: string; copyId: bigint; offerId: bigint; attackSpeed: number; critDamage: number }[];
+};
 
 /** Converts the same persisted rows used by profiles into local-combat values, through shared/player-stats.ts as local combat does. */
 export function remoteCombatStatsFromRows(
@@ -96,6 +100,8 @@ export function remoteCombatStatsFromRows(
   // one up by item id missed every time, so other players fought here untiered.
   const slotTiers = Object.fromEntries(upgrades.map((upgrade) => [upgrade.itemId, upgrade.level]));
   const refines = Object.fromEntries((rows.refines ?? []).map((row) => [row.itemId, row.level]));
+  const weaponStats = new Map((rows.weaponStats ?? []).filter((row) => !row.copyId && !row.offerId)
+    .map((row) => [row.itemId, { attackSpeed: row.attackSpeed, critDamage: row.critDamage }]));
   const inPlay = bonusesInPlay({ ...rows, research });
   const rightHand = progress.equippedRightHand, weaponItem = rightHand || progress.equippedLeftHand;
   // Long Shot cards and Archery on top of the saved range, as progress-controller.ts addedRange adds them.
@@ -105,7 +111,7 @@ export function remoteCombatStatsFromRows(
     base: { maxHp: run.maxHp, damage: run.damage, armor: run.armor, regen: run.regen, attackInterval: run.attackRate,
       attackRange: finitePositive(progress.attackRange, 200) + addedRange, moveSpeed: 0, critRating: progress.critRating },
     loadout: { head: progress.equippedHead, chest: progress.equippedChest, feet: progress.equippedFeet ?? "", rightHand, leftHand: progress.equippedLeftHand },
-    itemLevel: (itemId) => itemLevelFor(slotTiers, refines, itemId),
+    itemLevel: (itemId) => ({ ...itemLevelFor(slotTiers, refines, itemId), ...weaponStats.get(itemId) }),
     research: inPlay.research, perks: inPlay.perks, cards: inPlay.cards, soul: inPlay.soul, attackCap: inPlay.attackCap,
   });
   const melee = itemDefinition(weaponItem)?.weapon?.mode === "MELEE";
@@ -141,6 +147,7 @@ function publicStatRows(connection: DbConnection, identity: string): RemoteStatR
   for (const row of mine(db.playerMasteryLevel)) if (isWeaponSchool(row.school)) mastery[row.school] = row.level;
   return {
     refines: mine(db.playerItemRefine),
+    weaponStats: mine(db.playerWeaponStat),
     activeCards: activeCardsOfRow(mine(db.playerActiveCard)[0]),
     perks: { ...perk, ...expansion, ...cardPerk },
     soul: soul ? cleanSoulStats(soul) : null,
@@ -246,6 +253,7 @@ export function createRemoteCombatStatsService(dependencies: {
           tables.playerResearch.where((row) => row.identity.eq(dbIdentity)),
           tables.playerItemUpgrade.where((row) => row.identity.eq(dbIdentity)),
           tables.playerItemRefine.where((row) => row.identity.eq(dbIdentity)),
+          tables.playerWeaponStat.where((row) => row.identity.eq(dbIdentity)),
           tables.playerActiveCard.where((row) => row.identity.eq(dbIdentity)),
           tables.playerPrestigePerk.where((row) => row.identity.eq(dbIdentity)),
           tables.playerPrestigeExpansionPerk.where((row) => row.identity.eq(dbIdentity)),

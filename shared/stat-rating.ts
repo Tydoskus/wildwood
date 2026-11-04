@@ -1,4 +1,4 @@
-import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MIN_ATTACK_INTERVAL } from "./rules";
+import { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MIN_ATTACK_INTERVAL } from "./attack-speed-constants";
 
 /**
  * Attack speed and critical damage as ratings.
@@ -123,6 +123,18 @@ export function formatRateGain(gain: number, unit: string) {
   const decimals = value >= .001 ? 3 : Math.min(8, Math.max(4, Math.ceil(-Math.log10(value || 1e-8)) + 1));
   return `+${value.toFixed(decimals)}${unit}`;
 }
+/**
+ * The run's attack interval with a weapon's rating (items.ts weaponRatings). Kills pay no attack speed, so whatever
+ * the run stores past the base start is flat (Reflect Only's wins, the soul) and stays on top of the weapon's curve.
+ * With the cap, Quick Draw's raise is the curve's top and the interval stops at the fastest; without, the curve tops at 3.
+ */
+export function attackIntervalWithGear(interval: number, gearRating: number, cap?: AttackCapArg) {
+  if (!(gearRating > 0) || !(interval > 0) || !Number.isFinite(interval)) return interval;
+  const { curveCap, fastest } = capParts(cap), flat = Math.max(0, 1 / interval - ATTACK_SPEED_START);
+  const geared = 1 / (attacksPerSecondForRating(gearRating, curveCap) + flat);
+  return cap === undefined ? geared : Math.max(fastest, geared);
+}
+
 /** The same rating under another cap: a Quick Draw rank bought or respecced moves the curve under the run. */
 export function attackIntervalUnderNewCap(interval: number, from: AttackCapArg, to: AttackCapArg) {
   return attackIntervalForRating(attackSpeedRatingForInterval(interval, from), to);

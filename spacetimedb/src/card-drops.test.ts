@@ -26,34 +26,41 @@ describe("card drops", () => {
     const f = crystalFixture();
     // ctx.random() < 1 / outcomes wins: just under 1 / outcomes wins, 1 / outcomes itself does not.
     always(f, .99 / CARD_DROP_OUTCOMES.regular);
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 3 }, { enemy: "King Slime", count: 1 }]);
-    expect(cards(f, "needle_card")).toBe(3);
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 3 }, { enemy: "King Slime", count: 1 }]);
+    expect(cards(f, "bramble_card")).toBe(3);
     expect(cards(f, "king_slime_card")).toBe(0); // an elite's chance is half
     always(f, .99 / CARD_DROP_OUTCOMES.elite);
     award(f, "tutorial_forest", [{ enemy: "King Slime", count: 1 }], 1);
     expect(cards(f, "king_slime_card")).toBe(1);
     expect(cards(f, "dragon_card")).toBe(1);
     always(f, 1 / CARD_DROP_OUTCOMES.boss);
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 5 }], 3);
-    expect([cards(f, "needle_card"), cards(f, "dragon_card")]).toEqual([3, 1]);
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 5 }], 3);
+    expect([cards(f, "bramble_card"), cards(f, "dragon_card")]).toEqual([3, 1]);
   });
 
   it("raises every chance alike with a multiplier", () => {
     const f = crystalFixture();
     always(f, 1.5 / CARD_DROP_OUTCOMES.regular);
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 1 }]);
-    expect(cards(f, "needle_card")).toBe(0);
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 1 }], 0, 2);
-    expect(cards(f, "needle_card")).toBe(1);
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 1 }]);
+    expect(cards(f, "bramble_card")).toBe(0);
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 1 }], 0, 2);
+    expect(cards(f, "bramble_card")).toBe(1);
   });
 
-  it("drops nothing for an enemy that is not on the map, nor for Endless's regular enemies", () => {
+  it("drops nothing for an enemy that is not on the map", () => {
     const f = crystalFixture();
     always(f, 0);
-    award(f, "endless_1", [{ enemy: "site:0", count: 5 }]);
-    award(f, "beginner_desert", [{ enemy: "Needle", count: 5 }]); // Needle lives in the forest
+    award(f, "beginner_desert", [{ enemy: "Bramble", count: 5 }]); // Bramble lives in the forest
+    award(f, "tutorial_forest", [{ enemy: "Needle", count: 5 }]); // Needle's card drops on Endless only
     expect(f.db.playerCard.count()).toBe(0n);
     expect(f.db.playerCardDrop.count()).toBe(0n);
+  });
+
+  it("drops the Forest's Needle or Striker card from Endless 1's regular enemies", () => {
+    const f = crystalFixture();
+    always(f, 0);
+    award(f, "endless_1", [{ enemy: "site:0", count: 1 }]);
+    expect(cards(f, "needle_card") + cards(f, "striker_card")).toBe(1);
   });
 
   it("drops an Endless boss's Warden card by its band of ten maps, at the boss odds", () => {
@@ -89,8 +96,8 @@ describe("card drops", () => {
   it("tells the client what was found, counting every card", () => {
     const f = crystalFixture();
     always(f, 0);
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 2 }]);
-    expect(f.db.playerCardDrop.identity.find(f.ctx.sender)).toMatchObject({ cardIds: ["needle_card", "needle_card"], sequence: 2n });
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 2 }]);
+    expect(f.db.playerCardDrop.identity.find(f.ctx.sender)).toMatchObject({ cardIds: ["bramble_card", "bramble_card"], sequence: 2n });
     award(f, "tutorial_forest", [{ enemy: "Brood", count: 1 }]);
     expect(f.db.playerCardDrop.identity.find(f.ctx.sender)).toMatchObject({ cardIds: ["brood_card"], sequence: 3n });
   });
@@ -98,17 +105,17 @@ describe("card drops", () => {
   it("guarantees a card once its meter fills, at twice the average kills, and starts the meter again", () => {
     const f = crystalFixture();
     always(f, .999); // every roll loses
-    const meter = () => f.db.playerCardMeter.key.find(`${f.ctx.sender.toHexString()}:needle_card`)?.progress ?? 0;
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: cardMeterFull("regular") - 1 }]);
-    expect(cards(f, "needle_card")).toBe(0);
+    const meter = () => f.db.playerCardMeter.key.find(`${f.ctx.sender.toHexString()}:bramble_card`)?.progress ?? 0;
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: cardMeterFull("regular") - 1 }]);
+    expect(cards(f, "bramble_card")).toBe(0);
     expect(meter()).toBe(cardMeterFull("regular") - 1);
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 1 }]);
-    expect(cards(f, "needle_card")).toBe(1);
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 1 }]);
+    expect(cards(f, "bramble_card")).toBe(1);
     expect(meter()).toBe(0);
     // A lucky roll empties the meter too.
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 10 }]);
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 10 }]);
     always(f, 0);
-    award(f, "tutorial_forest", [{ enemy: "Needle", count: 1 }]);
+    award(f, "tutorial_forest", [{ enemy: "Bramble", count: 1 }]);
     expect(meter()).toBe(0);
   });
 
@@ -164,7 +171,7 @@ describe("gear drops", () => {
 
 describe("the odds the Cards tab shows", () => {
   // Regular, elite and boss, with Signal Oracle's Card Hunter active and Card Luck at rank 4.
-  for (const [cardId, enemy, boss] of [["needle_card", "Needle", 0], ["king_slime_card", "King Slime", 0], ["dragon_card", "", 1]] as const) {
+  for (const [cardId, enemy, boss] of [["bramble_card", "Bramble", 0], ["king_slime_card", "King Slime", 0], ["dragon_card", "", 1]] as const) {
     it(`match the server's roll for ${cardId}`, () => {
       const f = crystalFixture();
       f.transaction(() => setActiveCards(f.ctx, f.ctx.sender, ["signal_oracle_card"]));

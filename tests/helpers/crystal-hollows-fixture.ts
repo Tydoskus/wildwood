@@ -1,6 +1,6 @@
 import { ConnectionId, Identity, Timestamp } from "spacetimedb";
 import * as server from "../../spacetimedb/src/index";
-import { ATTACK_BALANCE_VERSION, PROTOCOL_VERSION } from "../../shared/rules";
+import { ATTACK_BALANCE_VERSION, DEFAULT_ATTACK_INTERVAL, PROTOCOL_VERSION } from "../../shared/rules";
 import { AGE_BAND_ADULT, TERMS_VERSION } from "../../shared/legal";
 import { createMemoryDatabase } from "./spacetime-memory-db";
 import { RESEARCH_STAND } from "../../spacetimedb/src/research-station";
@@ -32,7 +32,7 @@ export function crystalFixture() {
     return insert(table, row);
   };
   const progress = (who = ctx.sender, overrides: Record<string, unknown> = {}) => seed("playerProgress", {
-    identity: who, maxHp: 100, damage: 1_000, attackRate: 1, projectileSpeed: 1_000,
+    identity: who, maxHp: 100, damage: 1_000, attackRate: DEFAULT_ATTACK_INTERVAL, projectileSpeed: 1_000,
     projectileCount: 2, attackRange: 200, speed: 180, inventoryJson: "[]",
     equippedHead: "", equippedChest: "", equippedFeet: "", equippedRightHand: "", equippedLeftHand: "",
     ...overrides,

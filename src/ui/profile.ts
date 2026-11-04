@@ -46,6 +46,7 @@ export function profileStatInputs(
   itemRefines: Record<string, number> = {},
   activeCards: readonly string[] = [],
   extra: Partial<PlayerStatInputs> = {},
+  weaponStats: PlayerProfileData["weaponStats"] = {},
 ): PlayerStatInputs {
   return {
     base: { maxHp: progress.maxHp, damage: progress.damage, armor: progress.armor, regen: progress.regen, attackInterval: progress.attackRate,
@@ -53,7 +54,7 @@ export function profileStatInputs(
     loadout: { head: progress.equippedHead, chest: progress.equippedChest, feet: progress.equippedFeet ?? "",
       rightHand: progress.equippedRightHand, leftHand: progress.equippedLeftHand },
     // Tiers are keyed by slot, not by item: a lookup by item id missed every time and the panel showed bare gear.
-    itemLevel: itemId => itemLevelFor(itemUpgradeLevels, itemRefines, itemId),
+    itemLevel: itemId => ({ ...itemLevelFor(itemUpgradeLevels, itemRefines, itemId), ...weaponStats?.[itemId] }),
     research, cards: cardTotals(activeCards),
     ...extra,
   };
@@ -99,7 +100,7 @@ export function profilePower(profile: PlayerProfileData, soul: Partial<SoulStats
   const inPlay = profileInPlay(profile), clean = cleanSoulStats(soul);
   const progress = withSoulStats(profile.progress, clean, inPlay.attackCap);
   return Math.round(playerStatPower(profileStatInputs(progress, inPlay.research ?? undefined, profile.itemUpgradeLevels, profile.itemRefines,
-    inPlay.cardIds, { perks: inPlay.perks, soul: clean })));
+    inPlay.cardIds, { perks: inPlay.perks, soul: clean, attackCap: inPlay.attackCap }, profile.weaponStats)));
 }
 
 export type ProfileStatDisplaySource = {
@@ -151,7 +152,7 @@ export function profileStatDisplayRows(
     soul, attackCap, prestigeLevel, guildBonus,
     // Long Shot and Fleet Foot pay outside an Aggro run, as the server pays them; the other perks show as given.
     perks: profile.aggroChallenge?.active ? { ...perks, longShot: 0, fleetFoot: 0 } : perks,
-  });
+  }, profile.weaponStats);
   const stats = computePlayerStats(inputs);
   const from = stats.sources;
   // A card source: what the active cards multiply a stat by, a cost included (×0.96).
@@ -222,6 +223,7 @@ export function profileStatDisplayRows(
       // The soul's own share, which adds to the run's and is kept through prestige.
       // The soul adds attacks a second flat (soulAttackSpeedBonus), so its line is that, not a rating.
       sources: [...soulSource(from.attackSpeed.soul, value => Number.isFinite(value) ? `${value.toFixed(3)}/s` : "Max"),
+        ...(from.attackSpeed.equipment > .005 ? [{ label: "Equipment" as const, value: `+${from.attackSpeed.equipment.toFixed(2)}/s` }] : []),
         ...(momentum ? [{ label: "Momentum" as const, value: `+${Math.round(momentum * 100)}%` }] : []),
         ...(bowSpeed > 1 ? [{ label: "Equipment" as const, value: `+${Math.round((bowSpeed - 1) * 100)}% (Bow)` }] : [])],
     },
@@ -287,7 +289,7 @@ export function profileStatDisplayRows(
       ...(critChance.weapon ? [{ label: "Equipment" as const, value: `+${percentPoints(critChance.weapon)} (Bow)` }] : []),
     ],
   });
-  // A rating on a curve toward 100× (shared/stat-rating.ts): crit camps' rating, the soul's on top, then
+  // A rating on a curve toward 100× (shared/stat-rating.ts): the weapon's rating, the soul's on top, then
   // research and Keen Edge, each a share closer. Combat stops at the cap (5×, 1× more a Crit Cap rank),
   // so the row does too, and says (Max) once it reads the same as the cap.
   const crit = from.critDamage;
@@ -302,6 +304,8 @@ export function profileStatDisplayRows(
       ...(crit.perk ? [{ label: "Prestige" as const, value: shown(bonusShare(crit.perk)) }] : []),
       // The soul adds a flat multiplier (critical-damage.ts), so its line is that, not a rating.
       ...(crit.fromSoul > 0 ? [{ label: "Soul" as const, value: shown(crit.fromSoul) }] : []),
+      // The rating is the weapon's: kills no longer pay crit.
+      ...(crit.fromRating > .005 ? [{ label: "Equipment" as const, value: shown(crit.fromRating) }] : []),
       ...(crit.fromCards > 0 ? [{ label: "Cards" as const, value: shown(crit.fromCards) }] : []),
     ],
   });

@@ -123,12 +123,12 @@ describe("cards outside a fight, on the server", () => {
     const view = wearing();
     // A roll that just misses a regular card at its plain odds lands once Card Hunter's +10% is worn.
     Object.assign(view.f.ctx, { random: Object.assign(() => 1.05 / CARD_DROP_OUTCOMES.regular, { integerInRange: (_min: number, max: number) => max }) });
-    const award = () => view.f.transaction(() => awardCardDrops(view.f.ctx, view.f.ctx.sender, "tutorial_forest", [{ enemy: "Needle", count: 1 }], 0));
+    const award = () => view.f.transaction(() => awardCardDrops(view.f.ctx, view.f.ctx.sender, "tutorial_forest", [{ enemy: "Bramble", count: 1 }], 0));
     award();
-    expect(cardCount(view.f.ctx, view.f.ctx.sender, "needle_card")).toBe(0);
+    expect(cardCount(view.f.ctx, view.f.ctx.sender, "bramble_card")).toBe(0);
     view.slot("forest_cap", ["nether_oracle_card"]);
     award();
-    expect(cardCount(view.f.ctx, view.f.ctx.sender, "needle_card")).toBe(1);
+    expect(cardCount(view.f.ctx, view.f.ctx.sender, "bramble_card")).toBe(1);
     // Gold drops on 10% of kills: a draw of .103 misses, and lands once Treasure's +6% is worn (10.6%).
     Object.assign(view.f.ctx, { random: Object.assign(() => .103, { integerInRange: (min: number) => min }) });
     const gold = () => { view.f.transaction(() => awardKillGold(view.f.ctx, view.f.ctx.sender, 1, false)); return goldFor(view.f.ctx, view.f.ctx.sender); };

@@ -9,6 +9,7 @@ import {
 } from "./player-power";
 import { bootStyleOf, gradeOf } from "./grade-equipment";
 import { gradeIndex, type BootStyle } from "./gear-grades";
+import type { AttackCapArg } from "./stat-rating";
 
 /**
  * Which of two pieces of gear is better in a slot.
@@ -55,8 +56,10 @@ export function equipComparisonPower(
   research?: PlayerPowerResearch | null,
   itemUpgradeLevel?: (itemId: string) => ItemLevel,
   weaponSkills?: WeaponSkillsOf,
+  /** The attack cap in play: Quick Draw tops the weapon's attack speed curve (stat-rating.ts attackIntervalWithGear). */
+  attackCap?: AttackCapArg,
 ) {
-  const stats = effectivePlayerPowerStats(progress, research, itemUpgradeLevel);
+  const stats = effectivePlayerPowerStats(progress, research, itemUpgradeLevel, undefined, attackCap);
   const weapon = progress.equippedRightHand || progress.equippedLeftHand || "";
   const skills = weapon && weaponSkills ? weaponSkillScore(weapon, weaponSkills(weapon)) : 0;
   return unroundedPlayerPower({ ...stats, damage: stats.damage * (1 + skills / 100) });

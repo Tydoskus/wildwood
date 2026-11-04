@@ -52,7 +52,7 @@ export function createFarmEvaluator(deps: {
       else if (reward.type === 'speed') stats.attackRate = addAttackSpeedRating(stats.attackRate, amount, deps.minAttackInterval());
       else if (reward.type === 'crit') stats.critMultiplier = deps.criticalMultiplier(amount);
     }
-    return effectivePlayerPowerStats({ ...stats, ...deps.equipment() }, deps.research(), deps.upgradeLevel, deps.cards?.() ?? undefined);
+    return effectivePlayerPowerStats({ ...stats, ...deps.equipment() }, deps.research(), deps.upgradeLevel, deps.cards?.() ?? undefined, deps.minAttackInterval());
   }
   return {
     evaluate: (reward?: FarmReward): FarmEvaluation => { const stats = build(reward); return { power: unroundedPlayerPower(stats), stats }; },

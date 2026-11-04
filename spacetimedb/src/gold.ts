@@ -1,7 +1,7 @@
 import { table, t } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type spacetimedbType from "./index";
-import { offlineGold, rollBossGold, rollKillGold } from "../../shared/gold";
+import { mapGoldFactor, offlineGold, rollBossGold, rollKillGold } from "../../shared/gold";
 import { cardStatFactors, type CardTotals } from "../../shared/card-effects";
 import { luckMultiplier, type LuckRanks } from "../../shared/luck-research";
 import { activeCardTotalsFor } from "./active-cards";
@@ -47,19 +47,19 @@ export function goldChanceMultiplier(ctx: Ctx, identity: Identity, cards?: CardT
 
 /**
  * An accepted kill report's gold: a roll per regular kill, and a boss's first clear in the run, doubled during a Server Boost. A boss clear is the
- * client's claim, so a repeat pays nothing.
+ * client's claim, so a repeat pays nothing. Kills pay more coins on stronger maps (mapGoldFactor).
  */
 export function awardKillGold(ctx: Ctx, identity: Identity, kills: number, firstBossClear: boolean, cards?: CardTotals,
-  read?: { luck: () => LuckRanks; serverBoost: () => number; hallBonus: (part: GuildHallPart) => number }) {
+  read?: { luck: () => LuckRanks; serverBoost: () => number; hallBonus: (part: GuildHallPart) => number }, mapId = "") {
   const hall = (part: GuildHallPart) => read ? read.hallBonus(part) : guildHallBonusFor(ctx, identity, part);
   const chance = kills > 0 ? goldChanceMultiplier(ctx, identity, cards, read?.luck(), hall("table")) : 1;
   const boss = firstBossClear ? rollBossGold(() => ctx.random()) + hall("trophies") : 0;
-  const gold = rollKillGold(kills, () => ctx.random(), chance) + boss;
+  const gold = rollKillGold(kills, () => ctx.random(), chance, mapGoldFactor(mapId)) + boss;
   addGold(ctx, identity, gold * (read ? read.serverBoost() : serverBoostRewardMultiplier(ctx)));
 }
 
-/** Offline kills pay half the in-play rate, without rolling. */
-export const awardOfflineGold = (ctx: Ctx, identity: Identity, kills: number) => addGold(ctx, identity, offlineGold(kills));
+/** Offline kills pay half the in-play rate, without rolling, at the map's factor. */
+export const awardOfflineGold = (ctx: Ctx, identity: Identity, kills: number, mapId = "") => addGold(ctx, identity, offlineGold(kills, mapGoldFactor(mapId)));
 
 /** Reset Save and account removal clear it; prestige keeps it. */
 export function removeGold(ctx: Ctx, identity: Identity) {

@@ -8,6 +8,7 @@ import type { CardStatFactors } from "../../../shared/card-effects";
 import { bootArmorFactor, type ItemLevel } from "../../../shared/items";
 import { researchStatFactors } from "../../../shared/player-power";
 import { critChanceFor } from "../../../shared/player-stats";
+import { weaponRatings as weaponRatingsOf } from "../../../shared/items";
 
 export type { ResearchRanks } from "../../../shared/research";
 
@@ -38,6 +39,7 @@ type ResearchControllerOptions = {
 const EMPTY_RANKS = createEmptyResearchRanks();
 
 export function createResearchController(options: ResearchControllerOptions) {
+  const weaponRatings = (weapon = options.equippedWeapon?.() ?? "") => weapon ? weaponRatingsOf(weapon, options.itemLevel?.(weapon) ?? 0) : { speed: 0, crit: 0 };
   let appliedVitalityRank = 0;
 
   const ranks = (): ResearchRanks => options.getRanks() ?? EMPTY_RANKS;
@@ -58,9 +60,15 @@ export function createResearchController(options: ResearchControllerOptions) {
     /** Everything critical damage adds up from but the soul's share, and the cap's rank. */
     criticalDamageParts: (): CriticalDamageParts => ({ researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), capRank: ranks().critCap,
       card: cards()?.critDamage }),
-    /** The capped multiplier: the run's crit rating, the soul's when there is some, research, Keen Edge and cards. */
-    criticalDamageMultiplier: (soul = 0, rating = options.player.critRating ?? 0) => criticalDamageMultiplier({
-      researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), soul, rating, capRank: ranks().critCap, card: cards()?.critDamage,
+    /** The weapon in hand's (or `weapon`'s) attack speed and crit damage ratings, from its copy's roll (items.ts weaponRatings). */
+    weaponRatings: (weapon?: string) => weaponRatings(weapon),
+    /**
+     * The capped multiplier: the run's crit rating (or `rating`) with the weapon's (the one in hand, or `weapon` for gear
+     * being compared), the soul's when there is some, research, Keen Edge and cards.
+     */
+    criticalDamageMultiplier: (soul = 0, rating = options.player.critRating ?? 0, weapon?: string) => criticalDamageMultiplier({
+      researchRank: ranks().criticalDamage, perks: options.prestigePerks?.(), soul, rating: rating + weaponRatings(weapon).crit, capRank: ranks().critCap,
+      card: cards()?.critDamage,
     }),
     setAppliedVitalityRank: (rank: number) => { appliedVitalityRank = rank; },
     /**

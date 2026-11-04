@@ -815,6 +815,15 @@
       "school:string",
       "points:u64"
     ],
+    "my_weapon_stats": [
+      "key:string",
+      "identity:identity",
+      "itemId:string",
+      "copyId:u64",
+      "offerId:u64",
+      "attackSpeed:f32",
+      "critDamage:f32"
+    ],
     "my_woodcutting": [
       "identity:identity",
       "woodcutting:u32",
@@ -1203,6 +1212,15 @@
       "identity:identity",
       "school:string",
       "points:u64"
+    ],
+    "player_weapon_stat": [
+      "key:string",
+      "identity:identity",
+      "itemId:string",
+      "copyId:u64",
+      "offerId:u64",
+      "attackSpeed:f32",
+      "critDamage:f32"
     ],
     "player_wide_stats": [
       "identity:identity",

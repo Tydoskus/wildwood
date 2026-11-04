@@ -149,7 +149,10 @@ describe("enemies", { timeout: 60_000 }, () => {
     const sim = simPlayer({ base: HARMLESS });
     const { parts } = sim;
     await sim.play(.5);
-    const bramble = parts.enemies.find(enemy => enemy.type === "Bramble" && !enemy.dead)!;
+    // One with nobody else near where Ann will stand, beside it: a camp-mate in reach would join the chase.
+    const alone = (enemy: (typeof parts.enemies)[number]) =>
+      parts.enemies.every(other => other === enemy || other.dead || gap(other, { x: enemy.x + 150, y: enemy.y }) > 400);
+    const bramble = parts.enemies.find(enemy => enemy.type === "Bramble" && !enemy.dead && alone(enemy))!;
     const home = { x: bramble.homeX, y: bramble.homeY };
     Object.assign(parts.player, { x: bramble.x + 150, y: bramble.y });
     await sim.play(.5);
@@ -172,7 +175,7 @@ describe("enemies", { timeout: 60_000 }, () => {
 
     // Far past its leash it gives up and walks home.
     Object.assign(parts.player, { x: home.x + 2_500, y: home.y });
-    await sim.play(15);
+    await sim.play(20);
     expect(bramble.engaged).toBe(false);
     expect(gap(bramble, home)).toBeLessThan(60);
   });

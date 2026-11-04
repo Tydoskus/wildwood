@@ -18,6 +18,10 @@ import {
   setStaffSkillRoll, staffCopyKey, staffCopyRoll, staffOfferKey, staffOfferRoll,
 } from "./staff-skills";
 import { ensureWeaponSkillRoll, weaponSkillRollFor } from "./weapon-skills";
+import {
+  copyStatKey, copyStatRoll, forgetCopyStatRoll, forgetFirstStatRoll, forgetOfferStatRoll, moveStatRow, offerStatKey, offerStatRoll,
+  setCopyStatRoll, setFirstStatRoll, setOfferStatRoll,
+} from "./weapon-stat-roll";
 import { addOres, oreKindsHeldFor, promoteCopyRefine, refineLevelFor, setRefineLevel, swapFirstCopyRefine } from "./item-refine";
 import { readPlayerProgress } from "./wide-stats";
 import { syncWornSkill } from "./worn-skill";
@@ -99,16 +103,25 @@ type Ctx = any;
 const sameIdentity = (a: Identity, b: Identity) => a.toHexString() === b.toHexString();
 const byId = (a: { id: bigint }, b: { id: bigint }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-/** A kept copy's or an offer's roll: a staff's from player_staff_skill, any other from its own columns. */
-export const copyRollOf = (ctx: Ctx, copy: any): WeaponSkillRoll => isSkillStaff(copy.itemId) ? staffCopyRoll(ctx, copy.id) : weaponSkillRollOf(copy);
-const offerRollOf = (ctx: Ctx, offer: any): WeaponSkillRoll => isSkillStaff(offer.itemId) ? staffOfferRoll(ctx, offer.id) : weaponSkillRollOf(offer);
+/** A kept copy's or an offer's roll: a staff's skills from player_staff_skill, any other's from its own columns, and its speed and crit. */
+export const copyRollOf = (ctx: Ctx, copy: any): WeaponSkillRoll =>
+  ({ ...(isSkillStaff(copy.itemId) ? staffCopyRoll(ctx, copy.id) : weaponSkillRollOf(copy)), ...copyStatRoll(ctx, copy.id) });
+const offerRollOf = (ctx: Ctx, offer: any): WeaponSkillRoll =>
+  ({ ...(isSkillStaff(offer.itemId) ? staffOfferRoll(ctx, offer.id) : weaponSkillRollOf(offer)), ...offerStatRoll(ctx, offer.id) });
 export function deleteOffer(ctx: Ctx, offer: any) {
   ctx.db.pendingEquipmentOffer.id.delete(offer.id);
   if (isSkillStaff(offer.itemId)) forgetStaffOfferRoll(ctx, offer.id);
+  forgetOfferStatRoll(ctx, offer.id);
 }
 export function deleteCopy(ctx: Ctx, copy: any) {
   ctx.db.playerEquipmentCopy.id.delete(copy.id);
   if (isSkillStaff(copy.itemId)) forgetStaffCopyRoll(ctx, copy.id);
+  forgetCopyStatRoll(ctx, copy.id);
+}
+/** A kept copy's roll beside its row: a staff's skills, and any graded weapon's speed and crit. */
+function setCopyRoll(ctx: Ctx, identity: Identity, itemId: string, copyId: bigint, roll: WeaponSkillRoll) {
+  setStaffCopyRoll(ctx, identity, itemId, copyId, roll);
+  setCopyStatRoll(ctx, identity, itemId, copyId, roll);
 }
 
 /** A player's kept extra copies, oldest first, optionally of one item. */
@@ -132,6 +145,7 @@ function insertOffer(ctx: Ctx, identity: Identity, itemId: string, roll: WeaponS
   const expiresAt = new Timestamp(ctx.timestamp.microsSinceUnixEpoch + BigInt(EQUIPMENT_OFFER_LIFETIME_MS) * 1_000n);
   const offer = ctx.db.pendingEquipmentOffer.insert({ id: 0n, identity, itemId, ...weaponSkillColumns(roll), createdAt: ctx.timestamp, expiresAt });
   setStaffOfferRoll(ctx, identity, itemId, offer.id, roll);
+  setOfferStatRoll(ctx, identity, itemId, offer.id, roll);
 }
 
 /** Offers `count` copies of an item the player already holds. Anything that is not equipment is dropped. */
@@ -174,7 +188,7 @@ export function receiveDuplicateEquipment(ctx: Ctx, identity: Identity, itemId: 
 /** A new kept copy of an item already in the bag, with its own roll and refine: a craft of a piece held. */
 export function insertKeptCopy(ctx: Ctx, identity: Identity, itemId: string, roll: WeaponSkillRoll, refine: number) {
   const copy = ctx.db.playerEquipmentCopy.insert({ id: 0n, identity, itemId, ...weaponSkillColumns(roll), acquiredAt: ctx.timestamp });
-  setStaffCopyRoll(ctx, identity, itemId, copy.id, roll);
+  setCopyRoll(ctx, identity, itemId, copy.id, roll);
   setRefineLevel(ctx, identity, itemId, copy.id, refine);
   return copy;
 }
@@ -191,7 +205,7 @@ export function reforgeCopySkills(ctx: Ctx, identity: Identity, itemId: string, 
   if (!changed) return;
   if (!copy) { setFirstCopyRoll(ctx, identity, itemId, roll); return; }
   ctx.db.playerEquipmentCopy.id.update({ ...copy, ...weaponSkillColumns(roll) });
-  setStaffCopyRoll(ctx, identity, itemId, copy.id, roll);
+  setCopyRoll(ctx, identity, itemId, copy.id, roll);
 }
 
 /**
@@ -248,10 +262,12 @@ export function mergeEquipmentCopies(ctx: Ctx, guest: Identity, account: Identit
   for (const row of extraCopiesOf(ctx, guest)) {
     ctx.db.playerEquipmentCopy.id.update({ ...row, identity: account });
     moveStaffRowRoll(ctx, staffCopyKey(row.id), account);
+    moveStatRow(ctx, copyStatKey(row.id), account);
   }
   for (const offer of pendingOffersOf(ctx, guest)) {
     ctx.db.pendingEquipmentOffer.id.update({ ...offer, identity: account });
     moveStaffRowRoll(ctx, staffOfferKey(offer.id), account);
+    moveStatRow(ctx, offerStatKey(offer.id), account);
   }
   trimOffers(ctx, account);
 }
@@ -264,6 +280,7 @@ function salvage(ctx: Ctx, itemId: string) {
 
 /** Deletes the first copy's roll, bow, sword or staff. */
 function forgetFirstCopyRoll(ctx: Ctx, identity: Identity, itemId: string) {
+  forgetFirstStatRoll(ctx, identity, itemId);
   if (isSkillStaff(itemId)) { forgetStaffSkillRoll(ctx, identity, itemId); return; }
   const bow = ctx.db.playerBowSkill.key.find(bowSkillKey(identity, itemId));
   if (bow) ctx.db.playerBowSkill.key.delete(bow.key);
@@ -278,6 +295,7 @@ export function setFirstCopyRoll(ctx: Ctx, identity: Identity, itemId: string, r
   syncWornSkill(ctx, identity);
 }
 function writeFirstCopyRoll(ctx: Ctx, identity: Identity, itemId: string, roll: WeaponSkillRoll) {
+  setFirstStatRoll(ctx, identity, itemId, roll);
   if (isSkillSword(itemId)) { setSwordSkillRoll(ctx, identity, itemId, roll); return; }
   if (isSkillStaff(itemId)) { setStaffSkillRoll(ctx, identity, itemId, roll); return; }
   if (!isSkillBow(itemId)) return;
@@ -342,7 +360,7 @@ export function createEquipmentCopies(deps: {
     const roll = offerRollOf(ctx, offer);
     if (inventory.includes(offer.itemId)) {
       const copy = ctx.db.playerEquipmentCopy.insert({ id: 0n, identity: ctx.sender, itemId: offer.itemId, ...weaponSkillColumns(roll), acquiredAt: ctx.timestamp });
-      setStaffCopyRoll(ctx, ctx.sender, offer.itemId, copy.id, roll);
+      setCopyRoll(ctx, ctx.sender, offer.itemId, copy.id, roll);
     } else {
       // Not held (a drop into a full bag, or the copy they had is gone): this one becomes the first, unrefined.
       deps.writeProgressAndPresentation(ctx, deps.restoreItemToProgress(progress, offer.itemId));
@@ -419,7 +437,7 @@ export function createEquipmentCopies(deps: {
     const first = weaponSkillRollFor(ctx, ctx.sender, copy.itemId);
     setFirstCopyRoll(ctx, ctx.sender, copy.itemId, copyRollOf(ctx, copy));
     ctx.db.playerEquipmentCopy.id.update({ ...copy, ...weaponSkillColumns(first) });
-    setStaffCopyRoll(ctx, ctx.sender, copy.itemId, copy.id, first as WeaponSkillRoll);
+    setCopyRoll(ctx, ctx.sender, copy.itemId, copy.id, first as WeaponSkillRoll);
   }
 
   return { resolveOffer, destroy, removeCopy, select };

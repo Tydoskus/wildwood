@@ -13,10 +13,12 @@ export type EquipmentOffer = { id: bigint; itemId: string; roll: WeaponSkillRoll
 export type EquipmentCopyResult = { ok: boolean; error?: string };
 
 type Target = { connection: DbConnection; isCurrent: () => boolean };
-/** Staff rolls of kept copies and offers, by "copy:<id>" or "offer:<id>" (my_staff_skills). */
+/** Staff rolls (my_staff_skills) and speed and crit rolls (my_weapon_stats) of kept copies and offers, by "copy:<id>" or "offer:<id>". */
 type StaffRolls = ReadonlyMap<string, WeaponSkillRoll>;
-const rollOf = (row: WeaponSkillRoll & { id: bigint; itemId: string }, staff: StaffRolls, kind: "copy" | "offer") =>
-  isSkillStaff(row.itemId) ? staff.get(`${kind}:${row.id}`) ?? { meteor: 0, chain: 0, frostNova: 0 } : weaponSkillRollOf(row);
+const rollOf = (row: WeaponSkillRoll & { id: bigint; itemId: string }, staff: StaffRolls, stats: StaffRolls, kind: "copy" | "offer") => ({
+  ...(isSkillStaff(row.itemId) ? staff.get(`${kind}:${row.id}`) ?? { meteor: 0, chain: 0, frostNova: 0 } : weaponSkillRollOf(row)),
+  ...stats.get(`${kind}:${row.id}`),
+});
 const byId = (a: { id: bigint }, b: { id: bigint }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const millis = (timestamp: { microsSinceUnixEpoch: bigint }) => Number(timestamp.microsSinceUnixEpoch / 1000n);
 /** How long after this tab equips, destroys or keeps a copy a change to that bow's roll is taken as its doing. */
@@ -39,7 +41,7 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
   /** When this tab last asked for a change to each item's copies. */
   const localActions = new Map<string, number>();
 
-  /** Listens, and returns what to subscribe and what to read once applied; the caller's one subscription adds my_staff_skills. */
+  /** Listens, and returns what to subscribe and what to read once applied; the caller's one subscription adds my_staff_skills and my_weapon_stats. */
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     const readIgnoredDrops = ignoredDrops.watch(connection, isCurrent);
     const readLootSettings = lootSettings.watch(connection, isCurrent);
@@ -53,16 +55,16 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
     };
     onTableChange([connection.db.myEquipmentLocks], isCurrent, readLocks, ["insert", "delete"]);
     offers = [];
-    let staff: StaffRolls = new Map();
+    let staff: StaffRolls = new Map(), stats: StaffRolls = new Map();
     const readCopies = () => {
       if (!isCurrent()) return;
-      copies = [...connection.db.myEquipmentCopies.iter()].sort(byId).map(row => ({ id: row.id, itemId: row.itemId, roll: rollOf(row, staff, "copy") }));
+      copies = [...connection.db.myEquipmentCopies.iter()].sort(byId).map(row => ({ id: row.id, itemId: row.itemId, roll: rollOf(row, staff, stats, "copy") }));
       notify();
     };
     const readOffers = () => {
       if (!isCurrent()) return;
       offers = [...connection.db.myEquipmentOffers.iter()].sort(byId).map(row => ({
-        id: row.id, itemId: row.itemId, roll: rollOf(row, staff, "offer"), createdAtMs: millis(row.createdAt), expiresAtMs: millis(row.expiresAt),
+        id: row.id, itemId: row.itemId, roll: rollOf(row, staff, stats, "offer"), createdAtMs: millis(row.createdAt), expiresAtMs: millis(row.expiresAt),
       }));
       notify();
     };
@@ -76,12 +78,23 @@ export function createEquipmentCopies(notify: () => void, now: () => number = Da
       staff = next;
       readCopies(); readOffers();
     };
+    const readStats = () => {
+      if (!isCurrent()) return;
+      const next = new Map<string, WeaponSkillRoll>();
+      for (const row of connection.db.myWeaponStats.iter()) {
+        if (row.copyId === 0n && row.offerId === 0n) continue;
+        next.set(row.copyId ? `copy:${row.copyId}` : `offer:${row.offerId}`, { attackSpeed: row.attackSpeed, critDamage: row.critDamage });
+      }
+      stats = next;
+      readCopies(); readOffers();
+    };
     onTableChange([connection.db.myStaffSkills], isCurrent, readStaff);
+    onTableChange([connection.db.myWeaponStats], isCurrent, readStats);
     onTableChange([connection.db.myEquipmentCopies], isCurrent, readCopies);
     onTableChange([connection.db.myEquipmentOffers], isCurrent, readOffers);
     return {
       tables: [tables.myEquipmentLocks, tables.myEquipmentCopies, tables.myEquipmentOffers, ignoredDrops.table, lootSettings.table],
-      applied() { readStaff(); readIgnoredDrops(); readLootSettings(); readLocks(); },
+      applied() { readStats(); readStaff(); readIgnoredDrops(); readLootSettings(); readLocks(); },
     };
   }
 

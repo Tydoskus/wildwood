@@ -3,6 +3,7 @@ import { crystalFixture, identity, server } from "../../tests/helpers/crystal-ho
 import { fillDefeatBudget, reportEnemy, reportKills } from "../../tests/helpers/enemy-defeat";
 import { BOSS_REWARD_CLAIM_BITS } from "../../shared/rules";
 import { addGold, goldFor, mergeGold, takeGold } from "./gold";
+import { GOLD_MAP_GROWTH, mapGoldFactor } from "../../shared/gold";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 const gold = (f: any, who = f.ctx.sender) => goldFor(f.ctx, who);
@@ -20,17 +21,18 @@ const clearBoss = (f: any, sequence: bigint) =>
   reportKills(f, { streamId: "gold-boss-stream-0001", sequence, mapId: "crystal_hollows", enemies: [{ enemy: "boss", count: 1 }] });
 
 describe("gold", () => {
-  it("drops from a tenth of regular kills, 1 to 3 each", () => {
-    const f = fighter();
+  it("drops from a tenth of regular kills, 1 to 3 each, times the map's coins", () => {
+    const f = fighter(), coins = mapGoldFactor("crystal_hollows");
+    expect(coins).toBeCloseTo(GOLD_MAP_GROWTH ** 9, 9); // Crystal Hollows is map 10
     rollAlways(f, 0.5);
     kill(f, 5);
     expect(gold(f)).toBe(0n);
     rollAlways(f, 0.09);
     kill(f, 4);
-    expect(gold(f)).toBe(12n);
+    expect(gold(f)).toBe(BigInt(Math.round(12 * coins)));
     rollAlways(f, 0.01);
     kill(f, 2);
-    expect(gold(f)).toBe(14n);
+    expect(gold(f)).toBe(BigInt(Math.round(12 * coins) + Math.round(2 * coins)));
   });
 
   it("pays 2 to 4 for a boss's first clear in a run, and nothing for a repeat claim", () => {

@@ -1,5 +1,5 @@
 import { SOUL_STAT_DETAILS, soulEnemyId, type SoulStatId } from "../../../shared/soul-dimension";
-import { addAttackSpeedRating, attackCapInterval, cleanRating, type AttackCapArg } from "../../../shared/stat-rating";
+import { addAttackSpeedRating, attackCapInterval, attackIntervalWithGear, cleanRating, type AttackCapArg } from "../../../shared/stat-rating";
 import { compareAutoFarmTargets, farmGroupMatches, type AutoFarmGroup, type AutoFarmPriority } from './auto-farm/auto-farm-priority';
 import { isMeleeWeapon, weaponAttackRange, segmentCircleHit, segmentEllipseHit } from "../weapon-combat";
 import { isProceduralMap } from "../../../shared/procedural-maps";
@@ -151,6 +151,8 @@ export function createPlayerCombatController(options: {
   /** The cards in the worn weapon, helmet and armor (card-effects.ts); none without. */
   cards?: () => CardTotals | null | undefined;
   equippedWeapon: () => string;
+  /** The weapon's attack speed rating (items.ts weaponRatings); none without. */
+  weaponRating?: () => number;
   /** The worn weapon's slot tier and refine (coop itemLevel). */
   equippedWeaponUpgradeLevel?: () => ItemLevel;
   equippedHead: () => string;
@@ -218,6 +220,8 @@ export function createPlayerCombatController(options: {
   } = options;
   const { projectiles, enemyShots } = projectileStore;
   const attackCap = () => typeof minAttackInterval === "function" ? minAttackInterval() : minAttackInterval;
+  // The run's interval with the weapon's attack speed rating (stat-rating.ts attackIntervalWithGear).
+  const gearedInterval = () => attackIntervalWithGear(player.attackRate, options.weaponRating?.() ?? 0, attackCap());
   const random = options.random ?? Math.random;
   const wornCards = () => options.cards?.() ?? NO_CARDS;
   // Card chances add to the perks of the same name (card-effects.ts).
@@ -370,7 +374,7 @@ export function createPlayerCombatController(options: {
 
   function strikeMelee(target: AttackTarget) {
     // Every swing swishes, a miss included, as every arrow twangs.
-    options.playSwordAttackSound?.(player.attackRate);
+    options.playSwordAttackSound?.(gearedInterval());
     rebuildTargetGrid();
     const angle = Math.atan2(targetAimY(target) - player.y, target.x - player.x);
     const hit = raycastProjectile(player.x, player.y, player.x + Math.cos(angle) * attackRange(), player.y + Math.sin(angle) * attackRange(), 0);
@@ -449,7 +453,7 @@ export function createPlayerCombatController(options: {
     if (projectileKind === "ARROW" || projectileKind === "ROCK") options.playBowAttackSound?.();
     if (staff) {
       // The cast whooshes; Meteor rolls once a cast, on what was aimed at. The staff's own glow marks the release.
-      options.playSwordAttackSound?.(weaponAttackInterval(weaponItem, player.attackRate));
+      options.playSwordAttackSound?.(weaponAttackInterval(weaponItem, gearedInterval()));
       if (!target.isBoss || options.hitPersonalBoss) staffSkills.cast({ x: target.x, y: targetAimY(target) }, weaponDamage(false) * STAFF_BOLT_DAMAGE_FACTOR, false);
       return;
     }
@@ -575,7 +579,7 @@ export function createPlayerCombatController(options: {
       player.attackClock = Math.max(0, nextAttackAtSeconds - nowSeconds);
       return;
     }
-    const attackInterval = weaponAttackInterval(options.equippedWeapon(), player.attackRate);
+    const attackInterval = weaponAttackInterval(options.equippedWeapon(), gearedInterval());
     if (nowSeconds < nextAttackAtSeconds) return;
     // Momentum swings faster after hits in a row.
     fireAt(target, attackInterval / techniques.attackSpeed(), nowSeconds);
@@ -951,7 +955,7 @@ export function createPlayerCombatController(options: {
     const projectiles = isMeleeWeapon(weapon) ? 1 : Math.max(1, player.projectileCount ?? 1);
     // A staff's slower, heavier casts and a bow's quicker shots, against one target (a staff's bursts reach more, which this leaves out).
     return weaponDamage(false) * weaponHitFactor(weapon) * (1 + chance * (researchCriticalDamageMultiplier() - 1)) * projectiles
-      / Math.max(.05, weaponAttackInterval(weapon, player.attackRate));
+      / Math.max(.05, weaponAttackInterval(weapon, gearedInterval()));
   }
 
   /** expectedDps with Double Strike and Arrow Storm in, against one enemy: what the Soul Defense Force is built against. */

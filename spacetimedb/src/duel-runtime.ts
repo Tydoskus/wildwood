@@ -20,7 +20,8 @@ import {
 import { advanceDuelCombat, duelOutcome, initialDuelCombatState, DUEL_COMBAT_VERSION } from "../../shared/duel-combat";
 import { DUEL_CARDS_VERSION } from "../../shared/duel-cards";
 import { cardChance, cardStatFactors, cardValue } from "../../shared/card-effects";
-import { bootSkillChanceFactor, hasBootStat, itemDefinition } from "../../shared/items";
+import { bootSkillChanceFactor, hasBootStat, itemDefinition, weaponRatings } from "../../shared/items";
+import { attackIntervalWithGear } from "../../shared/stat-rating";
 import { activeCardIdsFor, activeCardTotalsFor } from "./active-cards";
 import { duelAnnouncementText } from "../../shared/duel-announcement";
 import { prestigePerkRanks } from "./prestige";
@@ -120,23 +121,23 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
     equipmentPresentationForProgress,
   } = deps;
 
-  /** Crit chance and multiplier in a duel: research, Keen Edge, the soul, the rating and cards. */
-  function duelCrit(ctx: any, identity: any) {
+  /** Crit chance and multiplier in a duel: research, Keen Edge, the soul, the rating (the weapon's with it) and cards. */
+  function duelCrit(ctx: any, identity: any, gearRating = 0) {
     const research = researchInPlay(ctx, identity);
     const ranks = prestigePerkRanks(ctx, identity);
     const cards = cardStatFactors(activeCardTotalsFor(ctx, identity));
     return {
       chance: Math.min(1, (research?.criticalChance ?? 0) * .01 + prestigePerkValue(ranks, "keenEdge") + cards.critChance),
       multiplier: criticalDamageMultiplier({ researchRank: research?.criticalDamage, perks: ranks,
-        soul: soulStatsFor(ctx, identity)?.critDamage, rating: readCritRating(ctx, identity), capRank: research?.critCap, card: cards.critDamage }),
+        soul: soulStatsFor(ctx, identity)?.critDamage, rating: readCritRating(ctx, identity) + gearRating, capRank: research?.critCap, card: cards.critDamage }),
     };
   }
 
-  function duelDamage(ctx: any, identity: any, damage: number, opponentWeapon = "") {
+  function duelDamage(ctx: any, identity: any, damage: number, opponentWeapon = "", gearRating = 0) {
     const ranks = prestigePerkRanks(ctx, identity);
     const totals = activeCardTotalsFor(ctx, identity);
     const baseDamage = researchedDamage(ctx, identity, damage);
-    const crit = duelCrit(ctx, identity);
+    const crit = duelCrit(ctx, identity, gearRating);
     // Duel simulation is deterministic and both sides replay it, so random
     // rolls fold into expected damage. Criticals and Double Strike both do,
     // and the cards that never change in a duel: Double Strike, Steady (duellists
@@ -152,11 +153,13 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
    */
   function duelSide(ctx: any, identity: any, progress: any, opponentWeapon = "") {
     const rightHand = equippedRightHandForProgress(progress), weapon = rightHand || equippedLeftHandForProgress(progress);
-    const runInterval = attackIntervalForProgress(withSoulStats(progress, soulStatsFor(ctx, identity), soulAttackCapFor(ctx, identity)));
+    // The weapon's attack speed and crit damage rating.
+    const cap = soulAttackCapFor(ctx, identity), gearRating = weapon ? weaponRatings(weapon, itemLevelFor(ctx, identity, weapon)) : { speed: 0, crit: 0 };
+    const runInterval = attackIntervalWithGear(attackIntervalForProgress(withSoulStats(progress, soulStatsFor(ctx, identity), cap)), gearRating.speed, cap);
     return {
-      weapon, mastery: masteryInPlayFor(ctx, identity, rightHand, weapon), crit: duelCrit(ctx, identity),
+      weapon, mastery: masteryInPlayFor(ctx, identity, rightHand, weapon), crit: duelCrit(ctx, identity, gearRating.crit),
       maxHp: maxHealthForProgress(ctx, identity, progress),
-      hit: duelDamage(ctx, identity, progress.damage, opponentWeapon) * weaponHitFactor(weapon),
+      hit: duelDamage(ctx, identity, progress.damage, opponentWeapon, gearRating.crit) * weaponHitFactor(weapon),
       attackInterval: weapon ? weaponAttackInterval(weapon, runInterval) : Number(DUEL_DURATION_MICROS) / 1_000_000 + 1,
       armor: researchedArmor(ctx, identity, progress.armor), regen: researchedRegen(ctx, identity, progress.regen),
     };
@@ -176,10 +179,9 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       attackRate: fold.attackInterval };
   }
 
-  /** Iaido's first hit is a full critical: its damage over the averaged hit. */
-  function duelFirstHit(ctx: any, identity: any) {
+  /** Iaido's first hit is a full critical: its damage over the averaged hit, at the side's own crits (duelSide). */
+  function duelFirstHit(ctx: any, identity: any, crit: ReturnType<typeof duelCrit>) {
     if (cardValue(activeCardTotalsFor(ctx, identity), "iaido") <= 0) return 1;
-    const crit = duelCrit(ctx, identity);
     return crit.multiplier / (1 + crit.chance * (crit.multiplier - 1));
   }
 
@@ -464,7 +466,7 @@ export function createDuelRuntime(deps: DuelRuntimeDeps) {
       ...withProficiency(duelBowSkillFields(ctx, insertedDuel)), ...swordFields,
       challengerCards: activeCardIdsFor(ctx, ctx.sender),
       opponentCards: activeCardIdsFor(ctx, opponent),
-      challengerFirstHit: duelFirstHit(ctx, ctx.sender), opponentFirstHit: duelFirstHit(ctx, opponent) });
+      challengerFirstHit: duelFirstHit(ctx, ctx.sender, challengerSide.crit), opponentFirstHit: duelFirstHit(ctx, opponent, opponentSide.crit) });
     insertDuelStaffSkills(ctx, insertedDuel.id, withProficiency(duelStaffSkillFields(ctx, insertedDuel)));
     ctx.db.duelResolutionSchedule.insert({
       scheduledId: 0n,

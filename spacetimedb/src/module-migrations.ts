@@ -45,8 +45,9 @@ import { activateCardsFromGear } from "./active-cards";
 import { payOutAllOldGear } from "./old-gear-payout";
 import { giveEveryoneStarterWeapons } from "./starter-chest";
 import { touchAllCombatProfiles } from "./combat-profile";
+import { resetRunAttackSpeedAndCrit } from "./gear-rebalance-migration";
 
-export const MODULE_MIGRATION_VERSION = 67;
+export const MODULE_MIGRATION_VERSION = 68;
 
 /**
  * Migration 50: the ranking snapshot moves to leaderboard_entry_v2,
@@ -557,6 +558,16 @@ export function createModuleMigrations(deps: ModuleMigrationDeps) {
     if (currentVersion < 66) repinMapBalances(ctx);
     // 67: the HUD shows quests only after a Quest Board visit; everyone who already has quests keeps them.
     if (currentVersion < 67) markQuestHoldersSeenBoard(ctx);
+    // 68: attack speed and crit come from weapons; every run's own goes back to base (gear-rebalance-migration.ts).
+    // Kills pay less and bosses 3 and 4 hit harder (curve-steps.ts, curve-shape.ts): every pinned visit moves onto it.
+    if (currentVersion < 68) {
+      repinMapBalances(ctx);
+      for (const identity of resetRunAttackSpeedAndCrit(ctx)) {
+        const active = ctx.db.player.identity.find(identity);
+        if (active) updateSnapshotRow(ctx, "player", { ...active, ...powerFieldsForProgress(ctx, readPlayerProgress(ctx, identity)) });
+      }
+      refreshLeaderboard(ctx);
+    }
     const next = { id: 0, version: MODULE_MIGRATION_VERSION };
     if (state) ctx.db.moduleMigrationState.id.update(next);
     else ctx.db.moduleMigrationState.insert(next);

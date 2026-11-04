@@ -289,7 +289,7 @@ function payFight(ctx: any, row: OfflineProgressRow, ports: OfflineGrantPorts) {
   // Offline farming is campaign or Endless farming: its kills count towards the Soul Dimension's tiers.
   countRewardKills(ctx, ctx.sender, grant.outcome.rewards);
   // Gold at half the in-play rate; loot rolls, kill gems and boss clears stay where they are.
-  awardOfflineGold(ctx, ctx.sender, grant.outcome.kills);
+  awardOfflineGold(ctx, ctx.sender, grant.outcome.kills, grant.outcome.mapId);
   const lifetime = ctx.db.playerLifetime.identity.find(ctx.sender);
   if (lifetime) {
     ctx.db.playerLifetime.identity.update({ ...lifetime, enemyKills: lifetime.enemyKills + BigInt(grant.outcome.kills) });

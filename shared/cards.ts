@@ -1,6 +1,7 @@
 import type { RewardType } from "./enemy-definitions";
 import { chanceWithLuck } from "./luck-research";
-import { proceduralMapNumber } from "./procedural-map-core";
+import { generateMap, proceduralMapNumber } from "./procedural-map-core";
+import { CAMPAIGN_MAPS } from "./campaign-registry";
 import type { WoodTreeKind } from "./woodcutting";
 
 /**
@@ -381,7 +382,8 @@ export const CARDS: readonly CardDefinition[] = Object.freeze([
 
 const BY_ID = new Map(CARDS.map(card => [card.id, card]));
 const MAP_CARDS = CARDS.filter(card => !card.endless && !card.tree);
-const BY_ENEMY = new Map(MAP_CARDS.filter(card => card.rarity !== "boss").map(card => [`${card.mapId}:${card.enemy}`, card]));
+// Needle and Striker cards drop on Endless only (ENDLESS_ROLLED).
+const BY_ENEMY = new Map(MAP_CARDS.filter(card => card.rarity !== "boss" && !/(Needle|Striker)$/.test(card.enemy)).map(card => [`${card.mapId}:${card.enemy}`, card]));
 const BY_BOSS = new Map(MAP_CARDS.filter(card => card.rarity === "boss").map(card => [card.mapId, card]));
 const ENDLESS_CARDS = CARDS.filter(card => card.endless);
 const BY_TREE = new Map(CARDS.filter(card => card.tree).map(card => [card.tree, card]));
@@ -390,8 +392,43 @@ export function cardDefinition(cardId: unknown) {
   return typeof cardId === "string" ? BY_ID.get(cardId) : undefined;
 }
 
+/**
+ * The Needle and Striker cards: their camps left the campaign maps when attack speed and crit moved to weapons,
+ * and they drop on Endless instead. Endless N's regular enemies roll those of campaign map
+ * ((N - 1) mod 15) + 1: the damage and health camps its Needle card, the armor and regen camps its Striker card.
+ */
+const ENDLESS_ROLLED = new Map(CAMPAIGN_MAPS.map(map => [map.id, {
+  needle: MAP_CARDS.find(card => card.mapId === map.id && card.enemy.endsWith("Needle")),
+  striker: MAP_CARDS.find(card => card.mapId === map.id && card.enemy.endsWith("Striker")),
+}]));
+/** The campaign map whose Needle and Striker cards an Endless level rolls (1-15). */
+export const endlessRolledMapIndex = (endlessNumber: number) => (Math.max(1, Math.floor(endlessNumber)) - 1) % CAMPAIGN_MAPS.length + 1;
+/** Whether a card is one of those, and the first Endless level it drops on (then every fifteenth). */
+export function endlessRolledFrom(card: CardDefinition) {
+  const index = CAMPAIGN_MAPS.findIndex(map => map.id === card.mapId);
+  const rolled = index < 0 ? undefined : ENDLESS_ROLLED.get(card.mapId);
+  return rolled && (rolled.needle === card || rolled.striker === card) ? index + 1 : null;
+}
+// A few Endless levels' camp stats by site, kept: a kill report asks per species.
+const endlessSiteStats = new Map<string, string[]>();
+function endlessSiteStat(mapId: string, site: number) {
+  let stats = endlessSiteStats.get(mapId);
+  if (!stats) {
+    stats = generateMap(mapId as `endless_${number}`).camps.flatMap(camp => Array<string>(camp.count).fill(camp.stat));
+    if (endlessSiteStats.size >= 16) endlessSiteStats.delete(endlessSiteStats.keys().next().value!);
+    endlessSiteStats.set(mapId, stats);
+  }
+  return stats[site];
+}
+
 export function cardForEnemy(mapId: string, enemy: string) {
-  return BY_ENEMY.get(`${mapId}:${enemy}`);
+  const number = proceduralMapNumber(mapId);
+  if (number === null) return BY_ENEMY.get(`${mapId}:${enemy}`);
+  const site = /^site:(\d+)$/.exec(enemy);
+  const stat = site ? endlessSiteStat(mapId, Number(site[1])) : undefined;
+  if (!stat) return undefined;
+  const rolled = ENDLESS_ROLLED.get(CAMPAIGN_MAPS[endlessRolledMapIndex(number) - 1].id);
+  return stat === "damage" || stat === "health" ? rolled?.needle : rolled?.striker;
 }
 
 /** A campaign map's boss card, or for Endless map N the Warden card of N's band. */

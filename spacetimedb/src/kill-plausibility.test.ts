@@ -46,38 +46,18 @@ it("pays a strong player in full", () => {
   expect(kills(f)).toBe(6n);
 });
 
-it("estimates with the stats the report itself grants, as the client had them by its last kill", () => {
-  // Needles pay attack speed. One arrow every ten seconds one-shots them, so
-  // before the report this player could clear thirty-odd in five minutes; the
-  // speed those kills grant makes a hundred plausible, and the client was
-  // firing at that pace by the end of the report.
-  const CLAIM = 100, INTERVAL = 10;
-  const needle = enemyDefeatDefinition("tutorial_forest", "Needle")!;
-  expect(needle.reward.type).toBe("speed");
-  const before = plausibleKillsPerSecond(needle.hp, 1e15 / INTERVAL, INTERVAL, 1) * PLAUSIBLE_KILL_TOLERANCE * DEFEAT_BUDGET_WINDOW_SECONDS;
-  expect(before).toBeLessThan(CLAIM);
-  const f = crystalFixture();
-  f.patch("player", { mapId: "tutorial_forest" });
-  f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, attackRate: INTERVAL, projectileCount: 1 });
-  // The damage bound is what this test measures, so bank the spawn allowance a
-  // player on the map would already have.
-  fillDefeatBudget(f, "tutorial_forest", "Needle");
-  reportKills(f, { streamId: "plausibility-stream-02", sequence: 1n, mapId: "tutorial_forest", enemies: [{ enemy: "Needle", count: CLAIM }] });
-  expect(kills(f)).toBe(BigInt(CLAIM));
-});
-
 it("charges every kill at least the map's respawn over its whole population, so hopping maps earns no more", () => {
   // However strong the build, the whole map comes back once per respawn, so a
-  // kill here is never worth less than 10 / 48 of a second of the account's
-  // clock. Ten banked seconds buy forty-eight kills on this map, from whichever
+  // kill here is never worth less than 10 / 32 of a second of the account's
+  // clock. Ten banked seconds buy thirty-two kills on this map, from whichever
   // map's refilled spawn bucket they are claimed.
-  expect(mapEnemyPopulation("crystal_hollows")).toBe(48);
+  expect(mapEnemyPopulation("crystal_hollows")).toBe(32);
   const f = crystalFixture();
   f.patch("playerProgress", { equippedRightHand: STARTER_BOW, inventoryJson: '["starter_bow"]', damage: 1e15, projectileCount: 3, attackRate: .4 });
   fillDefeatBudget(f, "crystal_hollows", ENEMY);
   seedDefeatClock(f, "combat", 10);
   reportKills(f, claim(50));
-  expect(kills(f)).toBe(BigInt(10 * 48 / DEFEAT_MIN_RESPAWN_SECONDS));
+  expect(kills(f)).toBe(BigInt(10 * 32 / DEFEAT_MIN_RESPAWN_SECONDS));
   expect(readDefeatClock(f, "combat")!.tokens).toBeCloseTo(0, 6);
   expect(restricted(f)).toBe(false);
 });

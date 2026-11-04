@@ -4,12 +4,13 @@ import { upgradeSlotForItem } from "../../shared/slot-upgrades";
 import { preparePlayerPowerStats } from "../../shared/player-power";
 import { powerFieldsFromStats, powerStatsFrom } from "./power-stats";
 import { researchInPlayFor } from "../../shared/bonus-toggles";
-import { bootSkillChanceFactor, equipmentDamageFactor, hasBootStat, itemDefinition, type ItemLevel } from "../../shared/items";
+import { bootSkillChanceFactor, equipmentDamageFactor, hasBootStat, itemDefinition, weaponRatings, type ItemLevel } from "../../shared/items";
 import { armorSkillChanceFactor } from "../../shared/armor-class-perks";
 import { createEnemyRewardAccumulator, type EnemyStatReward } from "../../shared/enemy-reward-accumulator";
 import { attackCapInPlay, standingRowsFor, statRewardMultiplierFor, prestigePerkRanks, type BonusRows } from "./prestige";
 import { WORLD_REFLECT_SHARE, preArmorFactor, prestigePerkValue, prestigeReachMultiplier, prestigeSwingMultiplier } from "../../shared/prestige-perks";
 import { armorDamageReduction } from "../../shared/combat";
+import { attackIntervalWithGear } from "../../shared/stat-rating";
 import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { cardStatFactors, type CardTotals } from "../../shared/card-effects";
 import { serverBoostRewardMultiplier } from "./server-boost-tables";
@@ -192,7 +193,7 @@ export function createCombatReport(deps: CombatReportDeps) {
       const ranks = profile.ranks;
       const minInterval = profile.minInterval;
       const earned = saved ? createEnemyRewardAccumulator(saved, statMultiplier, minInterval) : null;
-      const statsFor = saved ? preparePlayerPowerStats(saved, research, loadout?.levelFor, cards) : null;
+      const statsFor = saved ? preparePlayerPowerStats(saved, research, loadout?.levelFor, cards, minInterval) : null;
       // Armor rewards can change the nonlinear reduction inside a report.
       // Calculate it once per distinct effective armor, never reuse a stale value.
       const armorFactors = new Map<number, { reduction: number; preArmor: number }>();
@@ -213,7 +214,8 @@ export function createCombatReport(deps: CombatReportDeps) {
       // and no more than the critical damage cap lets a hit deal.
       // Keen Edge grants crit on its own, so a player with no crit research can
       // still be critting; the bound has to know that or it clips them.
-      // Crit kills inside the report raise the run's rating, so the multiplier is read per entry.
+      // The multiplier is read per entry at the run's rating with the weapon's.
+      const rating = weaponRatings(loadout.weapon, loadout.levelFor(loadout.weapon));
       // Card effects in combat (card-bounds.ts): more damage a hit and more enemies reached, all counted at once.
       const cardBound = profile.cardBound;
       // Weapon Mastery's Skill Proficiency raises every skill chance, and its techniques add hits, damage and speed
@@ -248,7 +250,7 @@ export function createCombatReport(deps: CombatReportDeps) {
       // A nocked arrow, while the bow in hand has some to shoot (arrows.ts).
       const arrow = arrowOffenseBound(isBow(loadout.weapon) ? arrowInPlay(ctx, ctx.sender) : null);
       return { saved, earned, statsFor, armorFor, soul, minInterval, research, ranks, cards, gear: {
-        loadout, critical: (rating?: number) => critical(rating) * arrow.critical, swing: prestigeSwingMultiplier(ranks),
+        loadout, critical: (runRating = 0) => critical(runRating + rating.crit) * arrow.critical, swing: prestigeSwingMultiplier(ranks), rating,
         // Projectile count is not a kill reward, so the saved row holds for the whole report.
         armed,
         projectiles: !armed || itemDefinition(loadout.weapon)?.weapon?.mode === "MELEE" ? 1 : Math.max(1, saved.projectileCount),
@@ -282,7 +284,8 @@ export function createCombatReport(deps: CombatReportDeps) {
         if (!saved) return { dps: 0, attackInterval: 1 };
         const progress = withSoulStats(earned!.preview(reward), soul, minInterval);
         if (!gear) return { dps: 0, attackInterval: attackIntervalForProgress(progress), projectiles: 1 };
-        const attackInterval = weaponAttackInterval(gear.weapon, attackIntervalForProgress(progress)) / gear.attackSpeed;
+        const attackInterval = weaponAttackInterval(gear.weapon, attackIntervalWithGear(attackIntervalForProgress(progress), gear.rating.speed, minInterval))
+          / gear.attackSpeed;
         const dps = gear.armed ? gear.loadout.damage(progress.damage) * gear.boltDamage * gear.critical(progress.critRating) * gear.swing
           * gear.cardDamage * gear.techniqueDamage * gear.projectiles / attackInterval : 0;
         // Reflect throws a hit back as it arrived before armor

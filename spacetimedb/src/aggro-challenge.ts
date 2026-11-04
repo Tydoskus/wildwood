@@ -1,7 +1,7 @@
 import { table, t, SenderError } from "spacetimedb/server";
 import type spacetimedbType from "./index";
 import { AGGRO_CHALLENGE_LIMIT } from "../../shared/aggro-challenge";
-import { TUTORIAL_FOREST_MAP_ID } from "../../shared/rules";
+import { DEFAULT_ATTACK_INTERVAL, TUTORIAL_FOREST_MAP_ID } from "../../shared/rules";
 import { carryOwnership, savedMainRun, writeEndless } from "./prestige-challenge";
 import { updateSnapshotRow } from "./snapshot-row-writes";
 import { readPlayerProgress } from "./wide-stats";
@@ -161,7 +161,7 @@ export function rebuildParkedAggroRun(ctx: any, name: string, power: number) {
     }
     for (const field of CAMPAIGN_UNLOCK_FIELDS) opened[field] ??= false;
     return { ...main, ...opened, bossRewardClaims: claims, maxHp: build.maxHp * scale, damage: build.damage * scale,
-      armor: build.armor * scale, regen: build.regen * scale, attackRate: build.attackInterval };
+      armor: build.armor * scale, regen: build.regen * scale, attackRate: DEFAULT_ATTACK_INTERVAL, critRating: 0 };
   };
   const powerOf = (progress: any) => effectivePlayerPower(progress, research);
   let index = 0;

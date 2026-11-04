@@ -14,34 +14,35 @@ describe("Auto Farm's stat shares (FARM-02)", () => {
     await even.play(300, { autofarm: true });
     const time = farmedSeconds(even);
     const stats = even.parts.autoFarm().choices().map(choice => choice.key);
-    expect(stats.length).toBe(6);
+    // Damage, health, armor and regen: attack speed and crit come from weapons.
+    expect(stats.length).toBe(4);
     for (const stat of stats) expect(time[stat] ?? 0).toBeGreaterThan(0);
     even.dispose();
 
-    // 80 / 10 / 10 of health, damage and speed: damage weighs 20, so 80 : 20 : 10 of the time.
+    // 80 / 10 / 10 of health, damage and regen: damage weighs 20, so 80 : 20 : 10 of the time.
     const set = simPlayer({ seed: 3 });
-    set.parts.autoFarm().start({ "stat:health": 80, "stat:damage": 10, "stat:speed": 10, "stat:regen": 0, "stat:armor": 0, "stat:crit": 0 });
+    set.parts.autoFarm().start({ "stat:health": 80, "stat:damage": 10, "stat:regen": 10, "stat:armor": 0 });
     await set.play(300, { autofarm: true });
     const split = farmedSeconds(set);
     const total = Object.values(split).reduce((sum, seconds) => sum + seconds, 0);
     expect(split["stat:health"] / total).toBeGreaterThan(.6);
     expect(split["stat:damage"] / total).toBeGreaterThan(.1);
-    expect(split["stat:damage"]).toBeGreaterThan(split["stat:speed"]);
-    expect(Object.keys(split).sort()).toEqual(["stat:damage", "stat:health", "stat:speed"]);
+    expect(split["stat:damage"]).toBeGreaterThan(split["stat:regen"]);
+    expect(Object.keys(split).sort()).toEqual(["stat:damage", "stat:health", "stat:regen"]);
   });
 
   it("reads sliders saved by an old version: a stat left at 0% stays off, the rest are farmed by their weight", async () => {
     // Strong enough for the Forest's camps: this is about the sliders, not difficulty.
     const sim = simPlayer({ seed: 2, base: savedBuild(10, 200) });
-    // Older 0-200% sliders: damage at 200, health at 50, three stats at 0 (speed was never moved, so 100).
-    sim.parts.storage.setItem(AUTO_FARM_WEIGHTS_KEY, JSON.stringify({ auto: false, weights: { "stat:damage": 200, "stat:health": 50, "stat:armor": 0, "stat:regen": 0, "stat:crit": 0 } }));
+    // Older 0-200% sliders: damage at 200, health at 50, armor at 0 (regen was never moved, so 100).
+    sim.parts.storage.setItem(AUTO_FARM_WEIGHTS_KEY, JSON.stringify({ auto: false, weights: { "stat:damage": 200, "stat:health": 50, "stat:armor": 0 } }));
     const farm = sim.parts.autoFarm();
     farm.start(farm.savedShares());
     await sim.play(200, { autofarm: true });
     const time = farmedSeconds(sim);
-    expect(Object.keys(time).sort()).toEqual(["stat:damage", "stat:health", "stat:speed"]);
-    expect(time["stat:damage"]).toBeGreaterThan(time["stat:speed"]);
-    expect(time["stat:speed"]).toBeGreaterThan(time["stat:health"]);
+    expect(Object.keys(time).sort()).toEqual(["stat:damage", "stat:health", "stat:regen"]);
+    expect(time["stat:damage"]).toBeGreaterThan(time["stat:regen"]);
+    expect(time["stat:regen"]).toBeGreaterThan(time["stat:health"]);
   });
 });
 
@@ -100,13 +101,15 @@ describe("Where Auto Farm stands (FARM-04, FARM-08)", () => {
     const dragon = sim.parts.bosses.dragon!;
     // East of the Dragon, with the only stat on Farm (armor) at a camp to its west.
     Object.assign(sim.parts.player, { x: dragon.x + 960, y: dragon.y + 60 });
-    sim.parts.autoFarm().start({ "stat:armor": 100, "stat:health": 0, "stat:damage": 0, "stat:speed": 0, "stat:regen": 0, "stat:crit": 0 });
-    let closest = Infinity;
+    sim.parts.autoFarm().start({ "stat:armor": 100, "stat:health": 0, "stat:damage": 0, "stat:regen": 0 });
+    // The camp at its closest: once there it clears the nearest, and the next living one is further off.
+    let closest = Infinity, reached = Infinity;
     for (let step = 0; step < 200; step++) {
       await sim.play(.1, { autofarm: false });
       closest = Math.min(closest, distance(dragon, sim.parts.player));
+      reached = Math.min(reached, fromCamp(sim, "stat:armor"));
     }
-    expect(fromCamp(sim, "stat:armor")).toBeLessThan(300);
+    expect(reached).toBeLessThan(300);
     expect(closest).toBeGreaterThan(bossAggroRange("tutorial_forest")!);
     expect(sim.report().combat.hits.boss ?? 0).toBe(0);
   });

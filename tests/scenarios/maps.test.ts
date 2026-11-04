@@ -178,9 +178,9 @@ describe("every Endless map is playable", () => {
         for (const portal of portalsOf(id)) expect(distance(point, portalUsePoint(portal))).toBeGreaterThan(PORTAL_TRIGGER);
       }
     }
-    // One species, the boss's, on six reward stats; the art for it loads with the map.
+    // One species, the boss's, on four reward stats; the art for it loads with the map.
     expect(new Set(content.sites.map(site => site.type))).toEqual(new Set([generatedBossArt(id)]));
-    expect(new Set(content.sites.map(site => site.definition!.reward.type)).size).toBe(6);
+    expect(new Set(content.sites.map(site => site.definition!.reward.type)).size).toBe(4);
     expect(MAP_ASSET_GROUPS[id].enemies).toEqual(content.kinds);
     // Rocks and grass only, off where enemies stand and off the arena.
     for (const item of content.decor) {

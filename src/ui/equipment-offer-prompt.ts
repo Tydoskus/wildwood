@@ -1,5 +1,5 @@
 import { formatBowSkillScore } from "../../shared/bow-skills";
-import { isSkillWeapon, weaponSkillLines, type WeaponSkillRoll } from "../../shared/weapon-skills";
+import { isSkillWeapon, weaponRollLines, type WeaponSkillRoll } from "../../shared/weapon-skills";
 import { itemDisplayName } from "../../shared/items";
 import { itemArtMarkup } from "../game/item-presentation";
 import type { InventoryState } from "../game/inventory";
@@ -19,7 +19,7 @@ export type EquipmentOfferPort = {
   resolveEquipmentOffer?: (id: bigint, keep: boolean) => Promise<Result>;
   serverNowMs?: () => number;
   /** Duplicates settle without an offer; this says when one upgraded the weapon's skills. */
-  setOnBetterRollKept?: (callback: ((kept: { itemId: string; before: number; after: number }) => void) | null) => void;
+  setOnBetterRollKept?: (callback: ((kept: { itemId: string; before: number; after: number; statsRaised?: boolean }) => void) | null) => void;
 };
 
 export type EquipmentOfferPromptOptions = {
@@ -36,13 +36,15 @@ export type EquipmentOfferPromptOptions = {
 
 /** A roll's skills, side by side with the other copy's. */
 const skillList = (itemId: string, roll: WeaponSkillRoll | null | undefined) => {
-  const lines = weaponSkillLines(itemId, roll);
+  const lines = weaponRollLines(itemId, roll);
   return lines.length ? lines : ["No skills"];
 };
 
 /** The toast when a duplicate drop upgraded a weapon's skills in place. */
 export function betterRollMessage(itemId: string, before: number, after: number) {
   const name = itemInspectionButtonLabel(itemDisplayName(itemId));
+  // Only its speed or crit rose: the skills read the same.
+  if (after <= before) return `${name} Roll Upgraded`;
   return `${name} Skills Upgraded (${formatBowSkillScore(before)} → ${formatBowSkillScore(after)})`;
 }
 

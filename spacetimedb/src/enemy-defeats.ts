@@ -2,6 +2,7 @@ import { pinnedMapBalance } from "./map-balance";
 import { isProceduralMap } from "../../shared/procedural-maps";
 import { isSoulMap, soulEnemyBoundHp } from "../../shared/soul-dimension";
 import { CAMPAIGN_MAPS } from "../../shared/campaign-registry";
+import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import type { EnemyStatReward } from "../../shared/enemy-reward-accumulator";
 import { Range, SenderError, table, t } from "spacetimedb/server";
 import { defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation, DEFEAT_BUDGET_WINDOW_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, type EnemyDefeat } from "../../shared/enemy-defeats";
@@ -35,6 +36,12 @@ export const playerMapDeparture = table({ name: "player_map_departure", public: 
 });
 /** How long after leaving a map its kills are still taken: the next report and a slow reply's wait. */
 export const MAP_DEPARTURE_GRACE_MICROS = 120_000_000n;
+
+/** Kinds no map has any more (Needle, Striker) and Endless camps past its four. */
+const retiredEnemy = (mapId: string, enemy: string) => {
+  const reward = (ENEMY_TYPES as Record<string, { reward: { type: string } }>)[enemy]?.reward.type;
+  return reward === "speed" || reward === "crit" || (isProceduralMap(mapId) && /^site:\d+$/.test(enemy));
+};
 
 /** Notes the map a player just left, so a report still on its way for it is paid, not thrown away. */
 export function noteMapDeparture(ctx: Pick<GameReducerContext, "db" | "timestamp">, identity: GameReducerContext["sender"], mapId: string) {
@@ -508,6 +515,8 @@ export function acceptEnemyDefeats(ctx: DefeatContext, batch: EnemyDefeatBatch, 
   };
   for (const [index, entry] of entries.entries()) {
     const definition = enemyDefeatDefinition(batch.mapId, entry.enemy, balance ?? undefined);
+    // A tab from before the gear rebalance may still report Needle, Striker or a sixth Endless camp: paid nothing, the rest stands.
+    if (!definition && retiredEnemy(batch.mapId, entry.enemy) && !seen.has(entry.enemy)) { seen.add(entry.enemy); continue; }
     if (!definition || seen.has(entry.enemy) || !Number.isInteger(entry.count) || entry.count < 1 || (submittedCount += entry.count) > ENEMY_DEFEAT_BATCH_MAX)
       throw new SenderError("Invalid enemy for this map.");
     seen.add(entry.enemy);

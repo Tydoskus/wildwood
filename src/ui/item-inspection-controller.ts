@@ -8,7 +8,7 @@ import {
   itemStats,
   normalizeItemUpgradeLevel,
 } from "../../shared/items";
-import { weaponSkillLines, type WeaponSkillRoll } from "../../shared/weapon-skills";
+import { weaponSkillLines, weaponStatLevel, type WeaponSkillRoll } from "../../shared/weapon-skills";
 import { normalizeRefineLevel } from "../../shared/refine-multiplier";
 import { refineStars } from "./refine-badge";
 import { oreIconSource } from "./ore-icon";
@@ -81,7 +81,7 @@ type ItemInspectionElements = {
 
 /** A weapon's stat lines followed by its skills, title case ("Arrow Storm 2.4%"). */
 export function itemStatsWithWeaponSkills(itemId: string, level: number, roll: WeaponSkillRoll | null | undefined) {
-  return [...itemStats(itemId, level), ...weaponSkillLines(itemId, roll)];
+  return [...itemStats(itemId, { tier: level, ...weaponStatLevel(roll) }), ...weaponSkillLines(itemId, roll)];
 }
 
 /** The window's title: the name without the slot's +N, and a graded piece's without its grade (the pill under it shows that). */
@@ -255,9 +255,11 @@ export function createItemInspectionController(elements: ItemInspectionElements)
       copy.append(description);
     }
 
+    // Another player's weapon shows the roll its profile passes (player_worn_skill).
+    const roll = request.skills !== undefined ? request.skills : (elements.weaponSkills ?? elements.bowSkills)?.(item.id);
     const stats = document.createElement("div");
     stats.className = "item-inspection-stats";
-    for (const stat of itemStats(item.id, { tier: level, refine })) {
+    for (const stat of itemStats(item.id, { tier: level, refine, ...weaponStatLevel(roll) })) {
       const value = document.createElement("span");
       value.textContent = formatEquipmentStat(itemInspectionButtonLabel(stat));
       if (/^DAMAGE\b/.test(stat)) value.dataset.statKind = "damage";
@@ -288,8 +290,6 @@ export function createItemInspectionController(elements: ItemInspectionElements)
       stats.append(value);
     }
     copy.append(stats);
-    // Another player's weapon shows the roll its profile passes (player_worn_skill).
-    const roll = request.skills !== undefined ? request.skills : (elements.weaponSkills ?? elements.bowSkills)?.(item.id);
     const skills = request.ownItem || request.skills ? skillSection(item.id, roll) : null;
     if (skills) copy.append(skills);
     if (request.activeCards) copy.append(cardSection(request.activeCards));

@@ -47,6 +47,7 @@ import { playerItemGift, deliverAlphaTesterGifts, claimItemGift } from "./item-g
 import { playerBowSkill } from "./bow-skills";
 import { playerSwordSkill } from "./sword-skills";
 import { duelStaffSkill, playerStaffSkill, playerWornStaffSkill } from "./staff-skills"; import { registerStaffs } from "./starter-staff";
+import { playerWeaponStat, registerWeaponStats } from "./weapon-stat-roll";
 import { ensureWeaponSkillRoll } from "./weapon-skills";
 import { playerEquipmentCopy, pendingEquipmentOffer, createEquipmentCopies, publishItemDrop, offerDuplicateEquipment, expireEquipmentOffers, playerItemCollection, registerItemCollection } from "./equipment-copies";
 import { playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, registerItemRefine } from "./item-refine";
@@ -1429,7 +1430,7 @@ const spacetimedb = schema({
   dailyGemBonus,
   playerAdReward, playerAdWatch, playerChatMute, playerClientHost, offlineGatherChoice, playerGatherPicks, playerRunTiming, playerRunHistory, playerNockedArrow,
   balanceApologyNotice,
-  playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerWornStaffSkill, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
+  playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerWornStaffSkill, playerWeaponStat, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
   playerOnboarding,
   regularEnemyLootCursor, regularEnemyStream, enemyDefeatBudget, enemyDefeatBank, playerDefeatClock, playerMapDeparture,
@@ -3318,7 +3319,7 @@ function recordEnemyDefeatsFor(ctx: any, batch: EnemyDefeatBatch, clocks?: Throt
       killGems.grantKillGems(ctx, ctx.sender, accepted.count, enemyKills);
       recordDailyQuestKills(ctx, ctx.sender, batch.mapId, accepted.kills, combat.bonuses().quest); noteEnemyDefeats(ctx, batch.mapId, accepted.rewards);
     }
-    awardKillGold(ctx, ctx.sender, accepted.count, Boolean(gate), worn, combat);
+    awardKillGold(ctx, ctx.sender, accepted.count, Boolean(gate), worn, combat, batch.mapId);
     enforce();
     if (!accepted.restrict && gate) {
       recordAnalyticsMilestone(ctx, "boss");
@@ -3852,6 +3853,7 @@ export const { myCosmeticRefines } = registerCosmeticRefine(spacetimedb);
 export const { claimPickaxe, mineNode, reportMining, myMining, myMinedNodes } = registerMining(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress });
 export const { claimHatchet, chopTree, reportChopping, myWoodcutting, myChoppedTrees } = registerWoodcutting(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress });
 export const { myResearchRanks } = registerResearchRanks(spacetimedb);
+export const { myWeaponStats } = registerWeaponStats(spacetimedb);
 export const { claimStarterStaff, myStaffSkills } = registerStaffs(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress, restoreItemToProgress, writeProgressAndPresentation });
 export const { myCards, myGearSlots, myCopySlots, myCardDrop } = registerGearCards(spacetimedb); export const myItemCollection = registerItemCollection(spacetimedb);
 // Stats, power and the attack speed cap follow the active cards.

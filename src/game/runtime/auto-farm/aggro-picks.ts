@@ -9,7 +9,7 @@ export { aggroPullCamps } from "../../../../shared/aggro-challenge";
  * picks, one more each run, saved per account on this device. A picked
  * group a map does not have simply has no one there to chase.
  */
-export const AGGRO_GROUPS: readonly RewardType[] = ["damage", "health", "speed", "armor", "regen", "crit"];
+export const AGGRO_GROUPS: readonly RewardType[] = ["damage", "health", "armor", "regen"];
 export const AGGRO_GROUP_LABELS: Record<RewardType, string> = { damage: "Damage", health: "Max Health", speed: "Atk Speed", armor: "Armor", regen: "Regen", crit: "Crit Damage" };
 const KEY = "wildstat:aggro-picks:v1";
 

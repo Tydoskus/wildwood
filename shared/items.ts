@@ -4,6 +4,7 @@ import { GRADE_ITEM_DEFINITIONS, armorClassOf } from "./grade-equipment";
 import { ARMOR_CLASS_DETAILS, CLASS_SET_DAMAGE_PERCENT } from "./gear-grades";
 import { refineMultiplier } from "./refine-multiplier";
 import { itemStatLine } from "./item-stat-line";
+import { ATTACK_SPEED_START, attacksPerSecondForRating, critDamageForLevels, ratingForLevels } from "./stat-rating";
 
 // Browser- and server-safe equipment catalog. Add gameplay-facing item data
 // here; client-only sprites and draw anchors live in item-presentation.ts.
@@ -118,6 +119,9 @@ export type ItemDefinition = {
     projectile?: ProjectileKind;
     range?: number;
     damageMultiplierBonus?: number;
+    /** Rating levels it gives attack speed and critical damage alike (gear-grades.ts GRADE_RATING_LEVELS). */
+    /** The rating levels a graded weapon rolls for attack speed and crit damage (gear-grades.ts GRADE_ROLL_RANGE). */
+    rollRange?: { min: number; max: number };
     /** The map tier a stat-bearing bow, sword or staff was authored at (1-15). */
     tier?: number;
   };
@@ -510,10 +514,10 @@ export function hasBootStat(itemId: unknown) {
 }
 
 /**
- * What an item's stat stands on: its slot's tier and its own refine (shared/refine.ts). A bare
- * number is the slot tier alone.
+ * What an item's stat stands on: its slot's tier and its own refine (shared/refine.ts), and for a weapon its copy's
+ * rolled attack speed and crit damage levels (weapon-stat-rolls.ts). A bare number is the slot tier alone.
  */
-export type ItemLevel = number | { tier?: number; refine?: number } | null | undefined;
+export type ItemLevel = number | { tier?: number; refine?: number; attackSpeed?: number; critDamage?: number } | null | undefined;
 export function itemLevelParts(level: ItemLevel) {
   if (level === null || level === undefined) return { tier: 0, refine: 0 };
   if (typeof level === "object") return { tier: normalizeItemUpgradeLevel(level.tier ?? 0), refine: level.refine ?? 0 };
@@ -546,8 +550,37 @@ export function itemStats(itemId: unknown, upgradeLevel: ItemLevel = 0, decimals
   if (item.modifiers?.armorMultiplierBonus !== undefined) line("ARMOR", item.modifiers.armorMultiplierBonus, bootLevel(level));
   if (item.modifiers?.moveSpeedMultiplierBonus !== undefined) line("MOVE SPEED", item.modifiers.moveSpeedMultiplierBonus, bootLevel(level));
   if (item.modifiers?.skillChanceMultiplierBonus !== undefined) line("SKILL CHANCE", item.modifiers.skillChanceMultiplierBonus, bootLevel(level));
+  // A weapon's ratings, as what they give from nothing: attacks a second over the base, and a crit's multiplier.
+  // A copy shows its own roll; a weapon without one (the Smith's offer) the range its grade rolls in.
+  const range = item.weapon?.rollRange, rolled = level && typeof level === "object" && Number.isFinite(level.attackSpeed);
+  const speedOf = (levels: number) => (attacksPerSecondForRating(ratingForLevels(levels)) - ATTACK_SPEED_START).toFixed(2);
+  const scale = (levels: number) => levels * (1 + itemLevelParts(level).tier * ITEM_UPGRADE_STAT_BONUS) * refineMultiplier(itemLevelParts(level).refine);
+  if (range && rolled) stats.push(`ATTACK SPEED +${speedOf(itemRatingLevels(item.id, level, "attackSpeed"))}/s`,
+    `CRIT DAMAGE ×${critDamageForLevels(itemRatingLevels(item.id, level, "critDamage")).toFixed(2)}`);
+  else if (range) stats.push(`ATTACK SPEED +${speedOf(scale(range.min))}–${speedOf(scale(range.max))}/s`,
+    `CRIT DAMAGE ×${critDamageForLevels(scale(range.min)).toFixed(2)}–${critDamageForLevels(scale(range.max)).toFixed(2)}`);
   return stats;
 }
+
+export type WeaponStatId = "attackSpeed" | "critDamage";
+/** A weapon's rolled levels for a stat; a copy with no roll known reads the middle of its grade's range. */
+export function weaponRollLevels(itemId: unknown, level: ItemLevel, stat: WeaponStatId) {
+  const range = itemDefinition(canonicalItemId(itemId))?.weapon?.rollRange;
+  if (!range) return 0;
+  const rolled = level && typeof level === "object" ? Number(level[stat]) : NaN;
+  return Number.isFinite(rolled) ? Math.max(0, rolled) : (range.min + range.max) / 2;
+}
+/** A weapon's rolled levels at its slot tier and refine, scaled as every gear bonus is (upgradedStatBonus). */
+export function itemRatingLevels(itemId: unknown, level: ItemLevel, stat: WeaponStatId) {
+  const levels = weaponRollLevels(itemId, level, stat);
+  if (!levels) return 0;
+  const { tier, refine } = itemLevelParts(level);
+  return levels * (1 + tier * ITEM_UPGRADE_STAT_BONUS) * refineMultiplier(refine);
+}
+/** The attack speed and critical damage ratings a weapon adds to the run's own (stat-rating.ts). */
+export const weaponRatings = (weapon: unknown, level: ItemLevel = 0) => ({
+  speed: ratingForLevels(itemRatingLevels(weapon, level, "attackSpeed")), crit: ratingForLevels(itemRatingLevels(weapon, level, "critDamage")),
+});
 
 export function itemUpgradeStatChanges(itemId: unknown, currentLevel: ItemLevel) {
   const { tier: level, refine } = itemLevelParts(currentLevel);

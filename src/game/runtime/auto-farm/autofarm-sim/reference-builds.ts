@@ -4,7 +4,7 @@ import {
   LAB_PLAYER_MODEL, defaultBalanceSimulationConfig, runBalanceSimulation, simulateExistingPlayer, simulationUpgradeLevel, type MasteryPointsBySchool,
 } from '../../../../balance/simulator';
 import { GAME_BALANCE } from '../../../../balance/game-balance';
-import { BASIC_PAPER_HAT, STARTER_STONE, equipmentDamageFactor, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus } from '../../../../../shared/items';
+import { BASIC_PAPER_HAT, STARTER_STONE, equipmentDamageFactor, equipmentMaxHealthMultiplierBonus, equipmentRegenerationMultiplierBonus, weaponRatings } from '../../../../../shared/items';
 import { createEmptyResearchRanks } from '../../../../../shared/research';
 import { DEFAULT_ATTACK_INTERVAL, PLAYER_BASE_DAMAGE, PLAYER_BASE_HP, PLAYER_BASE_REGEN } from '../../../../../shared/rules';
 import { critPowerFactor, effectivePlayerPowerStats, type PlayerPowerStats } from '../../../../../shared/player-power';
@@ -83,13 +83,17 @@ export function labArrivalBuilds(cacheDir: string, endlessMaps = 13): FoldedArri
     if (!arrival) continue;
     const effective = effectivePlayerPowerStats({ ...arrival.stats, equippedHead: arrival.equipped.head, equippedChest: arrival.equipped.chest, equippedRightHand: arrival.equipped.weapon },
       arrival.research, itemId => simulationUpgradeLevel(arrival, itemId));
+    // Crits at the run's rating with the weapon's.
+    const rating = (arrival.stats.critRating ?? 0) + (arrival.equipped.weapon ? weaponRatings(arrival.equipped.weapon, simulationUpgradeLevel(arrival, arrival.equipped.weapon)).crit : 0);
     const crit = critPowerFactor({ critChance: (arrival.research.criticalChance ?? 0) / 100,
-      critMultiplier: criticalDamageMultiplier({ researchRank: arrival.research.criticalDamage, rating: arrival.stats.critRating, capRank: arrival.research.critCap }) });
+      critMultiplier: criticalDamageMultiplier({ researchRank: arrival.research.criticalDamage, rating, capRank: arrival.research.critCap }) });
     // What the worn gear gives at no upgrade, taken back out: the virtual player wears it.
     const { weapon, head, chest } = arrival.equipped;
     const gearDamage = equipmentDamageFactor(weapon, head, chest), gearHealth = 1 + equipmentMaxHealthMultiplierBonus(head, chest);
     const gearRegen = 1 + equipmentRegenerationMultiplierBonus(head, chest);
-    builds.push({ mapId: map.mapId, stats: stats({ ...effective, damage: effective.damage * crit / gearDamage, maxHp: effective.maxHp / gearHealth, regen: effective.regen / gearRegen }),
+    // The run's own attack interval: the virtual player's weapon adds its rating in combat, as the gear's other factors.
+    builds.push({ mapId: map.mapId, stats: stats({ ...effective, attackRate: arrival.stats.attackRate, damage: effective.damage * crit / gearDamage,
+      maxHp: effective.maxHp / gearHealth, regen: effective.regen / gearRegen }),
       equipped: { ...arrival.equipped }, gold: arrival.gold ?? 0, masteryPoints: { ...arrival.masteryPoints } });
   }
   mkdirSync(cacheDir, { recursive: true });

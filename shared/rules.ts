@@ -52,7 +52,7 @@ export const MAX_MOVEMENT_SPEED_OVERRIDE = 2_000;
 export const MOVEMENT_SPEED_EPSILON = .01;
 export const PLAYER_PROJECTILE_SPEED = 1_000;
 export const DEFAULT_ATTACK_RANGE = 200;
-export const DEFAULT_ATTACK_INTERVAL = 1.56;
+export { DEFAULT_ATTACK_INTERVAL, MAX_BASE_ATTACKS_PER_SECOND, MIN_ATTACK_INTERVAL } from "./attack-speed-constants";
 /**
  * How often the client reports regular kills, and therefore how many seconds
  * of kills one honest report can hold. The server banks exactly this much per
@@ -78,12 +78,9 @@ export const KILL_REPORT_REFILL_SECONDS = 3;
  * and the server's kill ceiling are derived from this, so they have to agree.
  */
 export const REGULAR_ENEMY_RESPAWN_SECONDS = 10;
-/** The base attack speed cap. Reflect Only wins and Quick Draw raise it. */
-export const MAX_BASE_ATTACKS_PER_SECOND = 3;
 /** Quick Draw (prestige perk): the attack speed cap, 0.2 attacks a second higher a rank, five ranks. */
 export const QUICK_DRAW_CAP_PER_RANK = .2;
 export const QUICK_DRAW_MAX_CAP_RAISE = 1;
-export const MIN_ATTACK_INTERVAL = 1 / MAX_BASE_ATTACKS_PER_SECOND;
 export const BOSS_RESPAWN_SECONDS = 45;
 // Scalable combat stats are f64 (player_progress's wide columns past f32's range),
 // so the ceiling sits far below f64's 1.8e308 with room for research and power

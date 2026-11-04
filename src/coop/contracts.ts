@@ -169,6 +169,8 @@ export type PlayerProfileData = {
   itemUpgradeLevels: Record<string, number>;
   /** Each first copy's refine by item id (player_item_refine); the worn items' are what stats read. +0 is missing. */
   itemRefines?: Record<string, number>;
+  /** Each weapon's rolled speed and crit levels (first copies, player_weapon_stat). */
+  weaponStats?: Record<string, { attackSpeed: number; critDamage: number }>;
   /** Each unlocked look's kept refine by item id (player_cosmetic_refine): a look's ★10/★20 art, never its stats. */
   cosmeticRefines?: Record<string, number>;
   /** The bonus item ids they switched off (player_bonus_toggle): profiles count stats with them left out, as the server does. */

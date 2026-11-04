@@ -6,7 +6,7 @@ import { formatCompactNumber } from "../../shared/compact-number";
 import { gradeShopSalePrice } from "../../shared/grade-shop";
 import { foldPlayerName, searchPlayerDirectory } from "../../shared/player-search";
 import { EXCHANGE_WATCHED_ITEMS } from "../coop/services/exchange-service";
-import { weaponSkillLines, type WeaponSkillRoll } from "../../shared/weapon-skills";
+import { weaponRollLines, type WeaponSkillRoll } from "../../shared/weapon-skills";
 import type { ExchangeCollectRow, ExchangeListingRow, ExchangeOfferRow, ExchangePriceRow, ExchangeResult } from "../coop/services/exchange-service";
 import { appendBagTileContents } from "./bag-item-tile";
 import { gameConfirm } from "./confirm-dialog";
@@ -227,7 +227,7 @@ export function createExchangeController(deps: ExchangeDeps) {
   function hitRow(sale: ReturnType<typeof forSale>[number]) {
     const row = el("button", "exchange-hit");
     row.type = "button";
-    const skills = sale.listing ? weaponSkillLines(sale.itemId, sale.roll).join(" · ") : "";
+    const skills = sale.listing ? weaponRollLines(sale.itemId, sale.roll).join(" · ") : "";
     const text = el("span", "exchange-hit-text");
     text.append(el("span", "exchange-hit-name", `${itemName(sale.itemId)}${sale.refine ? ` ★${sale.refine}` : ""}`),
       seller(sale.name, sale.color), ...(skills ? [el("span", "exchange-hit-skills", skills)] : []));

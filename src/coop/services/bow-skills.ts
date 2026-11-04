@@ -6,8 +6,8 @@ import { weaponSkillScore, type WeaponSkillRoll } from "../../../shared/weapon-s
 import { createEquipmentCopies } from "./equipment-copies";
 import { onTableChange, subscribeTables } from "./table-watch";
 
-/** A first copy's roll that a duplicate drop upgraded, and the two scores. */
-export type BetterRollKept = { itemId: string; before: number; after: number };
+/** A first copy's roll that a duplicate drop or Reforge upgraded: the two skill scores, and whether speed or crit rose. */
+export type BetterRollKept = { itemId: string; before: number; after: number; statsRaised?: boolean };
 
 /**
  * The first-copy rolls that got better between two readings of the account weapon views.
@@ -27,7 +27,8 @@ export function betterRollsKept(
     if (!old || skip(itemId)) continue;
     const before = weaponSkillScore(itemId, old);
     const after = weaponSkillScore(itemId, roll);
-    if (after > before) kept.push({ itemId, before, after });
+    const statsRaised = (roll.attackSpeed ?? 0) > (old.attackSpeed ?? 0) || (roll.critDamage ?? 0) > (old.critDamage ?? 0);
+    if (after > before || statsRaised) kept.push({ itemId, before, after, ...(statsRaised ? { statsRaised } : {}) });
   }
   return kept;
 }
@@ -67,15 +68,26 @@ export function createBowSkills(notify: () => void) {
       for (const row of connection.db.myStaffSkills.iter()) {
         if (row.copyId === 0n && row.offerId === 0n) next.set(row.itemId, { meteor: row.meteor, chain: row.chain, frostNova: row.frostNova });
       }
+      // A graded weapon's speed and crit ride beside its skills (my_weapon_stats); first copies here too.
+      for (const row of connection.db.myWeaponStats.iter()) {
+        if (row.copyId === 0n && row.offerId === 0n) next.set(row.itemId, { ...next.get(row.itemId), attackSpeed: row.attackSpeed, critDamage: row.critDamage });
+      }
       const kept = hydrated ? betterRollsKept(seen, next, copies.changedLocally) : [];
       for (const [itemId, roll] of next) seen.set(itemId, roll);
       rolls = next;
       notify();
       for (const entry of kept) betterRollListener?.(entry);
     };
-    onTableChange([connection.db.myBowSkills, connection.db.mySwordSkills, connection.db.myStaffSkills], isCurrent, read);
+    // A Reforge writes the skills and the speed and crit in one update: read once after all its rows, so it is told once.
+    let queued = false;
+    const readSoon = () => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => { queued = false; if (isCurrent()) read(); });
+    };
+    onTableChange([connection.db.myBowSkills, connection.db.mySwordSkills, connection.db.myStaffSkills, connection.db.myWeaponStats], isCurrent, readSoon);
     // One subscription for both: my_staff_skills carries first copies' rolls here and kept copies' and offers' there.
-    subscribeTables(connection, "weapon skills", isCurrent, [...copyRows.tables, tables.myBowSkills, tables.mySwordSkills, tables.myStaffSkills],
+    subscribeTables(connection, "weapon skills", isCurrent, [...copyRows.tables, tables.myBowSkills, tables.mySwordSkills, tables.myStaffSkills, tables.myWeaponStats],
       () => { copyRows.applied(); read(); hydrated = true; });
   }
 

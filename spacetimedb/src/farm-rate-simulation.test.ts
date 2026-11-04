@@ -122,8 +122,8 @@ const CEILING = MAP_POPULATION / DEFEAT_MIN_RESPAWN_SECONDS;
 
 describe("farming rate under the respawn ceiling", () => {
   it("prices the map the way the ceiling is meant to", () => {
-    expect(MAP_POPULATION).toBe(48);
-    expect(CEILING).toBe(4.8);
+    expect(MAP_POPULATION).toBe(32);
+    expect(CEILING).toBe(3.2);
   });
 
   it("uses the same ceiling for a pinned snapshot, and follows a tuned respawn", () => {
@@ -402,7 +402,8 @@ describe("the current client, held to the server's clock", () => {
       const honest = currentClient({ lapSeconds: HONEST_LAP, minutes: 60 });
       expect(honest.paid).toBe(before.paid);
       expect(honest.paid).toBe(honest.claimed);
-      const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real" });
+      // Two hours: the bank's head start drains at the spawn wall's pace and is spent well before the second half.
+      const script = currentClient({ lapSeconds: .5, minutes: 120, says: "real" });
       expect(script.sustainedPerSecond).toBeLessThanOrEqual(KILL_RATE_WATCH_PER_SECOND * 1.02);
       expect(script.restricted).toBe(false);
       expect(script.stillInWorld).toBe(true);

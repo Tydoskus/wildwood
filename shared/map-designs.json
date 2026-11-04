@@ -3143,18 +3143,6 @@
           "ring": "#a86591"
         },
         {
-          "name": "Glass Thicket",
-          "x": 2950,
-          "y": 1760,
-          "radius": 720,
-          "count": 8,
-          "types": [
-            "Needle"
-          ],
-          "ground": "#244f53",
-          "ring": "#64bdc5"
-        },
-        {
           "name": "Brine Marsh",
           "x": 4360,
           "y": 2330,
@@ -3227,18 +3215,6 @@
           ],
           "ground": "#405438",
           "ring": "#82bc68"
-        },
-        {
-          "name": "Razor Thicket",
-          "x": 1740,
-          "y": 1640,
-          "radius": 300,
-          "count": 8,
-          "types": [
-            "Striker"
-          ],
-          "ground": "#4a2a40",
-          "ring": "#d77ab4"
         }
       ],
       "gameplay": {
@@ -6267,26 +6243,6 @@
           "types": [
             "Venom Guard"
           ]
-        },
-        {
-          "name": "Whirlwind Pass",
-          "x": 540,
-          "y": 540,
-          "radius": 480,
-          "count": 8,
-          "types": [
-            "Dune Needle"
-          ]
-        },
-        {
-          "name": "Glint Ridge",
-          "x": 540,
-          "y": 4240,
-          "radius": 480,
-          "count": 8,
-          "types": [
-            "Dune Striker"
-          ]
         }
       ],
       "gameplay": {
@@ -7957,26 +7913,6 @@
           "count": 8,
           "types": [
             "Tempest Oracle"
-          ]
-        },
-        {
-          "name": "Gust Run",
-          "x": 480,
-          "y": 480,
-          "radius": 420,
-          "count": 8,
-          "types": [
-            "Gale Needle"
-          ]
-        },
-        {
-          "name": "Lightning Ridge",
-          "x": 4320,
-          "y": 480,
-          "radius": 420,
-          "count": 8,
-          "types": [
-            "Gale Striker"
           ]
         }
       ],

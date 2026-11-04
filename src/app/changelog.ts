@@ -1,4 +1,12 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.918": [
+    "Attack speed and crit damage now come from your weapon: every weapon rolls both, and Reforge raises them",
+    "Kills no longer give attack speed or crit; attack speed and crit earned from kills are reset (Reflect Only wins and the soul stay)",
+    "Needle and Striker camps are gone; their cards now drop from Endless enemies",
+    "Each gear grade is now 1.3x the grade below",
+    "Stronger maps drop more gold",
+    "Balancing: enemies from the Desert on are tougher, and the Snowlands and Lava Lake bosses hit harder",
+  ],
   "0.917.49": [
     "Upgrades show their power jump: the number counts up and the gain pops above it",
   ],
@@ -4111,6 +4119,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.918": "2026-11-03",
   "0.917.49": "2026-11-02",
   "0.917.48": "2026-11-02",
   "0.917.47": "2026-11-02",

@@ -1,6 +1,6 @@
 import { SWORD_DAMAGE_FACTOR, SWORD_REACH } from "./campaign-equipment";
 import {
-  ARMOR_CLASSES, ARMOR_CLASS_NAMES, BOOT_STYLES, BOOT_STYLE_NAMES, BOOT_STYLE_STAT, GEAR_GRADES, GEAR_GRADE_NAMES, GRADE_BONUS_PERCENT, GRADE_ITEM_TIER,
+  ARMOR_CLASSES, ARMOR_CLASS_NAMES, BOOT_STYLES, BOOT_STYLE_NAMES, BOOT_STYLE_STAT, GEAR_GRADES, GEAR_GRADE_NAMES, GRADE_BONUS_PERCENT, GRADE_ITEM_TIER, GRADE_ROLL_RANGE,
   armorBonusPercent, bootBonusPercent, isArmorClass, isBootStyle, isGearGrade, type ArmorClass, type BootStyle, type GearGrade,
 } from "./gear-grades";
 import type { ItemDefinition } from "./items";
@@ -107,7 +107,7 @@ function gradeWeapon(grade: GearGrade, kind: GradeWeaponKind): ItemDefinition {
     return {
       id, name, slot: "HAND", acquisition: "TOWN_DROP",
       description: "A sword that increases damage. It strikes up close.",
-      stats: [itemStatLine("DAMAGE", percent)], weapon: { mode: "MELEE", range: SWORD_REACH, damageMultiplierBonus: percent / 100, tier },
+      stats: [itemStatLine("DAMAGE", percent)], weapon: { mode: "MELEE", range: SWORD_REACH, damageMultiplierBonus: percent / 100, rollRange: GRADE_ROLL_RANGE[grade], tier },
     };
   }
   const percent = percentText(GRADE_BONUS_PERCENT[grade]);
@@ -115,7 +115,7 @@ function gradeWeapon(grade: GearGrade, kind: GradeWeaponKind): ItemDefinition {
     id, name, slot: "HAND", acquisition: "TOWN_DROP",
     description: kind === "staff" ? "A staff that increases damage. Its bolts burst on whatever they hit." : "A bow that increases damage.",
     stats: [itemStatLine("DAMAGE", percent)],
-    weapon: { mode: "RANGED", projectile: kind === "staff" ? "BOLT" : "ARROW", damageMultiplierBonus: percent / 100, tier },
+    weapon: { mode: "RANGED", projectile: kind === "staff" ? "BOLT" : "ARROW", damageMultiplierBonus: percent / 100, rollRange: GRADE_ROLL_RANGE[grade], tier },
   };
 }
 

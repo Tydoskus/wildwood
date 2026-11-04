@@ -27,8 +27,16 @@ export const GEAR_GRADE_NAMES: Readonly<Record<GearGrade, string>> = {
 
 const byGrade = <T>(values: readonly T[]) => Object.fromEntries(GEAR_GRADES.map((grade, index) => [grade, values[index]])) as Record<GearGrade, T>;
 
-/** The grade's base bonus in percent (damage on a weapon, regen on a helmet, max health on armor): 1.5x the old map tier of the same number. */
-export const GRADE_BONUS_PERCENT: Readonly<Record<GearGrade, number>> = byGrade([8, 12, 17, 23, 29, 36, 43, 51, 59, 68, 77, 87, 98, 108, 120]);
+/** Each grade multiplies its piece's main stat by this much more than the grade below. */
+export const GRADE_STEP = 1.3;
+/** The grade's base bonus in percent (damage on a weapon, regen on a helmet, max health on armor): x1.3 at Crude, x1.3 again each grade. */
+export const GRADE_BONUS_PERCENT: Readonly<Record<GearGrade, number>> = byGrade(GEAR_GRADES.map((_grade, index) => Math.round((GRADE_STEP ** (index + 1) - 1) * 1000) / 10));
+/**
+ * The rating levels a weapon of each grade rolls for attack speed and for critical damage (shared/stat-rating.ts),
+ * each anywhere in the range; one grade's top passes the next grade's bottom. The same for every class.
+ */
+export const GRADE_ROLL_RANGE: Readonly<Record<GearGrade, { min: number; max: number }>> =
+  byGrade(GEAR_GRADES.map((_grade, index) => ({ min: 1.5 * (index + 1), max: 3 * (index + 1) })));
 
 /** The Mastery level that opens a grade: one a level early, so the campaign reaches about the tenth, slow toward the fifteenth. */
 export const GRADE_MASTERY_LEVEL: Readonly<Record<GearGrade, number>> = byGrade([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 17, 24, 35, 50]);

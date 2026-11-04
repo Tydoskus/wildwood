@@ -718,7 +718,8 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
   installStatTracker({ storage: localStorage, read: createStatTrackerSource({ coop: () => coop, player, inventory,
     hasStarted: session.hasStarted, isLoadedFor: progress.isLoadedFor, inTutorial, researchRanks, kills: () => totalKills,
     displayedProgress: displayedPlayerPowerProgress, attackCap: coopAccess.attackCap,
-    critParts: () => ({ ...research.criticalDamageParts(), soul: soulDimension.critDamage(), rating: player.critRating }),
+    critParts: () => ({ ...research.criticalDamageParts(), soul: soulDimension.critDamage(),
+      rating: (player.critRating ?? 0) + research.weaponRatings().crit }),
     criticalChance: research.criticalChance }) });
   installQuestTracker({ storage: localStorage, enabled: questTracker.enabled, set: questTracker.set, ensure: () => quests.refresh(),
     view: () => quests.trackerView(currentMapId),

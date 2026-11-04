@@ -10,7 +10,7 @@
  * more per minute than staying on the last one (same arrival build); a regular's hit as
  * a share of the arriving player's health; whether the boss beats the arriving build;
  * the boss's heaviest attack over the map's regular hit; and the arriving build's attack speed and
- * crit multiplier with the attack speed and crit camp kills made on the map (shared/stat-rating.ts); deaths on the
+ * crit multiplier, its weapon's included (shared/stat-rating.ts); deaths on the
  * map (median) and an hour; and the arriving build's Smith gear (weapon/helmet/armor/boots grade), its share of power,
  * gold and Mastery level.
  */
@@ -21,6 +21,9 @@ import { gradeOf } from "../shared/grade-equipment";
 import { gradeIndex } from "../shared/gear-grades";
 import { resolveMapBalance } from "../shared/map-balance";
 import { criticalDamageMultiplier } from "../shared/critical-damage";
+import { weaponRatings } from "../shared/items";
+import { attackIntervalWithGear } from "../shared/stat-rating";
+import { simulationUpgradeLevel } from "../src/balance/simulator";
 
 const args = process.argv.slice(2);
 const option = (flag: string, fallback: number) => {
@@ -52,6 +55,8 @@ const rows = result.maps.map((map, index) => {
   const regularDamage = median(regularRows.filter(row => original(row.reward.type)).map(row => row.damage));
   const heavy = balance.boss ? Math.max(balance.boss.damage, ...Object.values(balance.boss.attacks)) : NaN;
   const previousTime = previousMap?.durationMedianSeconds ?? null;
+  // The weapon gives attack speed and crit damage.
+  const weapon = arrival?.equipped.weapon, gearRating = arrival && weapon ? weaponRatings(weapon, simulationUpgradeLevel(arrival, weapon)) : { speed: 0, crit: 0 };
   return {
     map: map.name,
     hours: map.durationMedianSeconds === null ? null : map.durationMedianSeconds / 3600,
@@ -62,8 +67,9 @@ const rows = result.maps.map((map, index) => {
     bossFightMinutes: here?.bossFightSeconds == null ? null : here.bossFightSeconds / 60,
     heavyOverRegular: Number.isFinite(heavy) && regularDamage > 0 ? heavy / regularDamage : null,
     // The rating stats: what the arriving build has, and the camp kills made on the map.
-    attacksPerSecond: arrival ? 1 / arrival.stats.attackRate : null,
-    critMultiplier: arrival ? criticalDamageMultiplier({ researchRank: arrival.research.criticalDamage, rating: arrival.stats.critRating, capRank: arrival.research.critCap }) : null,
+    attacksPerSecond: arrival ? 1 / attackIntervalWithGear(arrival.stats.attackRate, gearRating.speed) : null,
+    critMultiplier: arrival ? criticalDamageMultiplier({ researchRank: arrival.research.criticalDamage,
+      rating: (arrival.stats.critRating ?? 0) + gearRating.crit, capRank: arrival.research.critCap }) : null,
     speedKills: map.statProgression.find(stat => stat.stat === "attackSpeed")?.rewardEventsMedian ?? null,
     critKills: map.statProgression.find(stat => stat.stat === "critDamage")?.rewardEventsMedian ?? null,
     regularKills: map.regularKillsMedian,

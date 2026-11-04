@@ -96,7 +96,7 @@ export function createPlayerCombat(deps: PlayerCombatWiringDeps) {
     weaponSkills: () => coop.weaponSkills(equippedWeapon()),
     cards: () => client?.activeCardTotals?.(),
     weaponMastery: () => client?.weaponMasteryInPlay?.(),
-    equippedWeapon,
+    equippedWeapon, weaponRating: () => research.weaponRatings().speed,
     equippedRightHand: () => inventory.equippedRightHand,
     equippedWeaponUpgradeLevel: () => coop.itemLevel(equippedWeapon()),
     equippedHead: () => inventory.equippedHead,

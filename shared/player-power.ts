@@ -6,8 +6,10 @@ import {
   equipmentDamageFactor,
   equipmentMaxHealthMultiplierBonus,
   equipmentRegenerationMultiplierBonus,
+  weaponRatings,
   type ItemLevel,
 } from "./items";
+import { attackIntervalWithGear, cleanRating, type AttackCapArg } from "./stat-rating";
 
 export type PlayerPowerStats = {
   maxHp: number;
@@ -74,8 +76,9 @@ export function effectivePlayerPowerStats(
   research: PlayerPowerResearch | null | undefined = null,
   itemUpgradeLevel: ItemUpgradeLevel = () => 0,
   cards?: CardTotals,
+  attackCap?: AttackCapArg,
 ): PlayerPowerStats {
-  return preparePlayerPowerStats(progress, research, itemUpgradeLevel, cards)(progress);
+  return preparePlayerPowerStats(progress, research, itemUpgradeLevel, cards, attackCap)(progress);
 }
 
 /** What research multiplies the four core stats by: 2% a rank of Vitality, Warcraft, Precision and Regeneration. */
@@ -94,6 +97,8 @@ export function playerStatFactors(
   research: PlayerPowerResearch | null | undefined = null,
   itemUpgradeLevel: ItemUpgradeLevel = () => 0,
   activeCardTotals?: CardTotals,
+  /** The attack cap in play, where the caller knows it (stat-rating.ts attackIntervalWithGear). */
+  attackCap?: AttackCapArg,
 ) {
   const weaponItem = loadout.equippedRightHand || loadout.equippedLeftHand || "";
   const headItem = loadout.equippedHead || "";
@@ -108,6 +113,9 @@ export function playerStatFactors(
     damage: equipmentDamageFactor(weaponItem, headItem, chestItem, weaponLevel, headLevel, chestLevel),
     armor: feetItem ? bootArmorFactor(feetItem, itemUpgradeLevel(feetItem)) : 1,
     regen: 1 + equipmentRegenerationMultiplierBonus(headItem, chestItem, headLevel, chestLevel),
+    // The weapon's attack speed and crit damage rating: kills pay neither.
+    rating: weaponRatings(weaponItem, weaponLevel),
+    attackCap,
   };
   // The active cards; a factor of one without any.
   const cards = cardStatFactors(activeCardTotals ?? cardTotals(loadout.activeCards ?? []));
@@ -120,10 +128,11 @@ export function applyPlayerStatFactors(factors: ReturnType<typeof playerStatFact
   return {
     maxHp: progress.maxHp * gear.maxHp * research.maxHp * cards.maxHp,
     damage: progress.damage * gear.damage * research.damage * cards.damage,
-    attackRate: Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, progress.attackRate),
+    attackRate: Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, attackIntervalWithGear(progress.attackRate, gear.rating.speed, gear.attackCap)),
     armor: progress.armor * gear.armor * research.armor * cards.armor,
     regen: progress.regen * gear.regen * research.regen * cards.regen,
-    // Crit passes through as given (it is worked out from research, perks, the soul and the rating elsewhere).
+    // The crit rating with the weapon's; chance and multiplier pass through as given (worked out elsewhere).
+    ...(progress.critRating !== undefined || gear.rating.crit > 0 ? { critRating: cleanRating((progress.critRating ?? 0) + gear.rating.crit) } : {}),
     ...(progress.critChance !== undefined ? { critChance: progress.critChance } : {}),
     ...(progress.critMultiplier !== undefined ? { critMultiplier: progress.critMultiplier } : {}),
   };
@@ -136,8 +145,9 @@ export function preparePlayerPowerStats(
   itemUpgradeLevel: ItemUpgradeLevel = () => 0,
   /** The active cards added up, when the caller has them; otherwise the loadout's activeCards. */
   activeCardTotals?: CardTotals,
+  attackCap?: AttackCapArg,
 ): (progress: PlayerPowerStats) => PlayerPowerStats {
-  const factors = playerStatFactors(loadout, research, itemUpgradeLevel, activeCardTotals);
+  const factors = playerStatFactors(loadout, research, itemUpgradeLevel, activeCardTotals, attackCap);
   return progress => applyPlayerStatFactors(factors, progress);
 }
 

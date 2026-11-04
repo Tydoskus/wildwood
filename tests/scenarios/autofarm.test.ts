@@ -213,8 +213,9 @@ describe("Pull and Aggro switches (FARM-10)", () => {
   });
 
   it("a stat switched to Aggro is pulled while another is farmed", async () => {
-    const aggro = await farmHealth({ aggroGroups: ["stat:speed"] });
-    expect(aggro.kinds).toEqual(["Needle"]);
+    // Mossbacks fight up close, so a pulled one comes all the way in.
+    const aggro = await farmHealth({ aggroGroups: ["stat:armor"] });
+    expect(aggro.kinds).toEqual(["Mossback"]);
     expect(aggro.closest).toBeLessThan(100);
   });
 });

@@ -374,6 +374,7 @@ function clientImports() {
 {
   const ALLOWED = {
     "shared/campaign-combat.ts": "per-bundle cache of authored map data",
+    "shared/cards.ts": "per-bundle cache of generated Endless camps, keyed by map",
     "shared/compact-number.ts": "notation set and read by the game only; the coop build drops it",
     "shared/enemy-defeats.ts": "per-bundle caches keyed by map",
     "shared/item-tier.ts": "filled once at load from constants",

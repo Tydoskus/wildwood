@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { equipmentStatDefinition } from "./equipment-budget";
-import { GEAR_GRADES, GRADE_BONUS_PERCENT, GRADE_GOLD_PRICE, GRADE_MASTERY_LEVEL, armorBonusPercent, armorClassMasteryLevel, gradeForOldBonus, gradeSalePrice, highestGradeFor, oldTierSalePrice } from "./gear-grades";
+import { GEAR_GRADES, GRADE_BONUS_PERCENT, GRADE_STEP, GRADE_GOLD_PRICE, GRADE_MASTERY_LEVEL, armorBonusPercent, armorClassMasteryLevel, gradeForOldBonus, gradeSalePrice, highestGradeFor, oldTierSalePrice } from "./gear-grades";
 import { gradeShopSalePrice } from "./grade-shop";
 
 const oldBonus = (tier: number) => (equipmentStatDefinition(tier, "HEAD").modifiers!.regenerationMultiplierBonus as number) * 100;
 
 describe("gear grades", () => {
-  it("has fifteen grades, each 1.5x the old map tier of its number, rising in bonus, gate and price", () => {
+  it("has fifteen grades, each 1.3x the grade below, rising in bonus, gate and price", () => {
     expect(GEAR_GRADES).toHaveLength(15);
     GEAR_GRADES.forEach((grade, index) => {
-      expect(GRADE_BONUS_PERCENT[grade]).toBe(Math.round(oldBonus(index + 1) * 1.5));
+      expect(1 + GRADE_BONUS_PERCENT[grade] / 100).toBeCloseTo(GRADE_STEP ** (index + 1), 2);
       if (index) {
         const previous = GEAR_GRADES[index - 1];
         expect(GRADE_BONUS_PERCENT[grade]).toBeGreaterThan(GRADE_BONUS_PERCENT[previous]);
@@ -17,13 +17,15 @@ describe("gear grades", () => {
         expect(GRADE_GOLD_PRICE[grade]).toBeGreaterThan(GRADE_GOLD_PRICE[previous]);
       }
     });
-    expect(GRADE_BONUS_PERCENT.eternal).toBe(120);
   });
 
   it("converts an old piece to the grade nearest its own bonus", () => {
+    const gap = (grade: string, bonus: number) => Math.abs(GRADE_BONUS_PERCENT[grade as keyof typeof GRADE_BONUS_PERCENT] - bonus);
     expect(gradeForOldBonus(oldBonus(1))).toBe("crude");
-    expect(gradeForOldBonus(oldBonus(15))).toBe("mythic");
-    for (let tier = 1; tier <= 15; tier++) expect(gradeForOldBonus(oldBonus(tier))).toBeTruthy();
+    for (let tier = 1; tier <= 15; tier++) {
+      const bonus = oldBonus(tier), grade = gradeForOldBonus(bonus);
+      expect(GEAR_GRADES.every(other => gap(grade, bonus) <= gap(other, bonus) + 1e-9)).toBe(true);
+    }
   });
 
   it("opens grades by Mastery level, Heavy by the best school", () => {

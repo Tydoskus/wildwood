@@ -26,7 +26,8 @@ export function createDisplayedPower(deps: {
       displayedPlayerPowerProgress({
         ...base,
         critChance: research.criticalChance(),
-        critMultiplier: research.criticalDamageMultiplier(deps.soulCritDamage()),
+        // The crit rating of the weapon being priced, not the one in hand.
+        critMultiplier: research.criticalDamageMultiplier(deps.soulCritDamage(), undefined, equipment.equippedRightHand || equipment.equippedLeftHand),
       }, {
         equippedHead: equipment.equippedHead,
         equippedChest: equipment.equippedChest,
@@ -38,6 +39,7 @@ export function createDisplayedPower(deps: {
       research.ranks(),
       coop.itemLevel,
       compare ? coop.weaponSkills : undefined,
+      coop.attackCap(),
     );
     return compare ? power : Math.round(power);
   }

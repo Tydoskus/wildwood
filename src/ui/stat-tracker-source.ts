@@ -53,14 +53,15 @@ export function createStatTrackerSource(deps: {
     const base = { maxHp: deps.player.baseMaxHp, damage: deps.player.damage,
       attackRate: deps.player.attackRate, armor: deps.player.armor, regen: deps.player.regen };
     const progress = deps.displayedProgress(base, deps.inventory);
-    const stats = effectivePlayerPowerStats({ ...progress, activeCards: coop.activeCardIds?.() ?? [] }, deps.researchRanks(),
-      itemId => coop?.itemLevel?.(itemId) ?? coop?.itemUpgradeLevel?.(itemId) ?? 0);
-    // Attack speed and crit damage read like armor: their number, and what it gives beside it.
     const cap = deps.attackCap(), crit = criticalDamage(deps.critParts());
+    // The weapon's attack speed is in these stats, as combat fires it.
+    const stats = effectivePlayerPowerStats({ ...progress, activeCards: coop.activeCardIds?.() ?? [] }, deps.researchRanks(),
+      itemId => coop?.itemLevel?.(itemId) ?? coop?.itemUpgradeLevel?.(itemId) ?? 0, undefined, cap);
+    // Attack speed and crit damage read like armor: their number, and what it gives beside it.
     return { identity, prestigeLevel: coop.prestige?.()?.level ?? 0, values: { power: playerPowerForStats({ ...stats, critChance: deps.criticalChance?.() ?? 0, critMultiplier: crit.multiplier }), hp: stats.maxHp,
-      damage: stats.damage, armor: stats.armor, regen: stats.regen, attackSpeed: attackSpeedRatingForInterval(deps.player.attackRate, cap),
+      damage: stats.damage, armor: stats.armor, regen: stats.regen, attackSpeed: attackSpeedRatingForInterval(stats.attackRate, cap),
       critDamage: crit.rating + crit.soul, kills: deps.kills() },
-      details: { attackSpeed: attackSpeedDetail(deps.player.attackRate, cap, progress.equippedRightHand || progress.equippedLeftHand),
+      details: { attackSpeed: attackSpeedDetail(stats.attackRate, cap, progress.equippedRightHand || progress.equippedLeftHand),
         critDamage: critDamageLabel(crit.multiplier, crit.cap).replace(" (Max)", " Max"),
         // Armor's block, as the profile shows it: the same armor combat uses.
         armor: `${formatArmorReduction(stats.armor)} Block` },

@@ -14,4 +14,4 @@ export const CURVE_HIT_LEVEL = 5;
  * of a player's health) and pay `pay` times less, so the early maps are not over in minutes. Pay stays under the
  * reward step, so each map still pays more than the last.
  */
-export const CURVE_FLOOR = Object.freeze({ health: 1.15, pay: 1.7 });
+export const CURVE_FLOOR = Object.freeze({ health: 1.725, pay: 1.7 });

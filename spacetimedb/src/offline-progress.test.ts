@@ -10,6 +10,7 @@ import { Identity } from "../../tests/helpers/spacetime-memory-db";
 import { progressOf } from "../../tests/helpers/progress";
 import { CAMPAIGN_UNLOCK_FIELDS } from "../../shared/equipment-access";
 import { MAP_IDS } from "../../shared/rules";
+import { mapGoldFactor } from "../../shared/gold";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 /** A build that can hold Snowlands, standing in Home after the window opened. */
@@ -273,11 +274,11 @@ it("pays no offline farming while a Reflect Only challenge runs", () => {
   expect(fixture.db.offlineProgress.identity.find(fixture.ctx.sender).kills).toBe(0);
 });
 
-it("pays offline kills gold at half the in-play rate, a gold every 10 kills", () => {
+it("pays offline kills gold at half the in-play rate, a gold every 10 kills times the map's coins", () => {
   const fixture = away(OFFLINE_WINDOW_SECONDS);
   enter(fixture);
   fixture.run(server.collectOfflineProgressAs, { activity: "fight" });
-  const kills = fixture.db.offlineProgress.identity.find(fixture.ctx.sender).kills;
+  const { kills, mapId } = fixture.db.offlineProgress.identity.find(fixture.ctx.sender);
   expect(kills).toBeGreaterThanOrEqual(10);
-  expect(fixture.db.playerGold.identity.find(fixture.ctx.sender)?.gold).toBe(BigInt(Math.floor(kills / 10)));
+  expect(fixture.db.playerGold.identity.find(fixture.ctx.sender)?.gold).toBe(BigInt(Math.floor(kills / 10 * mapGoldFactor(mapId))));
 });

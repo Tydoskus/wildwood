@@ -99,8 +99,9 @@ export const PROCEDURAL_CAMP_JITTER = 80;
 export const ENDLESS_CAMP_COUNT = 8;
 /** The damage camp's first four are regulars, the rest Dread Wardens. */
 export const ENDLESS_DAMAGE_REGULARS = 4;
+/** Attack speed and crit come from weapons now: no camp pays them. */
 const ENDLESS_LANES: readonly (readonly [ForestProgressionLane, RewardStat])[] = [
-  ["Cindermaw", "damage"], ["Bramble", "health"], ["Mossback", "armor"], ["Brood", "regen"], ["Needle", "speed"], ["Striker", "crit"],
+  ["Cindermaw", "damage"], ["Bramble", "health"], ["Mossback", "armor"], ["Brood", "regen"],
 ];
 const ENDLESS_CAMP_NAMES: Readonly<Record<RewardStat, string>> = {
   damage: "Damage", health: "Health", armor: "Armor", regen: "Regen", speed: "Attack Speed", crit: "Crit",
@@ -132,11 +133,12 @@ export function generateMap(id: ProceduralMapId): GeneratedMap {
     { x: 2080, y: 3880 },
   ];
   const lanes = ENDLESS_LANES.map(lane => [...lane] as [ForestProgressionLane, RewardStat]);
-  for (let i = lanes.length - 1; i > 0; i--) {
+  // More slots than lanes: each map takes its own few, so the camps spread differently level to level.
+  for (const list of [lanes, slots] as unknown[][]) for (let i = list.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
-    [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+    [list[i], list[j]] = [list[j], list[i]];
   }
-  const camps = slots.map((slot, i) => ({
+  const camps = slots.slice(0, lanes.length).map((slot, i) => ({
     x: slot.x + Math.round((random() - 0.5) * 2 * PROCEDURAL_CAMP_JITTER),
     y: slot.y + Math.round((random() - 0.5) * 2 * PROCEDURAL_CAMP_JITTER),
     name: `${ENDLESS_CAMP_NAMES[lanes[i][1]]} Camp`,

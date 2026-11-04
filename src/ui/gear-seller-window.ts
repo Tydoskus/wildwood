@@ -6,7 +6,7 @@ import {
   gradeShopSalePrice, masteryLevels, type GearSeller, type GradeShopLine, type MasteryLevels,
 } from "../../shared/grade-shop";
 import { weaponSchool as schoolOfWeapon, type WeaponSchool } from "../../shared/weapon-mastery";
-import { weaponSkillLines, type WeaponSkillRoll } from "../../shared/weapon-skills";
+import { weaponRollLines, type WeaponSkillRoll } from "../../shared/weapon-skills";
 import { itemInspectionButtonLabel } from "./item-inspection-controller";
 import { formatGemAmount } from "./number-format";
 import { refineStars } from "./refine-badge";
@@ -264,7 +264,7 @@ export function createGearSellerController(seller: GearSeller, deps: GearSellerD
     const itemId = item.itemId as GradeItemId, price = gradeShopSalePrice(itemId)!, itemKey = key(item), locked = deps.locked(itemId, item.copyId);
     const { row, deal } = gradeItemRow(itemId, deps.refineLevel(itemId, item.copyId));
     row.dataset.copyId = String(item.copyId);
-    const skills = weaponSkillLines(itemId, item.roll);
+    const skills = weaponRollLines(itemId, item.roll);
     if (skills.length) {
       const line = document.createElement("span");
       line.className = "craft-hint";
