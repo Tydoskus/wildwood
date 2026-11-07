@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.918.2": [
+    "Fixed Auto Farm standing still instead of fighting a boss after a reconnect or a prestige",
+  ],
   "0.918.1": [
     "Fishing shows your level and experience over your head, and each catch's experience",
     "The Skills tab's Fishing bar now fills with every catch",
@@ -4130,6 +4133,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.918.2": "2026-11-07",
   "0.918.1": "2026-11-04",
   "0.918": "2026-11-03",
   "0.917.49": "2026-11-02",

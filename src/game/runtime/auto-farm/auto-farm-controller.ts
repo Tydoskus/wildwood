@@ -36,6 +36,8 @@ const WAYPOINT_REACHED = 2;
 export const PULL_WAIT_SECONDS = 4;
 /** How long after a boss win the way forward is looked at: the unlock reaches the map's portals in a moment. */
 const BOSS_WIN_SETTLE_MS = 5_000;
+/** A boss win that left the way shut is not fought again for this long, or until the player leaves the map. */
+export const OPENS_NOTHING_MS = 10 * 60_000;
 /**
  * How long Move On waits for the enemies attacking the player to die before it goes anyway, so a
  * half-killed group is not dragged to the next map; an Aggro run's chasers never stop coming, so the wait has an end.
@@ -139,7 +141,7 @@ export function createAutoFarmController(options: {
   /** The same for this map's boss, for when no locked map is behind it; null when it cannot tell, and the boss's power is used. */
   bossReady?: (margin: number) => Readiness | null | undefined;
   /** This map's boss while it stands (null once it is down or respawning). */
-  mapBoss?: () => (Fight & { dead?: boolean }) | null;
+  mapBoss?: () => (Fight & { dead?: boolean; hp?: number }) | null;
   /** Reflect Only: the bow does nothing, so enemies must be stood among to be hit and hit back. */
   reflectOnly?: () => boolean;
   /** Whether the build gains from adds (Reflect, Second Wind): only then does the pull go on at the boss. */
@@ -187,8 +189,14 @@ export function createAutoFarmController(options: {
   /** What it is doing now: a camp, the boss, or walking to another map. */
   let phase: 'farm' | 'boss' | 'portal' = 'farm';
   let travellingTo: string | null = null;
-  /** A boss beaten that left the way forward shut: not fought again on that map. */
-  const opensNothing = new Set<string>();
+  /** A boss beaten that left the way forward shut, and when: not fought again on that map for OPENS_NOTHING_MS. */
+  const opensNothing = new Map<string, number>();
+  const markedOpensNothing = (mapId: string) => {
+    const at = opensNothing.get(mapId);
+    return at !== undefined && now() - at < OPENS_NOTHING_MS;
+  };
+  /** The boss being fought, as last seen: the fight was won only if it ran out of health, not if it vanished in a reconnect. */
+  let foughtBoss: { hp?: number } | null = null;
   let bossWin: { mapId: string; at: number } | null = null;
   /** The map whose boss it beat this visit: Move On then goes at once instead of finishing the fight around it. */
   let bossBeatenOn: string | null = null;
@@ -452,18 +460,20 @@ export function createAutoFarmController(options: {
   /** The boss's own recommended power at Move At's margin, for a boss with no locked map behind it to judge by. */
   const bossNeeds = () => (options.bossPower?.() ?? options.mapPower?.(options.mapId()) ?? 0) * movePower;
   /** Beaten, as far as it can tell: the way forward it holds is open, or a win here opened nothing. */
-  const bossBeaten = () => options.bossUnlocksNext?.() === false || opensNothing.has(options.mapId());
-  /** Whether to fight the boss now: Fight Bosses on, a boss standing that is not beaten, and power enough (a fight under way goes on). */
-  /** A fight that ended with the boss gone was won: whether that opened anything is read a few seconds on. */
+  const bossBeaten = () => options.bossUnlocksNext?.() === false || markedOpensNothing(options.mapId());
+  /** A fight that ended with the boss out of health was won: whether that opened anything is read a few seconds on. */
   function noteBossWin() {
     const boss = options.mapBoss?.(), mapId = options.mapId();
-    if (phase === 'boss' && (!boss || boss.dead)) { bossWin = { mapId, at: now() }; bossBeatenOn = mapId; }
+    if (phase !== 'boss') { foughtBoss = null; return; }
+    if (boss && !boss.dead) { foughtBoss = boss; return; }
+    if (foughtBoss && !((foughtBoss.hp ?? 0) > 0)) { bossWin = { mapId, at: now() }; bossBeatenOn = mapId; }
+    foughtBoss = null;
   }
   function bossWanted() {
     const boss = options.mapBoss?.(), mapId = options.mapId();
     noteBossWin();
     if (bossWin && bossWin.mapId === mapId && now() - bossWin.at >= BOSS_WIN_SETTLE_MS) {
-      if (options.bossUnlocksNext?.() === true) opensNothing.add(mapId);
+      if (options.bossUnlocksNext?.() === true) opensNothing.set(mapId, now());
       bossWin = null;
     }
     // Move On takes the boss in its way: there is no going on without it.
@@ -757,6 +767,8 @@ export function createAutoFarmController(options: {
     mine?.travelStarted();
     chop?.travelStarted();
     bossBeatenOn = null;
+    // A new visit (a prestige run too) looks at every boss again.
+    opensNothing.clear();
     zeroWaiting = false;
     if (!active && !pendingResume) return;
     // After an update reload the farm waits as a restored intent, with no startedIdentity yet: travel carries that intent on.
@@ -956,7 +968,7 @@ export function createAutoFarmController(options: {
       return waitsForHealth() && bossBeatenOn !== options.mapId() ? 'Moving On Once Healed' : 'Moving On';
     }
     // The way forward is shut until this map's boss is beaten: what that fight waits for.
-    if (options.bossUnlocksNext?.() === true && !opensNothing.has(options.mapId())) return bossLine() || 'Boss Needed';
+    if (options.bossUnlocksNext?.() === true && !markedOpensNothing(options.mapId())) return bossLine() || 'Boss Needed';
     return '';
   }
   /** The boss's line: fighting, beaten, or what its fight waits for. */
