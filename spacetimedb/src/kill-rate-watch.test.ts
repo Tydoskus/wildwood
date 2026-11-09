@@ -83,23 +83,20 @@ describe("kill-rate watch line", () => {
   it("follows the map's respawn, and never drops below 2.2/s", () => {
     expect(killRateWatchLine("crystal_hollows", 10)).toBe(KILL_RATE_WATCH_PER_SECOND);
     expect(killRateWatchLine("crystal_hollows", 7.5)).toBeCloseTo(2.2, 9);
-    expect(killRateWatchLine("endless_4", 10)).toBe(KILL_RATE_WATCH_PER_SECOND);
-    expect(killRateWatchLine("endless_4", 7.5)).toBeCloseTo(20 / 7.5, 9);
-    // A balance change to a 5 s respawn moves the line with it.
-    expect(killRateWatchLine("endless_4", 5)).toBeCloseTo(4, 9);
+    expect(killRateWatchLine("endless_4", 12)).toBe(KILL_RATE_WATCH_PER_SECOND);
+    expect(killRateWatchLine("endless_4", 7.5)).toBeCloseTo(24 / 7.5, 9);
+    // A shorter respawn moves the line with it.
+    expect(killRateWatchLine("endless_4", 5)).toBeCloseTo(4.8, 9);
   });
 
-  it("leaves the best honest Endless shuttle alone: damage camp and its nearest six, 19 sites at 7.5 s", () => {
-    const line = killRateWatchLine("endless_203", 7.5);
-    for (const rate of [2.3, 2.5, 19 / 7.5]) expect(run(rate, 4 * 3600, 30, null, 0, line).episodes).toEqual([]);
-  });
-
-  it("leaves auto-farm alone when a balance change shortens the Endless respawn to 5 s", () => {
-    expect(run(13 / 5.47, 4 * 3600, 30, null, 0, killRateWatchLine("endless_4", 5)).episodes).toEqual([]);
+  it("leaves auto-farm alone with all four Endless camps pulled to one spot", () => {
+    // The respawn plus each enemy's walk: 4.6/s on the tightest layout at a 5 s respawn.
+    const line = killRateWatchLine("endless_203", 5);
+    for (const rate of [3.8, 4.2, 4.6]) expect(run(rate, 24 * 3600, 30, null, 0, line).episodes).toEqual([]);
   });
 
   it("still writes down a client paid the researched Endless wall within ten minutes", () => {
-    const { episodes } = run(31 / 7.5, 3600, 30, null, 0, killRateWatchLine("endless_4", 7.5));
+    const { episodes } = run(32 / 5, 3600, 30, null, 0, killRateWatchLine("endless_4", 5));
     expect(episodes).toHaveLength(1);
     expect(episodes[0]).toBeLessThanOrEqual(600);
   });

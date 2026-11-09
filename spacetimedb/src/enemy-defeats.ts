@@ -149,20 +149,17 @@ export function permittedDefeatMaps(ctx: DefeatContext, player: { mapId: string 
 
 /**
  * The watch's line: paid kills per second that honest play cannot sustain.
- * Measured kill-gem payouts put each account's best
- * fifteen minutes at or under 1.65/s (auto-farm on one 13-site Endless camp,
- * 13 / 7.5 s = 1.73/s at most), and 2.0/s for ten minutes at most, on a
- * two-camp shuttle. The line scales with the map's respawn, so a faster
- * respawn (research, or a balance change) moves it too: an Endless damage
- * camp and its nearest six-site camp hold 19 sites, 2.53/s at a 7.5 s
- * respawn, so Endless takes 20 sites' worth per respawn; campaign maps' best
- * pair is far smaller, and 16.5 keeps them at 2.2/s at 7.5 s. Never below
- * KILL_RATE_WATCH_PER_SECOND. A client edited to claim honest-looking game
- * time is still paid up to the spawn wall (3-4/s, 4.3-5.7/s on Tutorial
- * Forest), well above it.
+ * It scales with the map's respawn, so a faster respawn (research, cards, or
+ * a balance change) moves it too. On Endless, auto-farm pulling all four
+ * camps to one standing point is paid the respawn plus each enemy's walk:
+ * 3.8-4.6/s at a 5 s respawn, by the level's layout. Endless takes 24 of its
+ * 32 sites per respawn, 4.8/s at 5 s; campaign maps take 16.5, 2.2/s at 7.5 s.
+ * Never below KILL_RATE_WATCH_PER_SECOND. A client edited to claim
+ * honest-looking game time is still paid up to the spawn wall, every site
+ * each respawn, above it.
  */
 export const KILL_RATE_WATCH_PER_SECOND = 2.2;
-export const KILL_RATE_WATCH_SITES = { endless: 20, campaign: 16.5 };
+export const KILL_RATE_WATCH_SITES = { endless: 24, campaign: 16.5 };
 export function killRateWatchLine(mapId: string, respawnSeconds: number) {
   const sites = isProceduralMap(mapId) ? KILL_RATE_WATCH_SITES.endless : KILL_RATE_WATCH_SITES.campaign;
   return Math.max(KILL_RATE_WATCH_PER_SECOND, Number.isFinite(respawnSeconds) && respawnSeconds > 0 ? sites / respawnSeconds : 0);
