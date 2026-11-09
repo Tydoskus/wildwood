@@ -150,18 +150,19 @@ export function permittedDefeatMaps(ctx: DefeatContext, player: { mapId: string 
 /**
  * The watch's line: paid kills per second that honest play cannot sustain.
  * It scales with the map's respawn, so a faster respawn (research, cards, or
- * a balance change) moves it too. On Endless, auto-farm pulling all four
- * camps to one standing point is paid the respawn plus each enemy's walk:
- * 3.8-4.6/s at a 5 s respawn, by the level's layout. Endless takes 24 of its
- * 32 sites per respawn, 4.8/s at 5 s; campaign maps take 16.5, 2.2/s at 7.5 s.
- * Never below KILL_RATE_WATCH_PER_SECOND. A client edited to claim
- * honest-looking game time is still paid up to the spawn wall, every site
- * each respawn, above it.
+ * a balance change) moves it too. Auto-farm pulling every camp to one
+ * standing point is paid the respawn plus each enemy's walk: at a 5 s
+ * respawn, up to 4.6/s on the 32 sites of a campaign map or Endless level and
+ * up to 5.4/s on the Soul Dimension's 45. The line takes 24 sites per respawn
+ * on the first two, 4.8/s at 5 s, and 30 on the Soul Dimension, 6/s. Never
+ * below KILL_RATE_WATCH_PER_SECOND. A client edited to claim honest-looking
+ * game time is still paid up to the spawn wall, every site each respawn,
+ * above it.
  */
 export const KILL_RATE_WATCH_PER_SECOND = 2.2;
-export const KILL_RATE_WATCH_SITES = { endless: 24, campaign: 16.5 };
+export const KILL_RATE_WATCH_SITES = { map: 24, soul: 30 };
 export function killRateWatchLine(mapId: string, respawnSeconds: number) {
-  const sites = isProceduralMap(mapId) ? KILL_RATE_WATCH_SITES.endless : KILL_RATE_WATCH_SITES.campaign;
+  const sites = isSoulMap(mapId) ? KILL_RATE_WATCH_SITES.soul : KILL_RATE_WATCH_SITES.map;
   return Math.max(KILL_RATE_WATCH_PER_SECOND, Number.isFinite(respawnSeconds) && respawnSeconds > 0 ? sites / respawnSeconds : 0);
 }
 /** Paid kills above the line before an account is written down: fifteen minutes at 3/s against 2.2. */

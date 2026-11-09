@@ -81,24 +81,32 @@ it("writes down a client that claims no game time as soon as its paid kills pass
 
 describe("kill-rate watch line", () => {
   it("follows the map's respawn, and never drops below 2.2/s", () => {
-    expect(killRateWatchLine("crystal_hollows", 10)).toBe(KILL_RATE_WATCH_PER_SECOND);
-    expect(killRateWatchLine("crystal_hollows", 7.5)).toBeCloseTo(2.2, 9);
-    expect(killRateWatchLine("endless_4", 12)).toBe(KILL_RATE_WATCH_PER_SECOND);
-    expect(killRateWatchLine("endless_4", 7.5)).toBeCloseTo(24 / 7.5, 9);
-    // A shorter respawn moves the line with it.
-    expect(killRateWatchLine("endless_4", 5)).toBeCloseTo(4.8, 9);
+    for (const mapId of ["crystal_hollows", "endless_4"]) {
+      expect(killRateWatchLine(mapId, 12)).toBe(KILL_RATE_WATCH_PER_SECOND);
+      expect(killRateWatchLine(mapId, 7.5)).toBeCloseTo(24 / 7.5, 9);
+      // A shorter respawn moves the line with it.
+      expect(killRateWatchLine(mapId, 5)).toBeCloseTo(4.8, 9);
+    }
+    expect(killRateWatchLine("soul_dimension", 15)).toBe(KILL_RATE_WATCH_PER_SECOND);
+    expect(killRateWatchLine("soul_dimension", 5)).toBeCloseTo(6, 9);
   });
 
-  it("leaves auto-farm alone with all four Endless camps pulled to one spot", () => {
-    // The respawn plus each enemy's walk: 4.6/s on the tightest layout at a 5 s respawn.
-    const line = killRateWatchLine("endless_203", 5);
-    for (const rate of [3.8, 4.2, 4.6]) expect(run(rate, 24 * 3600, 30, null, 0, line).episodes).toEqual([]);
+  it("leaves auto-farm alone with every camp pulled to one spot", () => {
+    // The respawn plus each enemy's walk, at a 5 s respawn: 4.6/s on the
+    // tightest campaign or Endless layout, 5.4/s on the Soul Dimension.
+    for (const [mapId, rates] of [["ion_citadel", [3.8, 4.2, 4.6]], ["endless_203", [3.8, 4.2, 4.6]], ["soul_dimension", [4.6, 5, 5.4]]] as const) {
+      const line = killRateWatchLine(mapId, 5);
+      for (const rate of rates) expect(run(rate, 24 * 3600, 30, null, 0, line).episodes).toEqual([]);
+    }
   });
 
-  it("still writes down a client paid the researched Endless wall within ten minutes", () => {
-    const { episodes } = run(32 / 5, 3600, 30, null, 0, killRateWatchLine("endless_4", 5));
-    expect(episodes).toHaveLength(1);
-    expect(episodes[0]).toBeLessThanOrEqual(600);
+  it("still writes down a client paid the researched spawn wall within ten minutes", () => {
+    // Every standing enemy each respawn: 32 on a campaign map or Endless level, 45 on the Soul Dimension.
+    for (const [mapId, standing] of [["ion_citadel", 32], ["endless_4", 32], ["soul_dimension", 45]] as const) {
+      const { episodes } = run(standing / 5, 3600, 30, null, 0, killRateWatchLine(mapId, 5));
+      expect(episodes).toHaveLength(1);
+      expect(episodes[0]).toBeLessThanOrEqual(600);
+    }
   });
 
   it("keeps a stall's time for the backlog sent behind it", () => {

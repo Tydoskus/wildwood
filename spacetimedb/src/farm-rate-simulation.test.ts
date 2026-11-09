@@ -2,7 +2,7 @@ import { Timestamp } from "spacetimedb";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { reportKills } from "../../tests/helpers/enemy-defeat";
-import { KILL_RATE_WATCH_PER_SECOND, PAY_CEILING } from "./enemy-defeats";
+import { killRateWatchLine, PAY_CEILING } from "./enemy-defeats";
 import { DEFEAT_MIN_RESPAWN_SECONDS, ENEMY_DEFEAT_BATCH_MAX, SIM_CLOCK_BANK_SECONDS, defeatBudget, defeatMinRespawnSeconds, enemyDefeatDefinition, mapEnemyPopulation } from "../../shared/enemy-defeats";
 import { ENEMY_TYPES } from "../../shared/enemy-definitions";
 import { MIN_ATTACK_INTERVAL, REGULAR_ENEMY_RESPAWN_SECONDS, REGULAR_KILL_REPORT_SECONDS } from "../../shared/rules";
@@ -376,10 +376,10 @@ describe("the current client, held to the server's clock", () => {
 
   it("writes down a client paid faster than honest play for a sustained stretch, and nobody honest", () => {
     // A client edited to claim the real time that passes: the simulation clock
-    // cannot tell, and the spawn wall (with the report throttle) pays it about
-    // 2.4 kills a second, above anything honest play has reached.
+    // cannot tell, and the spawn wall pays it about 3.2 kills a second, above
+    // the map's line.
     const script = currentClient({ lapSeconds: .5, minutes: 60, says: "real" });
-    expect(script.paidPerSecond).toBeGreaterThan(KILL_RATE_WATCH_PER_SECOND);
+    expect(script.paidPerSecond).toBeGreaterThan(killRateWatchLine(MAP, REGULAR_ENEMY_RESPAWN_SECONDS));
     expect(script.moderation.filter(row => row.rule === "sustained_kill_rate")).toHaveLength(1);
     expect(script.restricted).toBe(false);
     expect(script.stillInWorld).toBe(true);
@@ -404,7 +404,7 @@ describe("the current client, held to the server's clock", () => {
       expect(honest.paid).toBe(honest.claimed);
       // Two hours: the bank's head start drains at the spawn wall's pace and is spent well before the second half.
       const script = currentClient({ lapSeconds: .5, minutes: 120, says: "real" });
-      expect(script.sustainedPerSecond).toBeLessThanOrEqual(KILL_RATE_WATCH_PER_SECOND * 1.02);
+      expect(script.sustainedPerSecond).toBeLessThanOrEqual(killRateWatchLine(MAP, REGULAR_ENEMY_RESPAWN_SECONDS) * 1.02);
       expect(script.restricted).toBe(false);
       expect(script.stillInWorld).toBe(true);
     } finally { PAY_CEILING.enforced = false; }
