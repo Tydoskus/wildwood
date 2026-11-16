@@ -132,7 +132,7 @@ import { createCombatReport } from "./boss-combat";
 import { createModuleMigrations } from "./module-migrations";
 import { UPGRADE_BENCH_SLOT_ONE, UPGRADE_BENCH_SLOT_TWO, UPGRADE_BENCH_SLOT_THREE, normalizeUpgradeBenchSlot, requireUpgradeBenchSlot, activeItemUpgradeForSlot, activeItemUpgradeEntriesFor, insertActiveItemUpgrade } from "./upgrade-bench-slots";
 import {
-  createPresenceRuntime, MOTION_DETAIL_FRAME_INTERVAL_MICROS, MAP_FRAME_INTERVAL_MICROS, playerZone,
+  createPresenceRuntime, MOTION_DETAIL_FRAME_INTERVAL_MICROS, MAP_FRAME_INTERVAL_MICROS, mapFrameDue, playerZone,
   playerWithMotion, stoppedMotionFields, syncPlayerMotion, syncPlayerMotionIdentity,
   ensureMotionDetailFrameSchedule, ensureRealtimeFrameSchedules, motionSample, persistWorldLocation,
   syncPlayerMapMarker, ensureWorldStatus, reconcileOnlinePlayers, requireScheduler, ensureRepeatingSchedule,
@@ -2240,8 +2240,9 @@ export const publishMapFrames = spacetimedb.reducer(
       // Home is private: it has no remote minimap dots or observers to serve.
       if (state.mapId === HOME_EXTERIOR_MAP_ID || state.playerCount === 0) continue;
       if (state.visibleCount > 1) continuePublishing = true;
+      // A final single/empty frame clears dots after a departure or hide; a map alone is not framed every tick.
+      if (!mapFrameDue(ctx, state.mapId, state.visibleCount)) continue;
       sampleVisiblePlayers ||= state.visibleCount > 0;
-      // Keep a final single/empty frame to clear dots after a departure or hide.
       maps.set(state.mapId, []);
     }
     // A map index on this hot movement table would add write cost to every
@@ -3734,9 +3735,10 @@ export const teleportToResearch = spacetimedb.reducer({ x: t.f64(), y: t.f64() }
 export const teleportToTownSquare = spacetimedb.reducer({}, (ctx) => teleportToSquare(ctx));
 export const travelToMap = spacetimedb.reducer({ mapId: t.string() }, (ctx, args) => travelStraightToMap(ctx, args));
 
+// Speed is not part of a combat profile.
 export const setSpeed = spacetimedb.reducer(
   { speed: t.f32() },
-  (ctx, args) => setPlayerSpeed(ctx, args),
+  keepsCombatProfile((ctx: any, args: any) => setPlayerSpeed(ctx, args)),
 );
 
 /** The database owner, or the module calling itself from a schedule. */

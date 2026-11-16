@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.918.3": [
+    "Small speed-ups to loading and to fights, mostly on phones",
+  ],
   "0.918.2": [
     "Fixed Auto Farm standing still instead of fighting a boss after a reconnect or a prestige",
   ],
@@ -4133,6 +4136,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.918.3": "2026-11-16",
   "0.918.2": "2026-11-07",
   "0.918.1": "2026-11-04",
   "0.918": "2026-11-03",

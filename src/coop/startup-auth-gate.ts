@@ -374,6 +374,7 @@ export function preloadDeferredGameBundle(documentValue = document, saveData = B
   link.id = "wildstatGamePreload";
   link.rel = "preload";
   link.as = "script";
+  link.setAttribute("fetchpriority", "low");
   link.href = source;
   documentValue.head.append(link);
   return downloaded;

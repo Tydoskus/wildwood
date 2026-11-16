@@ -12,12 +12,13 @@ export function decodedImage(image: HTMLImageElement): HTMLImageElement | ImageB
 
 /**
  * Chrome decodes a file (a Blob) for createImageBitmap on another thread, but an <img> on the main thread, so the
- * file is read again (from the cache: it has just loaded) and decoded from that. Without fetch, from the image.
+ * file is read again and decoded from that. The image has just loaded and checked it with the server, so the
+ * cached copy is taken as it is: asking again cost a round trip per sheet. Without fetch, from the image.
  */
 function decodeFile(image: HTMLImageElement): Promise<ImageBitmap> {
   const source = image.currentSrc || image.src;
   if (typeof fetch !== "function" || !source) return createImageBitmap(image);
-  return fetch(source)
+  return fetch(source, { cache: "force-cache" })
     .then(response => response.ok ? response.blob() : Promise.reject(new Error(`${response.status}`)))
     .then(blob => createImageBitmap(blob))
     .catch(() => createImageBitmap(image));

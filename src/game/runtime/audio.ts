@@ -29,7 +29,7 @@ export const SIGN_IN_MUSIC_SOURCE = "assets/wildstat/audio/signin.mp3";
  * Each track also ships as 128 kbps AAC beside its MP3, about half the
  * download. Tracks keep their .mp3 path as
  * their identity, for gain and caching; only the download is the .m4a, where
- * the browser plays AAC, falling back to the MP3 if that fetch fails.
+ * the browser plays AAC, falling back to the MP3 if the server has no .m4a.
  */
 export function compactMusicSource(source: string, probe: Pick<HTMLMediaElement, "canPlayType"> | null) {
   if (!/\/audio\/[^/]+\.mp3$/.test(source) || source.endsWith("/death.mp3") || source.endsWith("/bow-release.mp3")) return source;
@@ -144,6 +144,9 @@ export function scheduleSwordSwing(context: BaseAudioContext, noise: AudioBuffer
 }
 /** Soundtracks are kept as Blob URLs for the map you are on and the one you left; older ones are released. */
 const MUSIC_OBJECT_URL_KEEP = 2;
+const MUSIC_RETRY_MS = 2_000;
+/** The server answered, without the file. */
+class MusicFileMissing extends Error {}
 
 type WebkitAudioWindow = Window & typeof globalThis & {
   webkitAudioContext?: typeof AudioContext;
@@ -290,11 +293,20 @@ export function createMapMusicController(
     };
     const fetchTrack = (url: string) => fetch(url, { cache: "force-cache", signal: abortController.signal })
       .then((response) => {
-        if (!response.ok) throw new Error(`Music request failed: ${response.status}`);
+        if (!response.ok) throw new MusicFileMissing(`Music request failed: ${response.status}`);
         return response.blob();
       });
     const compact = compactMusicSource(source, audio);
-    request.promise = (compact === source ? fetchTrack(source) : fetchTrack(compact).catch(() => fetchTrack(source)))
+    // The MP3 is twice the download, so it stands in only when the server has no AAC copy.
+    // A dropped connection asks for the AAC copy once more instead.
+    const fetchCompact = () => fetchTrack(compact).catch((error) => {
+      if (error instanceof MusicFileMissing) return fetchTrack(source);
+      if (abortController.signal.aborted) throw error;
+      return new Promise(resolve => setTimeout(resolve, MUSIC_RETRY_MS))
+        .then(() => fetchTrack(compact))
+        .catch((again) => again instanceof MusicFileMissing ? fetchTrack(source) : Promise.reject(again));
+    });
+    request.promise = (compact === source ? fetchTrack(source) : fetchCompact())
       .then((blob) => {
         const objectUrl = URL.createObjectURL(blob);
         musicObjectUrls.set(source, objectUrl);

@@ -114,7 +114,8 @@ export async function fingerprintClient(directory) {
   const outside = [...assets.values()].filter((path) => !path.startsWith(hashedRoot)).sort();
   // Patterns never overlap: Cloudflare merges every matching rule's headers.
   // `:file` stops at a slash, so it only matches Vite's worker files directly
-  // in /assets/, never /assets/h/ or /assets/wildstat/.
+  // in /assets/, never /assets/h/ or /assets/wildstat/. Vite names those by
+  // their content, so they are immutable too; nothing else belongs there.
   const rules = [
     ["/", "  Cache-Control: no-cache"], ["/index.html", "  Cache-Control: no-cache"],
     ["/version.json", "  Cache-Control: no-store"], ["/asset-manifest.json", "  Cache-Control: no-cache"],
@@ -122,7 +123,7 @@ export async function fingerprintClient(directory) {
     [`/${hashedRoot}*`, immutable],
     ...outside.map((path) => [`/${path}`, immutable]),
     [`/${shellRoot}*`, revalidate],
-    ["/assets/:file", revalidate],
+    ["/assets/:file", immutable],
   ];
   if (rules.length > 100) throw new Error("Cloudflare header rule limit exceeded");
   await writeFile(resolve(directory, "_headers"), rules.map((rule) => rule.join("\n")).join("\n") + "\n");

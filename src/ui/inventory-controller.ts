@@ -495,6 +495,8 @@ export function createInventoryController(dependencies: InventoryDependencies) {
   }
 
   function render() {
+    // Closed, none of this is on screen; opening the bag renders it.
+    if (panel.hidden) { renderedState = ""; return; }
     if (cardsShown) cardsView?.render();
     if (buildsShown) buildsView?.render();
     const inventory = dependencies.inventory;

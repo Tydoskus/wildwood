@@ -135,14 +135,16 @@ describe("content-addressed client build", () => {
     for (const path of await files(root)) {
       // Cloudflare merges every matching rule, so a second match would join values.
       expect(rules.filter((rule) => rule.pattern.test(`/${path}`)).length, path).toBeLessThanOrEqual(1);
-      if (hashed.has(path)) expect(cacheControl(rules, path), path).toBe(IMMUTABLE);
+      // Vite's worker files, directly in assets/, are named by their content.
+      if (hashed.has(path) || /^assets\/[^/]+$/.test(path)) expect(cacheControl(rules, path), path).toBe(IMMUTABLE);
       else if (path.startsWith("assets/")) expect(cacheControl(rules, path), path).toBe(REVALIDATE);
     }
     // Runtime art next to hashed files revalidates rather than keeping the host default.
     for (const path of ["assets/wildstat/icons/Icon_AutoFarm.svg", "assets/wildstat/fonts/ui.woff2",
-      "assets/wildstat/signin/background.webp", "assets/wildstat/audio/forest.mp3", "assets/tile-worker-AbC123.js"]) {
+      "assets/wildstat/signin/background.webp", "assets/wildstat/audio/forest.mp3"]) {
       expect(cacheControl(rules, path), path).toBe(REVALIDATE);
     }
+    expect(cacheControl(rules, "assets/tile-worker-AbC123.js")).toBe(IMMUTABLE);
   });
 
   it("keeps the rule count fixed however many files the build holds", async () => {

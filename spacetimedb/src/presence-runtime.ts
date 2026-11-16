@@ -263,6 +263,27 @@ export function hasSharedMap(ctx: any) {
   return false;
 }
 
+/** A map with one visible player or none gets one frame, then one this often. */
+export const SOLO_MAP_FRAME_INTERVAL_MICROS = 10_000_000n;
+const SOLO_MAP_MEMORY = 1024;
+// Kept per database handle, as combat profiles are. Losing it sends one frame early.
+const soloFramedAt = new WeakMap<object, Map<string, bigint>>();
+
+/**
+ * Whether a map gets a frame this tick. With two or more visible players, always. Otherwise the first
+ * tick only, which clears whoever just left or hid: after that the frame holds nobody its viewer draws.
+ */
+export function mapFrameDue(ctx: any, mapId: string, visibleCount: number) {
+  let framedAt = soloFramedAt.get(ctx.db);
+  if (!framedAt) soloFramedAt.set(ctx.db, framedAt = new Map());
+  if (visibleCount > 1) { framedAt.delete(mapId); return true; }
+  const now = ctx.timestamp.microsSinceUnixEpoch as bigint, last = framedAt.get(mapId);
+  if (last !== undefined && now >= last && now - last < SOLO_MAP_FRAME_INTERVAL_MICROS) return false;
+  if (framedAt.size >= SOLO_MAP_MEMORY) framedAt.clear();
+  framedAt.set(mapId, now);
+  return true;
+}
+
 /**
  * How far past its time a frame loop's row may be before it counts as dead.
  * The loops re-arm every third of a second or every second, so a row this

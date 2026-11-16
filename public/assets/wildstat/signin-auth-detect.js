@@ -17,6 +17,8 @@ if (location.hostname.toLowerCase() === "tydoskus.github.io") {
   link.id = "wildstatGamePreload";
   link.rel = "preload";
   link.as = "script";
+  // Behind coop-client.js, which the sign-in screen needs first.
+  link.setAttribute("fetchpriority", "low");
   link.href = meta.content;
   link.addEventListener("load", function () { link.setAttribute("data-state", "loaded"); }, { once: true });
   link.addEventListener("error", function () { link.setAttribute("data-state", "failed"); }, { once: true });
