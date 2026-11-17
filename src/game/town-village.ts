@@ -76,7 +76,7 @@ export type SoulEmitter = (typeof scene.emitters)[number];
 /** The village's particle emitters (chimney smoke, campfire smoke and sparks), in world units. */
 export const TOWN_VILLAGE_EMITTERS: readonly SoulEmitter[] = scene.emitters.map(emitter => ({ ...emitter, x: originX + emitter.x, y: originY + emitter.y }));
 
-/** The wells, as polygons: walk into one and you fall in. */
+/** The openings of the village wells, used to discover the chamber below. */
 export const TOWN_VILLAGE_PITS: readonly SoulSolid[] = (scene.pits ?? []).map(flat => solid(flat, originX, originY));
 export type SoulSolid = { xs: number[]; ys: number[]; left: number; top: number; right: number; bottom: number };
 function solid(flat: readonly number[], dx: number, dy: number): SoulSolid {

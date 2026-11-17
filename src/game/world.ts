@@ -31,7 +31,7 @@ export type WorldDecor = WorldDecorPlacement & (
   | { type: "desertGrass"; variant: number }
   | { type: "snowPine"; s: number }
   | { type: "snowTuft"; variant: number }
-  | { type: "station"; s: number; label: "Slot Upgrades" | "Tech Research" | "Quest Board" | "Ox" | "Smith" | "Card Seller" | "Weapon Seller" | "Armor Seller" | "Trade Chrysanthemum" | SchoolBuilding }
+  | { type: "station"; s: number; label: "Cooking Fire" | "Slot Upgrades" | "Tech Research" | "Quest Board" | "Ox" | "Smith" | "Card Seller" | "Weapon Seller" | "Armor Seller" | "Trade Chrysanthemum" | SchoolBuilding }
   | { type: "lavaPool"; s: number; variant: number }
   | { type: "lavaRock"; s: number; variant: number }
   | { type: "charredTree"; s: number; variant: number }

@@ -12,7 +12,7 @@ import { withWideProgress } from "./wide-progress";
 import { activeCardsOfRow } from "../../../shared/active-cards";
 import { parseBonusOff } from "../../../shared/bonus-toggles";
 import { isWeaponSchool, masteryLevel, type WeaponSchool } from "../../../shared/weapon-mastery";
-import { CRAFT_SKILLS, craftLevel, type CraftSkill } from "../../../shared/crafting";
+import { isPlayerCraftSkill, craftLevel, type PlayerCraftSkill } from "../../../shared/crafting";
 import { fishingLevel } from "../../../shared/fishing";
 import { daggerSkillsOf, isSkillDagger } from "../../../shared/dagger-skills";
 import type { LeaderboardEntry, PlayerProfileData } from "../contracts";
@@ -212,11 +212,11 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
       })(),
       crafts: (() => {
         const db = dependencies.connection()?.db, own = identity === dependencies.localIdentity();
-        const levels: Partial<Record<CraftSkill, number>> = {};
+        const levels: Partial<Record<PlayerCraftSkill, number>> = {};
         const rows = own ? db?.myCraftSkills?.iter() ?? [] : [...(db?.playerCraftLevel?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
         for (const row of rows as Iterable<{ skill: string; experience?: bigint; level?: number }>) {
-          const skill = row.skill as CraftSkill;
-          if (CRAFT_SKILLS.includes(skill)) levels[skill] = own ? craftLevel(row.experience ?? 0n) : row.level ?? 1;
+          const skill = row.skill;
+          if (isPlayerCraftSkill(skill)) levels[skill] = own ? craftLevel(row.experience ?? 0n) : row.level ?? 1;
         }
         return levels;
       })(),

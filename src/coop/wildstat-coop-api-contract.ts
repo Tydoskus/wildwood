@@ -81,6 +81,7 @@ type ExpectedApiKey =
   | "serverBoostMultiplier"
   | "triggerServerBoost"
   | "craftSkills"
+  | "cookFish"
   | "craftGradeItem"
   | "reforgeWeapon"
   | "toolLevels"

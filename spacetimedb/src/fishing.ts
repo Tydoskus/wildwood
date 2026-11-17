@@ -1,4 +1,7 @@
-import { keepsCombatProfile } from "./combat-profile";
+import { isDropIgnored } from "./ignored-drops";
+import { awardDrops } from "./enemy-loot-award";
+import { fishingTimeFactor, rollFishingTreasure } from "../../shared/fishing-treasures";
+import { touchCombatProfile, keepsCombatProfile } from "./combat-profile";
 import { SenderError, table, t } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type spacetimedbType from "./index";
@@ -19,8 +22,8 @@ import { equippedFields, millisOf } from "./gather-batch";
 
 /**
  * Fishing (shared/fishing.ts): a player's Fishing experience and their last catch, in a private table read through
- * the caller's own view; the level is copied to a public table for profiles. Fish go into the bag as ores do and are
- * only for collecting: no Server Boost, cards or card drops.
+ * the caller's own view; the level is copied to a public table for profiles. Fish go into the bag as ores do and can be cooked.
+ * Fishing treasures use the same equipment award and full-bag handling as other gear.
  *
  * No player_fishing row means no fish caught yet: level 1, no experience. `fishCaught` counts up with every catch,
  * so the client can tell a new one from the row it found on connect; `lastFish` says which fish that was.
@@ -88,12 +91,13 @@ export function catchFishFor(ctx: Ctx, args: { spot: number; site: number }, dep
   if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
   const row = ctx.db.playerFishing.identity.find(ctx.sender), experience = normalizeFishingExperience(row?.experience);
   const sinceMicros = row ? Number(ctx.timestamp.microsSinceUnixEpoch - row.lastCatchAt.microsSinceUnixEpoch) : Infinity;
-  if (sinceMicros < fishingCatchSeconds(experience) * FISHING_RATE_SLACK * 1_000_000) throw new SenderError("Still fishing.");
+  const progress = readPlayerProgress(ctx, ctx.sender);
+  const timeFactor = fishingTimeFactor(progress?.equippedHead, progress?.equippedChest);
+  if (sinceMicros < fishingCatchSeconds(experience) * timeFactor * FISHING_RATE_SLACK * 1_000_000) throw new SenderError("Still fishing.");
   // A fish not held yet needs a free bag slot; with none, one of the kinds already held bites instead.
   const ores = oreCountsFor(ctx, ctx.sender), held = (fishId: string) => (ores[fishId as OreId] ?? 0) > 0;
   let fish = rollFish(experience, ctx.random());
   if (fish && !held(fish.id)) {
-    const progress = readPlayerProgress(ctx, ctx.sender);
     const { room } = roomForOres({
       owned: progress && deps.inventoryForProgress ? deps.inventoryForProgress(progress) : [], equipped: progress ? equippedFields(progress) : [],
       extraCopies: extraCopiesOf(ctx, ctx.sender).length, ores, capacity: bagCapacityFor(ctx, ctx.sender),
@@ -102,6 +106,11 @@ export function catchFishFor(ctx: Ctx, args: { spot: number; site: number }, dep
   }
   if (!fish) throw new SenderError("Your bag is full. Free a slot for your fish.");
   addOres(ctx, ctx.sender, fish.id, 1);
+  const treasure = rollFishingTreasure(fishingLevel(experience), ctx.random());
+  if (treasure && !isDropIgnored(ctx, ctx.sender, treasure.id)) {
+    awardDrops(ctx, new Map([[treasure.id, 1]]));
+    touchCombatProfile(ctx, ctx.sender);
+  }
   const next = {
     identity: ctx.sender,
     experience: Math.min(U32_MAX, experience + fish.experience),

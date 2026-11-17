@@ -1,5 +1,5 @@
 import { tables, type DbConnection } from "../../module_bindings";
-import { CRAFT_SKILLS, type CraftSkill } from "../../../shared/crafting";
+import { ALL_CRAFT_SKILLS, isPlayerCraftSkill, type PlayerCraftSkill } from "../../../shared/crafting";
 import { craftMaterialsKey, gradeCraftMaterials } from "../../../shared/grade-craft";
 import { reducerErrorMessage } from "./reducer-errors";
 import { withRequestDeadline } from "./request-deadline";
@@ -8,8 +8,7 @@ import { watchTables } from "./table-watch";
 export type CraftResult = { ok: boolean; error?: string };
 type Target = { connection: DbConnection; isCurrent: () => boolean };
 
-const noExperience = (): Record<CraftSkill, bigint> => Object.fromEntries(CRAFT_SKILLS.map(skill => [skill, 0n])) as Record<CraftSkill, bigint>;
-const isCraftSkill = (value: unknown): value is CraftSkill => (CRAFT_SKILLS as readonly unknown[]).includes(value);
+const noExperience = (): Record<PlayerCraftSkill, bigint> => Object.fromEntries(ALL_CRAFT_SKILLS.map(skill => [skill, 0n])) as Record<PlayerCraftSkill, bigint>;
 
 /** This account's craft experience by craft (my_craft_skills), crafting (craft_grade_item) and reforging (reforge_weapon); the server judges each. */
 export function createCraftingRows(notify: () => void) {
@@ -21,7 +20,7 @@ export function createCraftingRows(notify: () => void) {
     experience = noExperience();
     const read = () => {
       const next = noExperience();
-      for (const row of connection.db.myCraftSkills.iter()) if (isCraftSkill(row.skill)) next[row.skill] = row.experience;
+      for (const row of connection.db.myCraftSkills.iter()) if (isPlayerCraftSkill(row.skill)) next[row.skill] = row.experience;
       experience = next;
       notify();
     };
@@ -44,7 +43,17 @@ export function createCraftingRows(notify: () => void) {
   return {
     watch,
     api: {
-      craftSkills: (): Readonly<Record<CraftSkill, bigint>> => experience,
+      async cookFish(fishId: string, recipeId: string): Promise<CraftResult> {
+        const current = target;
+        if (!current?.isCurrent() || !current.connection.isActive) return { ok: false, error: "NOT CONNECTED" };
+        try {
+          await withRequestDeadline(current.connection.reducers.cookFish({ fishId, recipeId }));
+          return { ok: true };
+        } catch (error) {
+          return { ok: false, error: reducerErrorMessage(error) };
+        }
+      },
+      craftSkills: (): Readonly<Record<PlayerCraftSkill, bigint>> => experience,
       /** A new graded piece crafted at the Smith, even one already held. */
       craftGradeItem: (itemId: string) => send(itemId, (connection, expectedMaterials) => connection.reducers.craftGradeItem({ itemId, expectedMaterials })),
       /** One held weapon copy reforged (copy id 0 is the first copy). */

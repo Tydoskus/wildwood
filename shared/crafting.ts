@@ -7,7 +7,10 @@ import { GEAR_GRADES, type ArmorClass, type GearGrade } from "./gear-grades";
  */
 export const CRAFT_SKILLS = ["smithing", "fletching", "enchanting"] as const;
 export type CraftSkill = typeof CRAFT_SKILLS[number];
-export const CRAFT_SKILL_NAMES: Readonly<Record<CraftSkill, string>> = { smithing: "Smithing", fletching: "Fletching", enchanting: "Enchanting" };
+export const ALL_CRAFT_SKILLS = [...CRAFT_SKILLS, "cooking"] as const;
+export type PlayerCraftSkill = typeof ALL_CRAFT_SKILLS[number];
+export const isPlayerCraftSkill = (value: unknown): value is PlayerCraftSkill => ALL_CRAFT_SKILLS.some(skill => skill === value);
+export const CRAFT_SKILL_NAMES: Readonly<Record<PlayerCraftSkill, string>> = { cooking: "Cooking", smithing: "Smithing", fletching: "Fletching", enchanting: "Enchanting" };
 
 /** Wood from the Woodcutting trees, one kind per grade band, and crystal from the Copper Hills' crystal rocks. */
 export const WOOD_IDS = ["pine_log", "oak_log", "yew_log", "elder_log"] as const;

@@ -1,3 +1,4 @@
+import { drawWellInterior, fullyInsideWell } from "../soul/well-interior";
 import { clamp } from "../../math";
 import { DUEL_ARENA } from "../../duel";
 import type { MapPlayerMarker, RemotePlayer } from "../../../wildstat-coop";
@@ -41,6 +42,7 @@ export function createRenderController(options: {
   setRenderedDuelScene: (scene: DuelScene | null) => void;
   setDuelCountdown: (countdown: number) => void;
   drawProfileCharacterPreview: () => void;
+  drawWellPlayer?: () => void;
   worldOccluded?: () => boolean;
   updateSpeechBubbles: () => void;
   drawMapHazards?: () => void;
@@ -311,6 +313,7 @@ export function createRenderController(options: {
     const live = liveScene();
     if (isDueling() && live) { renderDuelScene(live); return; }
     setRenderedDuelScene(null);
+    if (fullyInsideWell()) { drawWellInterior(ctx, width, height, options.drawWellPlayer); return; }
     ctx.save();
     ctx.scale(camera.zoom, camera.zoom);
     const projectileBatch = webGLProjectileBatch();
@@ -361,6 +364,7 @@ export function createRenderController(options: {
       }
     } else drawWorld();
     drawVignette();
+    drawWellInterior(ctx, width, height, options.drawWellPlayer);
     if (cutscene) {
       ctx.fillStyle = `rgba(0,0,0,${portalBlackoutOpacity()})`;
       ctx.fillRect(0, 0, width, height);

@@ -3872,7 +3872,7 @@ export const { buyGradeGear } = registerGradeShop(spacetimedb, { requireControll
 // The Starter Chest by the forest spawn (starter-chest.ts).
 export const { claimStarterWeapon, myStarterWeapon } = registerStarterChest(spacetimedb, { requireControllingPlayer, activeDuelFor });
 const craftingDeps = { requireControllingPlayer, activeDuelFor, inventoryForProgress, restoreItemToProgress, writeProgressAndPresentation };
-export const { craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills } = registerCrafting(spacetimedb, craftingDeps);
+export const { cookFish, craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills } = registerCrafting(spacetimedb, craftingDeps);
 export const { craftArrows, nockArrow, spendArrows, myNockedArrow } = registerArrows(spacetimedb, craftingDeps);
 export const setGatherPicks = registerGatherPicks(spacetimedb);
 export const { upgradeTool, myTools } = registerTools(spacetimedb, { requireControllingPlayer, activeDuelFor });

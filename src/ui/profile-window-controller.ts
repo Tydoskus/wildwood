@@ -8,7 +8,7 @@ import type { PlayerGender } from "../../shared/player-gender";
 import { PRESTIGE_STAT_GAIN_PER_LEVEL } from "../../shared/prestige";
 import { formatPercentMultiplier } from "./number-format";
 import type { WeaponSchool } from "../../shared/weapon-mastery";
-import type { CraftSkill } from "../../shared/crafting";
+import type { PlayerCraftSkill } from "../../shared/crafting";
 import type { RewardKillCounts } from "../../shared/soul-dimension";
 import { profileSkillRows, renderProfileSkills, renderProfileSoulTier } from "./profile-skills";
 import type { ItemInspectionController, ItemInspectionAction } from "./item-inspection-controller";
@@ -54,7 +54,7 @@ export function createProfileWindowController(elements: {
   /** Your own Weapon Mastery points, live (player_weapon_mastery). */
   weaponMastery?: () => Readonly<Record<WeaponSchool, bigint>> | undefined;
   /** Your own craft experience (my_craft_skills) and soul tier kills, live. */
-  craftExperience?: () => Readonly<Record<CraftSkill, bigint>> | undefined;
+  craftExperience?: () => Readonly<Record<PlayerCraftSkill, bigint>> | undefined;
   /** Your own Fishing experience, for its progress to the next level. */
   fishingExperience?: () => number;
   rewardKills?: () => RewardKillCounts | undefined;

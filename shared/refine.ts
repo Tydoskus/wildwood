@@ -39,7 +39,7 @@ export const REFINE_ORES = {
   frost_arrow: { name: "Frost Arrow", grade: null },
   piercing_arrow: { name: "Piercing Arrow", grade: null },
   star_arrow: { name: "Star Arrow", grade: null },
-  // Fish from the Town's river (fishing.ts): only for collecting.
+  // Fish from the Town's river (fishing.ts): ingredients for Cooking.
   minnow: { name: "Minnow", grade: null },
   perch: { name: "Perch", grade: null },
   bluegill: { name: "Bluegill", grade: null },

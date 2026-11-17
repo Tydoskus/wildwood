@@ -1,3 +1,4 @@
+import { COOK_FIRES } from "../../shared/cooking";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("../app/developer", () => ({ isDeveloperIdentity: () => false }));
 import { HOME_BENCH_POSITION, HOME_QUEST_BOARD_POSITION, HOME_RESEARCH_POSITION } from "../../shared/home";
@@ -63,7 +64,7 @@ describe("Home's stations in the Town's buildings", () => {
       expect(decor).toContainEqual(expect.objectContaining({ type: "station", x: at.x, y: at.y, label }));
     }
     // Out in the village, the rooms' stations are not in the window: only the Smith and the market's sellers, outdoors.
-    expect(stationLabels(TOWN_ARRIVAL)).toEqual(["Smith", "Card Seller", "Weapon Seller", "Armor Seller", "Trade Chrysanthemum"]);
+    expect(stationLabels(TOWN_ARRIVAL)).toEqual([...COOK_FIRES.map(() => "Cooking Fire"), "Smith", "Card Seller", "Weapon Seller", "Armor Seller", "Trade Chrysanthemum"]);
   });
   it("takes the place of one piece of furniture each, and overlaps no other", () => {
     const decor = townWindowDecor(TOWN_BENCH_POSITION.x, TOWN_BENCH_POSITION.y);

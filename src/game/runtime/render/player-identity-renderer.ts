@@ -5,7 +5,7 @@ import { applyProfileIcon, createProfileIconCanvasPainter } from "../../../app/p
 import { setProfileSnapshotSource } from "../../../app/profile-snapshot-portraits";
 import type { ProfileSnapshotLook } from "../../../../shared/profile-snapshot";
 import { playerNamePrefix, appendPlayerNameTags, appendPrestigeBadge, playerPrestigeLevel } from "../../../app/player-name-tags";
-import { PRESTIGE_BADGE_ASSET, PRESTIGE_BADGE_PX } from "../../../../shared/prestige";
+import { PRESTIGE_BADGE_ASSET, PRESTIGE_BADGE_PX, prestigeBadgeWidthRatio } from "../../../../shared/prestige";
 import {
   playerPowerForStats,
   type PlayerPowerProgress,
@@ -471,9 +471,10 @@ export function createPlayerIdentityRenderer(options: {
       const genderIconWidth = genderIcon ? genderIconHeight * genderIcon.width / genderIcon.height : 0;
       const genderIconGap = genderIcon ? OVERHEAD_GENDER_ICON_GAP : 0;
       const badgeSize = badge ? iconBoxes.badge.size : 0;
+      const badgeWidth = badgeSize * prestigeBadgeWidthRatio(prestige);
       const badgeGap = badge ? OVERHEAD_BADGE_GAP : 0;
       const nameWidth = nameMetrics.width;
-      const labelWidth = nameWidth + badgeGap + badgeSize + genderIconGap + genderIconWidth;
+      const labelWidth = nameWidth + badgeGap + badgeWidth + genderIconGap + genderIconWidth;
       const textLeft = centerX - labelWidth / 2;
       const badgeLeft = textLeft + nameWidth + badgeGap;
       ctx.textAlign = "left";
@@ -487,7 +488,7 @@ export function createPlayerIdentityRenderer(options: {
       if (badge) {
         ctx.imageSmoothingEnabled = true;
         const badgeTop = baseline + iconBoxes.badge.top;
-        ctx.drawImage(badge, badgeLeft, badgeTop, badgeSize, badgeSize);
+        ctx.drawImage(badge, badgeLeft, badgeTop, badgeWidth, badgeSize);
         // White with the same outline every other overhead label carries. The
         // digit is drawn at .515 rather than the middle because "middle" centres
         // the font's em box, not the ink, and the shield's own centre is above
@@ -495,7 +496,7 @@ export function createPlayerIdentityRenderer(options: {
         ctx.font = iconBoxes.badgeDigitFont;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        options.outlinedText(String(prestige), badgeLeft + badgeSize / 2, badgeTop + badgeSize * .515, "#ffffff", iconBoxes.badgeDigitStroke);
+        options.outlinedText(String(prestige), badgeLeft + badgeWidth / 2, badgeTop + badgeSize * .515, "#ffffff", iconBoxes.badgeDigitStroke);
         ctx.textBaseline = "alphabetic";
         ctx.font = PLATE_TEXT_FONT;
       }
@@ -503,7 +504,7 @@ export function createPlayerIdentityRenderer(options: {
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(
           genderIcon,
-          textLeft + nameWidth + badgeGap + badgeSize + genderIconGap + OVERHEAD_GENDER_ICON_OFFSET_X,
+          textLeft + nameWidth + badgeGap + badgeWidth + genderIconGap + OVERHEAD_GENDER_ICON_OFFSET_X,
           baseline + iconBoxes.gender.top,
           Math.round(genderIconWidth),
           genderIconHeight,

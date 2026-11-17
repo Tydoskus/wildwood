@@ -1,3 +1,4 @@
+import { fishingTimeFactor } from "../../../../shared/fishing-treasures";
 import { FISH, FISHING_REACH, fishOpenAt, fishingCatchSeconds, fishingLevel, fishingSpotsAt, type Fish, type FishId } from "../../../../shared/fishing";
 import { TOWN_FEET_OFFSET } from "../../../../shared/town";
 import { bagSlotsWithOres, type BagSpace } from "../../../../shared/ore-bag";
@@ -38,6 +39,7 @@ const HINT_SECONDS = 6;
 export function createFishingRuntime(deps: {
   source: () => FishingSource | null | undefined;
   player: PlayerState;
+  equipment?: { equippedHead: string; equippedChest: string };
   message?: (text: string, color: string) => void;
   logPickup?: (label: string, color: string) => void;
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
@@ -74,6 +76,7 @@ export function createFishingRuntime(deps: {
   }
 
   function stop() {
+    fishingScene.castAge = 0; fishingScene.bite = 0; fishingScene.splash = 0; fishingScene.caughtFish = null;
     fishingAt = null; elapsed = 0; waiting = false;
     fishingScene.fishing = null; fishingScene.rodOut = false;
   }
@@ -110,8 +113,13 @@ export function createFishingRuntime(deps: {
       const color = FISH_COLORS[fish.id];
       deps.logPickup?.(`+1 ${fish.name}`, color);
       const spot = fishingScene.spots.find(each => each.spot === fishingAt?.spot);
-      if (spot) { deps.burst?.(spot.x, spot.y - 6, WATER, 14, 110); deps.burst?.(spot.x, spot.y - 10, color, 6, 70); }
-      fishingScene.splash = 1;
+      if (spot) {
+        deps.burst?.(spot.x, spot.y - 6, WATER, 14, 110);
+        deps.burst?.(spot.x, spot.y - 10, color, 6, 70);
+        fishingScene.caughtFish = fish.id;
+        fishingScene.splash = 1;
+        fishingScene.castAge = 0;
+      }
       fishingScene.gain = fish.experience;
       fishingScene.gainLeft = 1;
       const level = fishingLevel(source.fishingExperience?.() ?? 0), opened = FISH.find(each => each.level === level);
@@ -138,9 +146,9 @@ export function createFishingRuntime(deps: {
   function cast(source: FishingSource, spot: { spot: number; site: number }) {
     waiting = true;
     elapsed = 0;
-    const started = session;
+    const started = session, castAt = fishingAt;
     void (source.catchFish?.(spot.spot, spot.site) ?? Promise.resolve({ ok: false, error: "NOT CONNECTED" })).then(result => {
-      if (session !== started || !fishingAt) return;
+      if (session !== started || fishingAt !== castAt) return;
       waiting = false;
       if (result.ok) return;
       stop();
@@ -158,7 +166,7 @@ export function createFishingRuntime(deps: {
       session = { source, identity: source.localIdentity?.() ?? "", generation: source.sessionGeneration?.() ?? 0 };
     }
     refreshSpots(now());
-    fishingScene.splash = Math.max(0, fishingScene.splash - dt * 1.5);
+    fishingScene.splash = Math.max(0, fishingScene.splash - dt / .9);
     fishingScene.gainLeft = Math.max(0, fishingScene.gainLeft - dt / 1.4);
     fishingScene.experience = source?.fishingExperience?.() ?? 0;
     active = Boolean(here && source && deps.player.hp > 0);
@@ -168,7 +176,12 @@ export function createFishingRuntime(deps: {
       const spot = fishingScene.spots[fishingAt.spot];
       if (!spot || spot.site !== fishingAt.site) { stop(); say("The fishing spot moved.", WATER); return; }
       if (deps.player.moving || !inReach(spot)) { stop(); return; }
-      if (!waiting && (elapsed += dt) >= fishingCatchSeconds(source.fishingExperience?.() ?? 0)) cast(source, spot);
+      if (fishingScene.splash === 0) fishingScene.castAge += dt;
+      const duration = fishingCatchSeconds(source.fishingExperience?.() ?? 0)
+        * fishingTimeFactor(deps.equipment?.equippedHead, deps.equipment?.equippedChest);
+      if (!waiting) elapsed += dt;
+      fishingScene.bite = waiting ? 1 : Math.max(0, 1 - (duration - elapsed) / 1.45);
+      if (!waiting && elapsed >= duration) cast(source, spot);
       return;
     }
     if (!heading) return;

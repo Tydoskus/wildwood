@@ -94,6 +94,18 @@ const SKY_BOOTS: ItemPresentation = {
 export const ITEM_PRESENTATIONS: Partial<Record<ItemId, ItemPresentation>> = {
   ...CAMPAIGN_ITEM_PRESENTATIONS,
   ...GRADE_ITEM_PRESENTATIONS,
+  reedward_cap: {
+    inventory: { source: `${PLAYER_PARTS}/reedward-cap.webp`, equippedWidth: 30, equippedHeight: 27 },
+    world: { kind: "SPRITE", source: `${PLAYER_PARTS}/reedward-cap.webp`, layer: "HEAD", bottom: 144 },
+  },
+  drowned_court_mail: {
+    inventory: { source: `${PLAYER_PARTS}/drowned-court-mail.webp`, equippedWidth: 34, equippedHeight: 31 },
+    world: { kind: "SPRITE", source: `${PLAYER_PARTS}/drowned-court-mail.webp`, layer: "CHEST", width: 76, height: 68, top: 100 },
+  },
+  crown_of_the_wishing_deep: {
+    inventory: { source: `${PLAYER_PARTS}/wishing-deep-crown.webp`, equippedWidth: 30, equippedHeight: 27 },
+    world: { kind: "SPRITE", source: `${PLAYER_PARTS}/wishing-deep-crown.webp`, layer: "HEAD", bottom: 144 },
+  },
   [GALAXY_HELMET]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_helmet),
   [GALAXY_ARMOR]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_armor),
   [GALAXY_BOW]: galaxyFinish(CAMPAIGN_ITEM_PRESENTATIONS.ion_bow),

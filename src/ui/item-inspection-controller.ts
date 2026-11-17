@@ -175,6 +175,7 @@ function cardSection({ title, cards }: { title: string; cards: readonly string[]
 
 /** Standalone item window shared by inventory and future item-bearing screens. */
 export function createItemInspectionController(elements: ItemInspectionElements) {
+  let inspectedOre: OreId | null = null;
   let returnFocus: HTMLElement | null = null;
   const tools = elements.panel.querySelector<HTMLElement>(".item-inspection-tools")!;
   // The buttons stand under the scrolling details, above Back, so a long item never pushes Equip out of view.
@@ -184,6 +185,7 @@ export function createItemInspectionController(elements: ItemInspectionElements)
 
   function close() {
     if (elements.panel.hidden) return;
+    inspectedOre = null;
     elements.panel.hidden = true;
     elements.content.replaceChildren();
     actionsHost.replaceChildren();
@@ -196,6 +198,7 @@ export function createItemInspectionController(elements: ItemInspectionElements)
   function open(request: ItemInspectionRequest) {
     const item = itemDefinition(request.itemId);
     if (!item) return false;
+    inspectedOre = null;
     const level = normalizeItemUpgradeLevel(request.upgradeLevel);
     const refine = normalizeRefineLevel(request.refine);
     if (elements.panel.hidden) {
@@ -339,6 +342,7 @@ export function createItemInspectionController(elements: ItemInspectionElements)
 
   /** An ore stack's window (shared/ore-bag.ts): its icon and name, how many are in the bag, what it refines and where it comes from. */
   function openOre(request: OreInspectionRequest) {
+    inspectedOre = request.oreId;
     if (elements.panel.hidden) {
       returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
@@ -386,6 +390,7 @@ export function createItemInspectionController(elements: ItemInspectionElements)
     copies?: number; actions?: readonly ItemInspectionAction[] }) {
     const card = cardDefinition(request.cardId);
     if (!card) return false;
+    inspectedOre = null;
     if (elements.panel.hidden) {
       returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
@@ -447,5 +452,6 @@ export function createItemInspectionController(elements: ItemInspectionElements)
     openCard,
     close,
     isOpen: () => !elements.panel.hidden,
+    isShowingOre: (id: OreId) => !elements.panel.hidden && inspectedOre === id,
   };
 }

@@ -1,3 +1,4 @@
+import { FISHING_TREASURES } from "../../shared/fishing-treasures";
 import { itemTier } from "../../shared/item-tier";
 import { GEAR_GRADE_NAMES } from "../../shared/gear-grades";
 import { gradeOf } from "../../shared/grade-equipment";
@@ -18,6 +19,8 @@ export function appendItemTierLabel(element: HTMLElement, itemId: string, placem
   label.className = "item-tier-label";
   if (placement === "above") label.classList.add("is-above");
   if (grade) label.classList.add("is-grade");
-  label.textContent = grade ? GEAR_GRADE_NAMES[grade] : `Tier ${tier}`;
+  const treasure = placement === "above" && FISHING_TREASURES.find(item => item.id === itemId);
+  if (treasure) label.style.color = treasure.color;
+  label.textContent = treasure ? treasure.rarity : grade ? GEAR_GRADE_NAMES[grade] : `Tier ${tier}`;
   element.append(label);
 }

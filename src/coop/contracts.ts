@@ -188,7 +188,7 @@ export type PlayerProfileData = {
   /** Weapon Mastery levels by school (player_weapon_mastery for your own, player_mastery_level for anyone else's); a missing school is level 0. */
   mastery?: Partial<Record<import("../../shared/weapon-mastery").WeaponSchool, number>> | null;
   /** Craft levels (my_craft_skills for your own, player_craft_level for anyone else's); a craft never practised is missing. */
-  crafts?: Partial<Record<import("../../shared/crafting").CraftSkill, number>> | null;
+  crafts?: Partial<Record<import("../../shared/crafting").PlayerCraftSkill, number>> | null;
   lifetime: PlayerLifetime;
   mapId?: string;
 };

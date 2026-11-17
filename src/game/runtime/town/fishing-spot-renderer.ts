@@ -1,3 +1,4 @@
+import { drawFishingSchool } from "./fishing-school";
 import type { Camera } from "../render/camera";
 import { fishingScene } from "./fishing-scene";
 
@@ -23,18 +24,19 @@ export function createFishingSpotRenderer(options: {
     for (const spot of fishingScene.spots) {
       if (spot.x < camera.x - 80 || spot.x > right + 80 || spot.y < camera.y - 60 || spot.y > bottom + 60) continue;
       const x = spot.x - camera.x, y = spot.y - camera.y, phase = time + spot.spot * 1.7;
+      drawFishingSchool(ctx, x, y, phase, fishingScene.fishing === spot.spot ? fishingScene.bite : 0);
       // Three ripples spreading out and fading, flattened as the water lies.
       ctx.strokeStyle = FOAM;
-      ctx.lineWidth = 2.6;
+      ctx.lineWidth = 1.7;
       for (let ring = 0; ring < 3; ring++) {
         const k = (phase / 1.8 + ring / 3) % 1, radius = 10 + k * 36;
-        ctx.globalAlpha = (1 - k) * .65;
+        ctx.globalAlpha = (1 - k) * .47;
         ctx.beginPath(); ctx.ellipse(x, y, radius, radius * .45, 0, 0, Math.PI * 2); ctx.stroke();
       }
       // The swirl: two arcs turning round the middle.
-      ctx.globalAlpha = .9;
+      ctx.globalAlpha = .64;
       ctx.strokeStyle = SWIRL;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       const turn = phase * 2.4;
       for (const offset of [0, Math.PI]) {
         ctx.beginPath(); ctx.ellipse(x, y, 16, 7, 0, turn + offset, turn + offset + 1.9); ctx.stroke();

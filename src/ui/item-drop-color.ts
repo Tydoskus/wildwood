@@ -1,9 +1,12 @@
+import { FISHING_TREASURES } from "../../shared/fishing-treasures";
 import {
   DARK_METAL_HELMET, FIRE_METAL_BOW, FIRE_METAL_HELMET, FROST_ARMOR, FROST_BOW, IRON_BOW, NIGHT_BOW, SNOW_BOW, STARTER_BOW,
 } from "../game/inventory";
 
 /** The glow and name colour an item's drop reveal uses; everything else shares the wooden brown. */
 export function itemDropColor(itemId: string) {
+  const treasure = FISHING_TREASURES.find(item => item.id === itemId);
+  if (treasure) return treasure.color;
   return itemId === DARK_METAL_HELMET
     ? "#8f83a6"
     : itemId === NIGHT_BOW

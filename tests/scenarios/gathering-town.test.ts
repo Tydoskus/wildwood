@@ -10,6 +10,7 @@ import { miningStandSpot } from "../../src/game/runtime/auto-farm/auto-mine";
 import { choppingStandSpot } from "../../src/game/runtime/auto-farm/auto-chop";
 import { gameWorld, playAs, type GameTab } from "./harness/game";
 import { foundGuild, guildWindow } from "./harness/guild";
+import { press } from "./harness/gear";
 import { profileSkillRows } from "../../src/ui/profile-skills";
 import { writeMiningLevel } from "../../spacetimedb/src/mining";
 import { clearSpotNear, fillBag, gatherer, GROVE_ENTRY, HILLS_ENTRY, serverGatherer, standingAt } from "./harness/gather";
@@ -213,6 +214,12 @@ describe("Fishing", () => {
     expect(fishingSpotAt(0, world.now()).site).not.toBe(spot.site);
     await ann.tab.play(fishingCatchSeconds(0) * 2_000);
     expect(caught()).toBe(atMove);
+    const [fishId, stock] = Object.entries(ann.ores()).find(([id]) => isFishId(id))!;
+    ann.tab.tap("inventoryBtn");
+    await ann.tab.play(200);
+    press(ann.tab, ann.tab.element("inventoryItems").querySelector(`[data-ore-id="${fishId}"]`));
+    expect(ann.tab.element("itemInspectionPanel").textContent).toContain("campfire");
+    expect(ann.ores()[fishId]).toBe(stock);
   });
 });
 

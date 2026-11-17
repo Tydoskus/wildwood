@@ -77,5 +77,9 @@ it("puts the prestige shield after the name, carrying the level inside it", asyn
   // The level is the digit inside the shield, not a second element beside it.
   expect(shield?.textContent).toBe("7");
   expect(shield?.getAttribute("aria-label")).toBe("Prestige 7");
+  const threeDigits = tags.appendPrestigeBadge(badged, DEVELOPER_IDENTITY, 101)!;
+  expect(threeDigits.getAttribute("aria-label")).toBe("Prestige 101");
+  expect(Number(threeDigits.style.getPropertyValue("--prestige-width-ratio"))).toBeGreaterThan(2);
+  threeDigits.remove();
   expect([...badged.children].map(child => child.className)).toEqual(["player-prestige-badge"]);
 });

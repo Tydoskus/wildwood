@@ -1020,6 +1020,14 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       });
       return;
     }
+    if (station.label === "Cooking Fire") {
+      drawScreenSpaceAt(ctx, camera.zoom, x, y - 50, () => {
+        ctx.textAlign = "center";
+        ctx.font = 'bold 13px Arial, sans-serif';
+        options.outlinedText("Cooking Fire", 0, 0, "#ffd796", 3);
+      });
+      return;
+    }
     if (station.label === TOWN_EXCHANGE_LABEL) {
       options.drawExchangeClerk?.(x, y);
       // Its name hangs on the hall's lower roof, above its doors.

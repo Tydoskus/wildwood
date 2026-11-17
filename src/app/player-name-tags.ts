@@ -1,3 +1,4 @@
+import { setPrestigeBadgeLevel } from "../ui/prestige-badge";
 import { isDeveloperIdentity } from "./developer";
 
 type NameTag = { guildTag: string; showDevTag: boolean };
@@ -64,7 +65,7 @@ export function appendPrestigeBadge(element: HTMLElement, identity?: string, lev
   if (level <= 0) return null;
   const badge = element.ownerDocument.createElement("span");
   badge.className = "player-prestige-badge";
-  badge.textContent = String(level);
+  setPrestigeBadgeLevel(badge, level);
   badge.setAttribute("aria-label", `Prestige ${level}`);
   element.append(badge);
   return badge;

@@ -1,11 +1,12 @@
 import type { PlayerProfileData } from "../wildstat-coop";
 import { WEAPON_SCHOOLS, WEAPON_SCHOOL_NAMES, masteryPointsForLevel, masteryProgress, type WeaponSchool } from "../../shared/weapon-mastery";
 import { GEAR_GRADES, GEAR_GRADE_NAMES, GRADE_MASTERY_LEVEL, type GearGrade } from "../../shared/gear-grades";
-import { CRAFT_LEVEL, CRAFT_MAX_LEVEL, CRAFT_SKILLS, CRAFT_SKILL_NAMES, MATERIAL_NAMES, craftExperienceForLevel, craftLevel, type CraftSkill } from "../../shared/crafting";
+import { CRAFT_LEVEL, CRAFT_MAX_LEVEL, ALL_CRAFT_SKILLS, CRAFT_SKILL_NAMES, MATERIAL_NAMES, craftExperienceForLevel, craftLevel, type PlayerCraftSkill } from "../../shared/crafting";
 import { MINING_VEINS } from "../../shared/mining";
 import { WOOD_STANDS } from "../../shared/woodcutting";
 import { FISH, FISHING_MAX_LEVEL, fishingExperienceForLevel, fishingLevel } from "../../shared/fishing";
 import { SOUL_STAT_DETAILS, SOUL_STAT_ORDER, SOUL_TIER_COUNT, SOUL_TIER_KILL_TYPES, soulTier, soulTierKillsNeeded, type RewardKillCounts } from "../../shared/soul-dimension";
+import { nextCookingUnlock } from "../../shared/cooking";
 import { formatCompactNumber } from "../../shared/compact-number";
 
 export type ProfileSkillGroup = "Weapon Mastery" | "Gathering" | "Crafting";
@@ -19,7 +20,7 @@ export type ProfileSkillRow = {
 /** Your own points, which only your profile has: Mastery points, craft and Fishing experience. */
 export type OwnSkillPoints = {
   mastery?: Readonly<Partial<Record<WeaponSchool, bigint | number>>>;
-  crafts?: Readonly<Partial<Record<CraftSkill, bigint | number>>>;
+  crafts?: Readonly<Partial<Record<PlayerCraftSkill, bigint | number>>>;
   fishing?: number;
 };
 
@@ -69,7 +70,7 @@ export function profileSkillRows(profile: Pick<PlayerProfileData, "mastery" | "m
   rows.push(gatheringRow("mining", "Mining", profile.mining, MINING_VEINS.map(vein => ({ at: vein.mining, name: MATERIAL_NAMES[vein.ore] })), Boolean(own)));
   rows.push(gatheringRow("woodcutting", "Woodcutting", profile.woodcutting, WOOD_STANDS.map(stand => ({ at: stand.woodcutting, name: `${stand.name}s` })), Boolean(own)));
   rows.push(fishingRow(profile.fishing, own?.fishing, Boolean(own)));
-  for (const skill of CRAFT_SKILLS) {
+  for (const skill of ALL_CRAFT_SKILLS) {
     const base = { kind: skill, group: "Crafting" as const, name: CRAFT_SKILL_NAMES[skill] };
     const known = profile.crafts?.[skill];
     const experience = Math.max(0, Number(own?.crafts?.[skill] ?? (known ? craftExperienceForLevel(known) : 0)) || 0);
@@ -78,7 +79,7 @@ export function profileSkillRows(profile: Pick<PlayerProfileData, "mastery" | "m
     const floor = craftExperienceForLevel(level), ceiling = craftExperienceForLevel(level + 1);
     const max = level >= CRAFT_MAX_LEVEL;
     rows.push({ ...base, level: !started ? "Not Started" : max ? `Lv ${level} Max` : `Lv ${level}`,
-      progress: max || !started ? undefined : { into: experience - floor, needed: ceiling - floor }, next: nextGrade(CRAFT_LEVEL, level) });
+      progress: max || !started ? undefined : { into: experience - floor, needed: ceiling - floor }, next: skill === "cooking" ? nextCookingUnlock(level) : nextGrade(CRAFT_LEVEL, level) });
   }
   return rows;
 }

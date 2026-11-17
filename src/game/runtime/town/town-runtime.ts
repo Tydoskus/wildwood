@@ -5,6 +5,7 @@ import { SOUL_DOORS_OPEN, SOUL_INTERIOR_SOLIDS, TOWN_VILLAGE_PITS, TOWN_VILLAGE_
 import { furnishedInteriorSolids, townWindowDecor } from "../../town-world";
 import { TOWN_EXCHANGE_SOLIDS } from "../../town-exchange";
 import type { MapId, WorldDecor } from "../../world";
+import { WELL_RETURN_AT } from "../soul/well-interior";
 import { soulWellFall } from "../soul/soul-well-fall";
 import type { PlayerState } from "../types";
 import { createMiningRuntime, type MiningSource } from "./mining-runtime";
@@ -74,7 +75,7 @@ const DOORWAY_STEP = 22, DOORWAY_MS = 240;
 /** How far into a well's outline the feet must reach to fall: its opening, not its rim. */
 const WELL_OPENING = .6;
 /** A fall: a stumble to the middle, then the drop, the screen going dark from partway down. */
-const FALL_STUMBLE = .18, FALL_SECONDS = 1, FALL_DEPTH = 110, FALL_DARK_AT = .3, FALL_DARK_MS = 600;
+const FALL_STUMBLE = .13, FALL_SECONDS = .60, FALL_DEPTH = 110, FALL_DARK_MS = 420;
 
 function inside(x: number, y: number, solid: SoulSolid) {
   let hit = false;
@@ -149,7 +150,7 @@ export function createTownRuntime(deps: {
   };
   const mining = createMiningRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
   const woodcutting = createWoodcuttingRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
-  const fishing = createFishingRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
+  const fishing = createFishingRuntime({ source, equipment: deps.inventory, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
 
   /** Brings the props around the player up to date. */
   function refreshWindow(force = false) {
@@ -180,42 +181,44 @@ export function createTownRuntime(deps: {
 
   /** A fall under way: the stumble to the well's middle, the drop (the camera with it), the dark, the square. */
   let fall: { x: number; y: number; cx: number; cy: number; elapsed: number; dark: boolean } | null = null;
-  /** Feet in a well's opening: in they go. */
+  const wells = TOWN_VILLAGE_PITS.map(well => ({
+    well, cx: well.xs.reduce((sum, v) => sum + v, 0) / well.xs.length,
+    cy: well.ys.reduce((sum, v) => sum + v, 0) / well.ys.length,
+  }));
+  function startFall({ well, cx, cy }: typeof wells[number]) {
+    const { player } = deps;
+    fall = { x: player.x, y: player.y, cx, cy, elapsed: 0, dark: false };
+    const approachX = cx - player.x;
+    const direction = Math.sign(Math.abs(approachX) > 2 ? approachX : Math.cos(player.facing)) || 1;
+    Object.assign(soulWellFall, { active: true, direction, lip: cy + (well.bottom - cy) * WELL_OPENING, progress: 0, elapsed: 0 });
+    deps.clearInput?.();
+  }
   function checkWells() {
     const { player } = deps;
-    if (fall || player.hp <= 0) return;
-    const feetY = player.y + FEET_OFFSET;
-    const well = TOWN_VILLAGE_PITS.find(pit => inWell(player.x, feetY, pit));
-    if (!well) return;
-    const cx = well.xs.reduce((sum, v) => sum + v, 0) / well.xs.length, cy = well.ys.reduce((sum, v) => sum + v, 0) / well.ys.length;
-    fall = { x: player.x, y: player.y, cx, cy, elapsed: 0, dark: false };
-    Object.assign(soulWellFall, { active: true, lip: cy + (well.bottom - cy) * WELL_OPENING, progress: 0 });
-    deps.clearInput?.();
+    const opening = wells.find(({ well }) => inWell(player.x, player.y + FEET_OFFSET, well));
+    if (opening && player.hp > 0) startFall(opening);
   }
   function updateFall(dt: number) {
     if (!fall) return;
     const { player } = deps;
     fall.elapsed += dt;
     const t = fall.elapsed;
-    if (t < FALL_STUMBLE) {
-      const k = t / FALL_STUMBLE;
-      player.x = fall.x + (fall.cx - fall.x) * k;
-      player.y = fall.y + (fall.cy - FEET_OFFSET - fall.y) * k;
-    } else {
-      // Gravity: slow at the lip, then gone.
-      const k = Math.min(1, (t - FALL_STUMBLE) / (FALL_SECONDS - FALL_STUMBLE));
-      player.x = fall.cx;
-      player.y = fall.cy - FEET_OFFSET + FALL_DEPTH * k * k;
-      soulWellFall.progress = k;
-    }
+    soulWellFall.elapsed = t;
+    const step = Math.min(1, t / FALL_STUMBLE);
+    const reach = 1 - (1 - step) ** 2;
+    const drop = Math.min(1, Math.max(0, (t - .07) / (FALL_SECONDS - .07)));
+    player.x = fall.x + (fall.cx - fall.x) * reach;
+    player.y = fall.y + (fall.cy - FEET_OFFSET - fall.y) * reach + FALL_DEPTH * drop * drop;
+    soulWellFall.progress = drop;
     player.moving = false;
-    if (!fall.dark && t >= FALL_DARK_AT) {
+    if (!fall.dark && t >= WELL_RETURN_AT) {
       fall.dark = true;
-      if (deps.fadeToWorld) deps.fadeToWorld(landFall, FALL_DARK_MS);
+      const trip = fall;
+      if (deps.fadeToWorld) deps.fadeToWorld(() => { if (fall === trip) landFall(); }, FALL_DARK_MS);
       else landFall();
     }
     // A fade that never came (one was already running) must not leave the player in the well.
-    if (fall && t > FALL_DARK_AT + FALL_DARK_MS / 1_000 + 1.5) landFall();
+    if (fall && t > WELL_RETURN_AT + FALL_DARK_MS / 1_000 + 1.5) landFall();
   }
   /** On the dark: back on the square, and the server is told so it agrees where the player is. */
   function landFall() {
@@ -227,7 +230,7 @@ export function createTownRuntime(deps: {
     player.y = TOWN_ARRIVAL.y;
     player.moving = false;
     lastY = player.y;
-    deps.logPickup?.("Splash! You fell into the well", "#7fd4ff");
+    deps.logPickup?.("The ferryman returns you to the square.", "#7fd4ff");
     void (source()?.fallIntoWell?.() ?? Promise.resolve(false)).catch(() => false);
   }
 
@@ -291,13 +294,17 @@ export function createTownRuntime(deps: {
 
   /** One frame of the Town's own rules; whether the player is left free to act (not at a door, not falling). */
   function step(dt: number) {
-    if (!isTownMap(deps.currentMapId())) { windowKey = ""; return false; }
+    if (!isTownMap(deps.currentMapId())) {
+      windowKey = ""; fall = null; soulWellFall.active = false;
+      return false;
+    }
     refreshWindow();
     if (fall) { updateFall(dt); return false; }
     if (doorway) { walkDoorway(dt); return false; }
     checkDoors();
     if (doorway) return false;
     checkWells();
+    if (fall) return false;
     resolveCollision();
     lastY = deps.player.y;
     return true;
@@ -310,9 +317,12 @@ export function createTownRuntime(deps: {
       woodcutting.update(dt, free);
       fishing.update(dt, free);
     },
-    /** A tap or click on the screen: true when it picked a fishing spot in reach, so the click does not walk. */
-    tap: (clientX: number, clientY: number) => Boolean(deps.camera)
-      && fishing.tap(deps.camera!.x + clientX / deps.camera!.zoom, deps.camera!.y + clientY / deps.camera!.zoom),
+    tap(clientX: number, clientY: number) {
+      if (!deps.camera || !isTownMap(deps.currentMapId()) || deps.player.hp <= 0) return false;
+      if (fall || doorway) return true;
+      const x = deps.camera.x + clientX / deps.camera.zoom, y = deps.camera.y + clientY / deps.camera.zoom;
+      return fishing.tap(x, y);
+    },
     /** Forces the window to rebuild, as after the map loads. */
     refresh: () => refreshWindow(true),
   };

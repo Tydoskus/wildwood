@@ -229,8 +229,8 @@ it("loads the inspected player's craft levels, and only theirs, with the profile
   const sql = f.subscriptions[0].queries.map(query => (query as { toSql(): string }).toSql());
   expect(sql.find(text => text.includes("player_craft_level"))).toMatch(/WHERE .*identity.* = 0x1{64}/);
   (f.connection.db as any).playerCraftLevel = { iter: () => [
-    { identity, skill: "fletching", level: 12 }, { identity, skill: "cooking", level: 9 }, { identity: other, skill: "smithing", level: 4 },
+    { identity, skill: "fletching", level: 12 }, { identity, skill: "cooking", level: 9 }, { identity, skill: "unknown", level: 3 }, { identity: other, skill: "smithing", level: 4 },
   ] };
   f.subscriptions[0].apply();
-  expect((await request)?.crafts).toEqual({ fletching: 12 });
+  expect((await request)?.crafts).toEqual({ fletching: 12, cooking: 9 });
 });

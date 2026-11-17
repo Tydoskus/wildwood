@@ -1,3 +1,4 @@
+import { FISHING_TREASURES } from "../../../shared/fishing-treasures";
 import { leaderboardEligible } from "../../../shared/leaderboard-window";
 import { itemDisplayName } from "../../../shared/items";
 import { createAutoEquipFeedback } from "../../ui/auto-equip-feedback";
@@ -101,11 +102,13 @@ export function createCoopSessionWiring(deps: CoopSessionWiringDeps) {
     if (!setInventoryItemQuantity(inventory, itemId, 1)) return;
     renderInventory();
     const level = client?.itemUpgradeLevel?.(itemId) ?? 0;
+    const treasure = FISHING_TREASURES.find(each => each.id === itemId);
     runtimeHud.showItemDrop({
       artSource: itemPresentation(itemId)?.inventory.source ?? "", itemId,
       color: itemDropColor(itemId),
       name: itemDisplayName(itemId),
-      stats: itemStatsWithWeaponSkills(itemId, level, coop.weaponSkills(itemId)),
+      stats: treasure ? [`${treasure.rarity} fishing treasure`, `${treasure.faster}% shorter wait for bites`]
+        : itemStatsWithWeaponSkills(itemId, level, coop.weaponSkills(itemId)),
     });
   });
   const { healthMultiplierBonus } = deps;

@@ -1,3 +1,4 @@
+import { FISHING_EQUIPMENT } from "./fishing-treasures";
 import { equipmentStatDefinition } from "./equipment-budget";
 import { CAMPAIGN_ITEM_DEFINITIONS } from "./campaign-equipment";
 import { GRADE_ITEM_DEFINITIONS, armorClassOf } from "./grade-equipment";
@@ -94,7 +95,7 @@ export const ITEM_UPGRADE_DURATION_GROWTH = 1.2294;
 export type ItemSlot = "HEAD" | "CHEST" | "FEET" | "HAND";
 export type EquipmentSlot = "HEAD" | "CHEST" | "FEET" | "RIGHT_HAND" | "LEFT_HAND";
 /** PATREON_DIAMOND: never stored as owned; worn only while the account's Patreon Diamond membership is active (shared/patreon-cosmetics.ts). */
-export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "PATREON_DIAMOND" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP" | "INFERNAL_DROP" | "SAMURAI_DROP" | "WATER_DROP" | "CLOUDSPIRE_DROP" | "MOONFEN_DROP" | "CAMPAIGN_DROP" | "TOWN_DROP";
+export type ItemAcquisition = "STARTER" | "PROGRESSION" | "DEVELOPER" | "PATREON_DIAMOND" | "FOREST_DROP" | "DESERT_DROP" | "SNOW_DROP" | "SNOW_BOSS_DROP" | "LAVA_DROP" | "LAVA_BOSS_DROP" | "INFERNAL_DROP" | "SAMURAI_DROP" | "WATER_DROP" | "CLOUDSPIRE_DROP" | "MOONFEN_DROP" | "CAMPAIGN_DROP" | "TOWN_DROP" | "FISHING_DROP";
 export type ProjectileKind = "ROCK" | "ARROW" | "BOLT";
 
 export type ItemDefinition = {
@@ -413,6 +414,7 @@ export const ITEM_DEFINITIONS = {
   },
   // Graded gear from the Smith, last so the older items keep their order.
   ...GRADE_ITEM_DEFINITIONS,
+  ...FISHING_EQUIPMENT,
 } as const satisfies Record<string, ItemDefinition>;
 
 export type ItemId = keyof typeof ITEM_DEFINITIONS;

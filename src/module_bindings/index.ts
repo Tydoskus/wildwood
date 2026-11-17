@@ -75,6 +75,7 @@ import CompleteOnboardingStepReducer from "./complete_onboarding_step_reducer";
 import ConfigureGemCommerceReducer from "./configure_gem_commerce_reducer";
 import ConfigurePatreonReducer from "./configure_patreon_reducer";
 import ConvertItemToCosmeticReducer from "./convert_item_to_cosmetic_reducer";
+import CookFishReducer from "./cook_fish_reducer";
 import CraftArrowsReducer from "./craft_arrows_reducer";
 import CraftGradeGearReducer from "./craft_grade_gear_reducer";
 import CraftGradeItemReducer from "./craft_grade_item_reducer";
@@ -1965,6 +1966,7 @@ const reducersSchema = __reducers(
   __reducerSchema("configure_gem_commerce", ConfigureGemCommerceReducer),
   __reducerSchema("configure_patreon", ConfigurePatreonReducer),
   __reducerSchema("convert_item_to_cosmetic", ConvertItemToCosmeticReducer),
+  __reducerSchema("cook_fish", CookFishReducer),
   __reducerSchema("craft_arrows", CraftArrowsReducer),
   __reducerSchema("craft_grade_gear", CraftGradeGearReducer),
   __reducerSchema("craft_grade_item", CraftGradeItemReducer),

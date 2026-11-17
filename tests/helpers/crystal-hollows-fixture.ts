@@ -10,14 +10,14 @@ export const identity = (digit: string) => new Identity(digit.repeat(64));
 
 // All state is isolated in memory. vi.mock in the importing test replaces only
 // host registration, so these are the production reducer callbacks.
-export function crystalFixture() {
+export function crystalFixture(roll: () => number = () => .5) {
   const storage = createMemoryDatabase(server.default);
   const { db } = storage;
   const ctx = {
     db, sender: identity("1"), connectionId: new ConnectionId(1n) as ConnectionId | null,
     timestamp: new Timestamp(10_000_000n),
     senderAuth: {} as { jwt?: { issuer: string; audience: string[] } },
-    random: Object.assign(() => .5, { integerInRange: (min: number, max: number) => Math.floor((min + max) / 2) }),
+    random: Object.assign(roll, { integerInRange: (min: number, max: number) => Math.floor((min + max) / 2) }),
   };
   const insert = (table: string, row: Record<string, unknown>) => db[table].insert(storage.row(table, row));
   // A player in the world has agreed to the Terms; test players have also given an adult age, so chat is open.

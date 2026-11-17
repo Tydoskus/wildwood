@@ -47,6 +47,7 @@ import CompleteOnboardingStepReducer from "../complete_onboarding_step_reducer";
 import ConfigureGemCommerceReducer from "../configure_gem_commerce_reducer";
 import ConfigurePatreonReducer from "../configure_patreon_reducer";
 import ConvertItemToCosmeticReducer from "../convert_item_to_cosmetic_reducer";
+import CookFishReducer from "../cook_fish_reducer";
 import CraftArrowsReducer from "../craft_arrows_reducer";
 import CraftGradeGearReducer from "../craft_grade_gear_reducer";
 import CraftGradeItemReducer from "../craft_grade_item_reducer";
@@ -251,6 +252,7 @@ export type CompleteOnboardingStepParams = __Infer<typeof CompleteOnboardingStep
 export type ConfigureGemCommerceParams = __Infer<typeof ConfigureGemCommerceReducer>;
 export type ConfigurePatreonParams = __Infer<typeof ConfigurePatreonReducer>;
 export type ConvertItemToCosmeticParams = __Infer<typeof ConvertItemToCosmeticReducer>;
+export type CookFishParams = __Infer<typeof CookFishReducer>;
 export type CraftArrowsParams = __Infer<typeof CraftArrowsReducer>;
 export type CraftGradeGearParams = __Infer<typeof CraftGradeGearReducer>;
 export type CraftGradeItemParams = __Infer<typeof CraftGradeItemReducer>;

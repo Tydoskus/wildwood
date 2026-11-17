@@ -1,3 +1,4 @@
+import { COOK_FIRES, FIRE_REACH } from "../../../../shared/cooking";
 import {
   TOWN_ARMOR_SELLER_POSITION, TOWN_BENCH_POSITION, TOWN_EXCHANGE_POSITION, TOWN_EXCHANGE_REACH, TOWN_CARD_SELLER_POSITION, TOWN_GEAR_SELLER_REACH, TOWN_WEAPON_SELLER_POSITION, TOWN_CARD_SELLER_REACH, TOWN_DOORS, TOWN_FEET_OFFSET, TOWN_OX_POSITION, TOWN_OX_REACH,
   TOWN_QUEST_BOARD_POSITION, TOWN_RESEARCH_POSITION, TOWN_SCHOOL_POSITIONS, TOWN_SCHOOL_REACH, TOWN_SMITH_POSITION, TOWN_SMITH_REACH, TOWN_SOUL_PORTAL, TOWN_TRAVEL_PORTAL, TOWN_WALK_AREA, inTownWalkArea, townRoomAt,
@@ -64,6 +65,7 @@ export function townFeetClear(x: number, feetY: number, r = CLEARANCE) {
  * in), the Smith's, the sellers', the Trade Chrysanthemum's clerk's, stations' and schools' reach (walking by opens their window), and the two portals.
  */
 const AVOID: readonly { x: number; y: number; r: number }[] = [
+  ...COOK_FIRES.map(at => ({ ...at, r: FIRE_REACH + 30 })),
   ...TOWN_DOORS.map(door => ({ x: door.x, y: door.enter + 10, r: Math.max(48, door.half + 30) })),
   { ...TOWN_SMITH_POSITION, r: TOWN_SMITH_REACH + 30 }, { ...TOWN_CARD_SELLER_POSITION, r: TOWN_CARD_SELLER_REACH + 30 },
   { ...TOWN_OX_POSITION, r: TOWN_OX_REACH + 30 },

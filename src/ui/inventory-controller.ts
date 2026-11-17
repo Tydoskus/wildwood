@@ -33,6 +33,7 @@ import { itemInspectionButtonLabel } from "./item-inspection-controller";
 import { oreKindsHeld } from "../../shared/ore-bag";
 import { toolArtSource } from "../game/runtime/town/tool-sprites";
 import type { ToolId } from "../../shared/tools";
+import { fishById } from "../../shared/fishing";
 import { isArrowId, type ArrowId } from "../../shared/arrows";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
@@ -261,7 +262,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     if (!(count > 0) && dependencies.nockedArrow?.() !== oreId) return;
     clearInventorySelection(dependencies.inventory);
     dependencies.itemInspection.openOre?.({ oreId, count, actions: [...nockActions(oreId), ...dependencies.destroyOre ? [{
-      label: "Destroy ore",
+      label: fishById(oreId) ? "Discard fish stack" : "Destroy ore",
       kind: "DESTROY",
       onActivate: async () => {
         if (!await ask(confirmDestroy, {
@@ -358,6 +359,7 @@ export function createInventoryController(dependencies: InventoryDependencies) {
       upgradeLevel: dependencies.upgradeLevel(itemId),
       ...(mode === "EQUIPMENT" ? { refine: dependencies.refineLevel?.(itemId, copyId) ?? 0 } : { lookRefine: dependencies.lookRefine?.(itemId) ?? 0 }),
       ownItem: mode === "EQUIPMENT",
+      description: item.acquisition === "FISHING_DROP" ? item.description : undefined,
       ...(mode === "EQUIPMENT" ? { worn: dependencies.inventory } : {}),
       ...(kept.length ? { context: `Copy ${copy ? kept.indexOf(copy) + 2 : 1} of ${kept.length + 1}` } : {}),
       ...(mode === "COSMETICS" ? { context: `Cosmetic · ${cosmeticReach(itemId)}` } : {}),

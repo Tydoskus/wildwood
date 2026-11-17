@@ -42,7 +42,8 @@ type Ctx = any;
 export function isOldMapGear(itemId: unknown): boolean {
   const id = canonicalItemId(itemId);
   // Black Boots stay: graded boots replace them gradually, not on the day.
-  return Boolean(id && id !== BLACK_BOOTS && !isGradeItemId(id) && itemDefinition(id)?.acquisition !== "STARTER" && itemTier(id) !== undefined);
+  const source = itemDefinition(id)?.acquisition;
+  return Boolean(id && id !== BLACK_BOOTS && !isGradeItemId(id) && source !== "STARTER" && source !== "FISHING_DROP" && itemTier(id) !== undefined);
 }
 
 const WORN = ["equippedHead", "equippedChest", "equippedFeet", "equippedRightHand", "equippedLeftHand"] as const;

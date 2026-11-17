@@ -15,7 +15,7 @@ import { FISHING_BADGE_HEIGHT, paintFishingBadge } from "../town/fishing-badge";
 import { createFishingSpotRenderer } from "../town/fishing-spot-renderer";
 import { createWoodTreeRenderer } from "../town/wood-tree-renderer";
 import { createStarterChestRenderer } from "./starter-chest-renderer";
-import { drawSoulWellFall } from "../soul/soul-well-fall";
+import { drawSoulWellFall, soulWellFall } from "../soul/soul-well-fall";
 import { createActorRenderer, type ActorStatus } from "./actor-renderer";
 import { createBossRenderer } from "../boss/boss-renderer";
 import type { Camera } from "./camera";
@@ -461,6 +461,8 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isTownMap(options.currentMapId()) });
     const drawGroveShadows = createGroveShadowRenderer({ ctx: options.ctx, camera: options.camera, viewport: options.viewport,
       drawProp: drawSoulProp, active: () => isTownMap(options.currentMapId()) });
+    const drawTownParticles = createSoulParticles({ ctx: options.ctx, camera: options.camera, image: () => options.assets.townVillageProps,
+        viewport: options.viewport, time: options.gameTime, active: () => isTownMap(options.currentMapId()) && !lowPerformance() });
     const depth = createDepthWorldRenderer({
       camera: options.camera,
       viewport: () => options.viewport(),
@@ -489,8 +491,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         : 1,
       drawBoss: (kind) => boss.drawBoss[kind](),
       drawBossHitboxes: boss.drawBossHitboxes,
-      drawOverWorld: createSoulParticles({ ctx: options.ctx, camera: options.camera, image: () => options.assets.townVillageProps,
-        viewport: options.viewport, time: options.gameTime, active: () => isTownMap(options.currentMapId()) && !lowPerformance() }),
+      drawOverWorld: drawTownParticles,
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -503,7 +504,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         () => drawTownTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
           frame.localIdentity(),
           options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),
-          options.playerPower(options.player),
+          options.playerPower(options.player), soulWellFall.active,
         )))),
     });
     invalidateDepthOrder = () => { depth.invalidateDepthOrder(); soulGround.invalidate(); hallGround.invalidate(); };
@@ -511,6 +512,14 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       ctx: options.ctx,
       camera: options.camera,
       player: options.player,
+      drawWellPlayer: () => {
+        const gear = options.equippedItems();
+        drawStartingPlayer(options.ctx, options.playerAppearanceAssets, {
+          x: 0, y: -29, scale: .33, alpha: options.ctx.globalAlpha, facing: options.player.facing, gameTime: options.gameTime(),
+          skinTone: options.skinTone(frame.localIdentity()), headItem: gear.head, chestItem: gear.chest,
+          feetItem: gear.feet, rightHandItem: gear.rightHand, leftHandItem: gear.leftHand, weaponItem: gear.weapon,
+        });
+      },
       bootsPickup: frame.bootsPickup,
       viewport: options.viewport,
       pixelCircle: options.pixelCircle,

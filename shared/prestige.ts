@@ -67,3 +67,5 @@ export const PRESTIGE_BADGE_ASSET = "assets/wildstat/ui/prestige-shield.svg";
  * game.css carries the same value as --prestige-badge-size.
  */
 export const PRESTIGE_BADGE_PX = 19;
+/** Width relative to shield height, leaving room for the outline around each digit. */
+export const prestigeBadgeWidthRatio = (level: number) => 1 + .57 * (String(level).length - 1);

@@ -1,3 +1,4 @@
+import { setPrestigeBadgeLevel } from "./prestige-badge";
 import { prestigeCapped, prestigeEndlessRequirement, prestigeRequirementHint } from "../../shared/prestige";
 import { PRESTIGE_ARMED_WARNING, PRESTIGE_COST, prestigeRewardLabel, submitPrestige, type PrestigeResult } from "./prestige-panel";
 import { setHidden } from "./dom-write";
@@ -168,7 +169,7 @@ export function createPrestigeUnlockPopup(dependencies: PrestigeUnlockPopupDepen
   function show(level: number, asPreview: boolean) {
     preview = asPreview;
     disarm();
-    badge.textContent = String(level);
+    setPrestigeBadgeLevel(badge, level);
     title.textContent = `Prestige ${level}`;
     reward.textContent = `You would earn ${prestigeRewardLabel(level - 1)}.`;
     cost.textContent = PRESTIGE_COST;

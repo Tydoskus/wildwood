@@ -2,7 +2,7 @@ import { townRandom } from "./town";
 
 /**
  * Fishing in the Town's river: tap a fishing spot from the bank and you fish it until you walk off or it moves.
- * Fish stack in the bag as logs do and are only for collecting. Fishing is a level from 1 to 99, each level taking
+ * Fish stack in the bag as logs do and can be cooked. Fishing is a level from 1 to 99, each level taking
  * about a tenth more experience than the last: the last fish opens at 90, and 99 takes some 300 hours of fishing.
  * Every catch earns experience; a higher level also catches faster. Prestige never resets it.
  *

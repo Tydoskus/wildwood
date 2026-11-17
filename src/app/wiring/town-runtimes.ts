@@ -1,3 +1,7 @@
+import { COOK_FIRES, FIRE_REACH } from "../../../shared/cooking";
+import { TOWN_FEET_OFFSET } from "../../../shared/town";
+import { createCookingFire } from "../../ui/cooking-fire";
+import { createStationLatch, STATION_REARM_DISTANCE } from "../../ui/station-reach";
 import type { WeaponSkillRoll } from "../../../shared/weapon-skills";
 import type { WeaponSchool } from "../../../shared/weapon-mastery";
 import {
@@ -66,6 +70,7 @@ export function createTownRuntimes(deps: TownRuntimeDeps) {
       deps.quests.board.close();
       oxShop.close();
       smith.close();
+      fire.close();
       cardSeller.close();
       exchange.close();
       gearSellers.close();
@@ -77,6 +82,15 @@ export function createTownRuntimes(deps: TownRuntimeDeps) {
   });
 
   const oxShop = createOxShopRuntime({ coop: client, inventory, renderInventory: deps.renderInventory, showMessage, clearInput, inTown });
+  const fire = createCookingFire({
+    ores: () => client()?.ores?.() ?? {},
+    xp: () => client()?.craftSkills?.().cooking ?? 0n,
+    cook: async (fish, recipe) => {
+      client()?.syncMovementState?.(player.x, player.y, 0, 0, "keyboard", true);
+      return client()?.cookFish?.(fish, recipe);
+    },
+  });
+  const fireLatch = createStationLatch();
   const smith = createSmithRuntime({ coop: client, inventory, showMessage, clearInput, inTown });
   const gearSellers = createGearSellerRuntime({ coop: client, inventory, showMessage, clearInput, inTown });
   const cardSeller = createCardSellerRuntime({ coop: client, showMessage, clearInput, inTown });
@@ -169,6 +183,13 @@ export function createTownRuntimes(deps: TownRuntimeDeps) {
     /** Opens a station the player walked up to, and moves the Starter Chest's prompt. */
     update() {
       updateHomeStations();
+      const fireDistance = inTown() && !deps.isMapTransitioning() ? Math.min(...COOK_FIRES.map(at =>
+        Math.hypot(at.x - player.x, at.y - player.y - TOWN_FEET_OFFSET))) : Infinity;
+      if (fireLatch(fireDistance <= FIRE_REACH, fireDistance > FIRE_REACH + STATION_REARM_DISTANCE)) {
+        clearInput();
+        fire.open();
+      }
+      if (fireDistance > FIRE_REACH + 20) fire.close();
       if (gathering() !== gatheringShown) {
         gatheringShown = !gatheringShown;
         paintTownTeleportButton(e.townButton, deps.currentMapId(), gatheringShown);

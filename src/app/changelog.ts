@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.919": [
+    "Fish schools stir the Town river. Reel in three rare pieces of gear that shorten the wait between bites.",
+    "Bring your catch to a village campfire to earn gold and Cooking XP. Level up to unlock six recipes.",
+    "The old village wells have a secret below the rim.",
+    "Prestige badges now fit longer numbers.",
+  ],
   "0.918.3": [
     "Small speed-ups to loading and to fights, mostly on phones",
   ],
@@ -4136,6 +4142,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.919": "2026-11-17",
   "0.918.3": "2026-11-16",
   "0.918.2": "2026-11-07",
   "0.918.1": "2026-11-04",
