@@ -1,3 +1,4 @@
+import { COOK_FIRES, FIRE_REACH } from "../../shared/cooking";
 import { describe, expect, it, vi } from "vitest";
 import { MINING_NODES, miningBreakSeconds, miningGain } from "../../shared/mining";
 import { Timestamp } from "spacetimedb";
@@ -14,6 +15,7 @@ import { press } from "./harness/gear";
 import { profileSkillRows } from "../../src/ui/profile-skills";
 import { writeMiningLevel } from "../../spacetimedb/src/mining";
 import { clearSpotNear, fillBag, gatherer, GROVE_ENTRY, HILLS_ENTRY, serverGatherer, standingAt } from "./harness/gather";
+import { addOres } from "../../spacetimedb/src/item-refine";
 import { takeGold } from "../../spacetimedb/src/gold";
 import { FISHING_REACH, fishingCatchSeconds, fishingSpotAt, isFishId } from "../../shared/fishing";
 import { targetCameraZoom } from "../../src/game/runtime/render/camera";
@@ -220,6 +222,36 @@ describe("Fishing", () => {
     press(ann.tab, ann.tab.element("inventoryItems").querySelector(`[data-ore-id="${fishId}"]`));
     expect(ann.tab.element("itemInspectionPanel").textContent).toContain("campfire");
     expect(ann.ores()[fishId]).toBe(stock);
+  });
+});
+
+describe("Cooking at a Town fire", () => {
+  const at = () => standingAt(clearSpotNear(COOK_FIRES[0], FIRE_REACH - 10, 30));
+
+  it("leaves an empty-handed visitor free to walk", async () => {
+    const visitor = await gatherer(gameWorld(), "Ann", { at: at() });
+    await visitor.tab.play(500);
+    expect(visitor.tab.document.querySelector("dialog.cooking-fire[open]")).toBeNull();
+  });
+
+  it("serves timed dishes and cancels the unfinished portion when the player leaves", async () => {
+    const world = gameWorld();
+    const ann = await gatherer(world, "Ann", { at: at(), before: player =>
+      world.setup(ctx => addOres(ctx, player.identity, "minnow", 3)) });
+    await ann.tab.play(500);
+    const dialog = ann.tab.document.querySelector<HTMLDialogElement>("dialog.cooking-fire[open]")!;
+    expect(dialog).toBeTruthy();
+    dialog.querySelector("input")!.checked = true;
+    press(ann.tab, dialog.querySelector(".cook-recipe"));
+    await ann.tab.play(1500);
+    expect(ann.ores().minnow).toBe(3);
+    await ann.tab.play(1900);
+    expect(ann.ores().minnow).toBe(2);
+    expect(ann.tab.coop.craftSkills().cooking).toBe(2n);
+    press(ann.tab, dialog.querySelector(".cook-back"));
+    await ann.tab.play(4000);
+    expect(dialog.open).toBe(false);
+    expect(ann.ores().minnow).toBe(2);
   });
 });
 

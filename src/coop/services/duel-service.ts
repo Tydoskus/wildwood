@@ -255,7 +255,7 @@ export function createDuelService(dependencies: DuelServiceDependencies) {
       .subscriptionBuilder()
       .onApplied(() => {
         if (dependencies.reducers.connection() !== connection) return finish(null);
-        const row = [...connection.db.duelReplay.iter()].find((replay) => replay.id === id);
+        const row = connection.db.duelReplay.id.find(id);
         const snapshot = withStaffSkills(connection, connection.db.duelCombatSnapshot.duelId.find(id));
         if (snapshot) modifiers.set(id, snapshot);
         if (row) upsertReplay(withWideReplay(connection, row));

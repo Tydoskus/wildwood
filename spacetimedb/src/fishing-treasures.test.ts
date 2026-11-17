@@ -1,3 +1,4 @@
+import { Timestamp } from "spacetimedb";
 import { describe, expect, it, vi } from "vitest";
 import { crystalFixture, server } from "../../tests/helpers/crystal-hollows-fixture";
 import { progressOf } from "../../tests/helpers/progress";
@@ -55,8 +56,12 @@ it("cooks actual fish for gold and saved Cooking XP, and charges nothing for a r
   expect(() => cook("skewer")).toThrow(/cooking fire/);
   f.patch("player", { mapId: "town", x: COOK_FIRES[0].x, y: COOK_FIRES[0].y - TOWN_FEET_OFFSET });
   expect(() => cook("chowder")).toThrow(/Cooking Lv 12/);
+  f.run(server.beginCooking, { fishId: "minnow", recipeId: "skewer" });
+  expect(() => cook("skewer")).toThrow(/still cooking/);
+  expect(oreCount(f.ctx, who, "minnow")).toBe(1);
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 3_000_000n);
   cook("skewer");
-  expect(() => cook("skewer")).toThrow(/need 1 Minnow/);
+  expect(() => cook("skewer")).toThrow(/Start a dish/);
   expect(oreCount(f.ctx, who, "minnow")).toBe(0);
   expect(goldFor(f.ctx, who)).toBe(1n);
   expect([...f.db.playerCraftSkill.iter()][0]).toMatchObject({ skill: "cooking", experience: 2n });

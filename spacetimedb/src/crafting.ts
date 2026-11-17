@@ -25,6 +25,10 @@ import { addGold } from "./gold";
 import { toolLevelFor } from "./tools";
 
 /** Each craft's experience (shared/crafting.ts), one row per player and craft. Private; read through my_craft_skills. */
+export const cookingAttempt = table({ name: "cooking_attempt", public: false }, {
+  identity: t.identity().primaryKey(), fish: t.string(), recipe: t.string(), started: t.timestamp(),
+});
+
 export const playerCraftSkill = table({ name: "player_craft_skill", public: false }, {
   key: t.string().primaryKey(),
   identity: t.identity().index("btree"),
@@ -198,6 +202,7 @@ function craftTool(ctx: Ctx, skill: CraftSkill, materials: Materials) {
 
 /** Reset Save clears every craft. Prestige keeps them. */
 export function removeCraftSkills(ctx: Ctx, identity: Identity) {
+  ctx.db.cookingAttempt.identity.delete(identity);
   for (const row of rowsOf(ctx, identity)) ctx.db.playerCraftSkill.key.delete(row.key);
   for (const row of [...ctx.db.playerCraftLevel.identity.filter(identity)]) ctx.db.playerCraftLevel.key.delete(row.key);
 }
@@ -205,6 +210,7 @@ export function removeCraftSkills(ctx: Ctx, identity: Identity) {
 /** A guest's save replaces the account's on link, as Mining does, its crafts with it. */
 export function mergeCraftSkills(ctx: Ctx, guest: Identity, account: Identity) {
   removeCraftSkills(ctx, account);
+  ctx.db.cookingAttempt.identity.delete(guest);
   for (const row of rowsOf(ctx, guest)) {
     ctx.db.playerCraftSkill.key.delete(row.key);
     const skill: unknown = row.skill;
@@ -217,7 +223,7 @@ export function mergeCraftSkills(ctx: Ctx, guest: Identity, account: Identity) {
 
 /** The craft_grade_item and reforge_weapon reducers (craft_grade_gear for old tabs), and the player's own craft experience. */
 export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: CraftingDeps) {
-  const cookFish = spacetimedb.reducer({ fishId: t.string(), recipeId: t.string() }, (ctx, args) => {
+  function cooking(ctx: Ctx, args: { fishId: string; recipeId: string }, begin: boolean) {
     const player = deps.requireControllingPlayer(ctx);
     if (!isTownMap(player.mapId) || !COOK_FIRES.some(at => Math.hypot(player.x - at.x, player.y + TOWN_FEET_OFFSET - at.y) <= FIRE_REACH + 20))
       throw new SenderError("Walk up to a Town cooking fire first.");
@@ -226,11 +232,26 @@ export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: Craf
     if (!fish || !recipe) throw new SenderError("Unknown fish or recipe.");
     const xp = ctx.db.playerCraftSkill.key.find(craftKey(ctx.sender, "cooking"))?.experience ?? 0n;
     if (craftLevel(xp) < recipe.level) throw new SenderError(`Reach Cooking Lv ${recipe.level} first.`);
+    const attempt = ctx.db.cookingAttempt.identity;
+    if (begin) {
+      if (oreCount(ctx, ctx.sender, fish.id) < recipe.fish) throw new SenderError(`You need ${recipe.fish} ${fish.name}.`);
+      const row = { identity: ctx.sender, fish: fish.id, recipe: recipe.id, started: ctx.timestamp };
+      if (attempt.find(ctx.sender)) attempt.update(row);
+      else ctx.db.cookingAttempt.insert(row);
+      return;
+    }
+    const started = attempt.find(ctx.sender);
+    if (!started || started.fish !== fish.id || started.recipe !== recipe.id) throw new SenderError("Start a dish at the cooking fire first.");
+    if (Number(ctx.timestamp.microsSinceUnixEpoch - started.started.microsSinceUnixEpoch) < recipe.seconds * 1e6)
+      throw new SenderError("The dish is still cooking.");
+    attempt.delete(ctx.sender);
     if (!takeOres(ctx, ctx.sender, { [fish.id]: recipe.fish })) throw new SenderError(`You need ${recipe.fish} ${fish.name}.`);
     const reward = cookingReward(fish, recipe);
     addGold(ctx, ctx.sender, reward.gold);
     addCraftExperience(ctx, ctx.sender, "cooking", reward.experience);
-  });
+  }
+  const beginCooking = spacetimedb.reducer({ fishId: t.string(), recipeId: t.string() }, (ctx, args) => cooking(ctx, args, true));
+  const cookFish = spacetimedb.reducer({ fishId: t.string(), recipeId: t.string() }, (ctx, args) => cooking(ctx, args, false));
   const craftGradeItem = spacetimedb.reducer({ itemId: t.string(), expectedMaterials: t.string() },
     (ctx: any, args: CraftArgs) => craftGradeItemFor(ctx, args, deps));
   const reforgeWeapon = spacetimedb.reducer({ itemId: t.string(), copyId: t.u64(), expectedMaterials: t.string() },
@@ -240,5 +261,5 @@ export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: Craf
     (ctx: any, args: CraftArgs) => craftGradeGearFor(ctx, args, deps));
   const myCraftSkills = spacetimedb.view({ name: "my_craft_skills", public: true }, t.array(playerCraftSkill.rowType),
     (ctx: any) => [...ctx.db.playerCraftSkill.identity.filter(ctx.sender)]);
-  return { cookFish, craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills };
+  return { beginCooking, cookFish, craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills };
 }

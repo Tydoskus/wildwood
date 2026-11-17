@@ -83,11 +83,12 @@ export function createTownRuntimes(deps: TownRuntimeDeps) {
 
   const oxShop = createOxShopRuntime({ coop: client, inventory, renderInventory: deps.renderInventory, showMessage, clearInput, inTown });
   const fire = createCookingFire({
+    finished: message => showMessage(message, "#ffd796"),
     ores: () => client()?.ores?.() ?? {},
     xp: () => client()?.craftSkills?.().cooking ?? 0n,
-    cook: async (fish, recipe) => {
+    cook: async (fish, recipe, begin) => {
       client()?.syncMovementState?.(player.x, player.y, 0, 0, "keyboard", true);
-      return client()?.cookFish?.(fish, recipe);
+      return client()?.cookFish?.(fish, recipe, begin);
     },
   });
   const fireLatch = createStationLatch();
@@ -186,10 +187,11 @@ export function createTownRuntimes(deps: TownRuntimeDeps) {
       const fireDistance = inTown() && !deps.isMapTransitioning() ? Math.min(...COOK_FIRES.map(at =>
         Math.hypot(at.x - player.x, at.y - player.y - TOWN_FEET_OFFSET))) : Infinity;
       if (fireLatch(fireDistance <= FIRE_REACH, fireDistance > FIRE_REACH + STATION_REARM_DISTANCE)) {
-        clearInput();
-        fire.open();
+        if (fire.hasFish()) { clearInput(); fire.open(); }
+        else showMessage("Cooking Fire · Bring fish from the Town river.", "#ffd796");
       }
-      if (fireDistance > FIRE_REACH + 20) fire.close();
+      if (fireDistance > FIRE_REACH + 20 && fire.isOpen()) fire.close();
+      else fire.refresh();
       if (gathering() !== gatheringShown) {
         gatheringShown = !gatheringShown;
         paintTownTeleportButton(e.townButton, deps.currentMapId(), gatheringShown);

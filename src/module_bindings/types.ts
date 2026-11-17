@@ -267,6 +267,14 @@ export const ConnectionDiagnosticRate = __t.object("ConnectionDiagnosticRate", {
 });
 export type ConnectionDiagnosticRate = __Infer<typeof ConnectionDiagnosticRate>;
 
+export const CookingAttempt = __t.object("CookingAttempt", {
+  identity: __t.identity(),
+  fish: __t.string(),
+  recipe: __t.string(),
+  started: __t.timestamp(),
+});
+export type CookingAttempt = __Infer<typeof CookingAttempt>;
+
 export const DailyGemBonus = __t.object("DailyGemBonus", {
   identity: __t.identity(),
   claimableDayKey: __t.string(),

@@ -43,11 +43,12 @@ export function createCraftingRows(notify: () => void) {
   return {
     watch,
     api: {
-      async cookFish(fishId: string, recipeId: string): Promise<CraftResult> {
+      async cookFish(fishId: string, recipeId: string, begin = false): Promise<CraftResult> {
         const current = target;
         if (!current?.isCurrent() || !current.connection.isActive) return { ok: false, error: "NOT CONNECTED" };
         try {
-          await withRequestDeadline(current.connection.reducers.cookFish({ fishId, recipeId }));
+          const reducers = current.connection.reducers;
+          await withRequestDeadline(begin ? reducers.beginCooking({ fishId, recipeId }) : reducers.cookFish({ fishId, recipeId }));
           return { ok: true };
         } catch (error) {
           return { ok: false, error: reducerErrorMessage(error) };

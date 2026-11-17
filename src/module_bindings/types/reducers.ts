@@ -18,6 +18,7 @@ import AnnounceClientUpdateReducer from "../announce_client_update_reducer";
 import ApplyBuildCardsReducer from "../apply_build_cards_reducer";
 import BeginAccountLinkReducer from "../begin_account_link_reducer";
 import BeginAdventureReducer from "../begin_adventure_reducer";
+import BeginCookingReducer from "../begin_cooking_reducer";
 import BuyExchangeGearReducer from "../buy_exchange_gear_reducer";
 import BuyGradeGearReducer from "../buy_grade_gear_reducer";
 import BuyOxShopCosmeticReducer from "../buy_ox_shop_cosmetic_reducer";
@@ -223,6 +224,7 @@ export type AnnounceClientUpdateParams = __Infer<typeof AnnounceClientUpdateRedu
 export type ApplyBuildCardsParams = __Infer<typeof ApplyBuildCardsReducer>;
 export type BeginAccountLinkParams = __Infer<typeof BeginAccountLinkReducer>;
 export type BeginAdventureParams = __Infer<typeof BeginAdventureReducer>;
+export type BeginCookingParams = __Infer<typeof BeginCookingReducer>;
 export type BuyExchangeGearParams = __Infer<typeof BuyExchangeGearReducer>;
 export type BuyGradeGearParams = __Infer<typeof BuyGradeGearReducer>;
 export type BuyOxShopCosmeticParams = __Infer<typeof BuyOxShopCosmeticReducer>;

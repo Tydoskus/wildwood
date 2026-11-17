@@ -1,4 +1,4 @@
-// SpacetimeDB's server RNG (2.10 to 2.12 at least) seeds with a signed shift: `xorshifted >> rot`.
+// SpacetimeDB's server RNG (verified through 2.15.0) seeds with a signed shift: `xorshifted >> rot`.
 // The sign spills into the seed, and a transaction's first ctx.random() lands under 0.001 about 28% of the
 // time (a 1% roll comes up 34%). An unsigned shift makes every draw fair. This rewrites that one line in the
 // installed copies, does nothing when already done, and fails when the line moved so a new SDK is looked at.

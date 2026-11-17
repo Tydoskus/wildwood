@@ -7,7 +7,7 @@ export function createItemCollectionRows(notify: () => void) {
   function watch(connection: DbConnection, isCurrent: () => boolean) {
     collected = new Set();
     const read = () => {
-      collected = new Set([...connection.db.playerItemCollection.iter()].filter(row => row.identity.isEqual(me)).map(row => row.itemId));
+      collected = new Set([...connection.db.playerItemCollection.identity.filter(me)].map(row => row.itemId));
       notify();
     };
     const me = connection.identity!;
