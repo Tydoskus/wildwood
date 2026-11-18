@@ -170,7 +170,7 @@ export function createTownRuntimes(deps: TownRuntimeDeps) {
   });
 
   return {
-    oxShop, smith, cardSeller, exchange, gearSellers, schools, starterChest, slotUpgrades,
+    fire, oxShop, smith, cardSeller, exchange, gearSellers, schools, starterChest, slotUpgrades,
     /** Research Ready's tap: through the Town teleport into the Research building; false when it cannot go now. */
     goToResearch() {
       const there = inTown() && townRoomAt(player.x, player.y)?.index === TOWN_RESEARCH_POSITION.door;
@@ -191,7 +191,6 @@ export function createTownRuntimes(deps: TownRuntimeDeps) {
         else showMessage("Cooking Fire · Bring fish from the Town river.", "#ffd796");
       }
       if (fireDistance > FIRE_REACH + 20 && fire.isOpen()) fire.close();
-      else fire.refresh();
       if (gathering() !== gatheringShown) {
         gatheringShown = !gatheringShown;
         paintTownTeleportButton(e.townButton, deps.currentMapId(), gatheringShown);

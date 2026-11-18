@@ -28,10 +28,12 @@ export function createSessionWindowRefresh(options: {
   profileWindow: { identity: () => string | null; render: (profile: NonNullable<ReturnType<CoopClient["playerProfile"]>>) => void };
   inventory: { render: () => void };
   smith: { isOpen: () => boolean; render: () => void };
+  fire?: { refresh: () => void };
   cardSeller?: { isOpen: () => boolean; render: () => void };
   gearSellers?: { isOpen: () => boolean; render: () => void; refreshNotice: () => void };
 }) {
   return () => {
+    options.fire?.refresh();
     options.playerSafety.refresh();
     options.inventory.render();
     if (options.smith.isOpen()) options.smith.render();

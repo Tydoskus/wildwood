@@ -100,33 +100,34 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     );
   }
 
-  /** A player's weapon rolls: our own from my_weapon_stats, another's from the profile's player_weapon_stat subscription. */
-  function weaponStatRows(identity: string) {
-    const db = dependencies.connection()?.db;
-    return identity === dependencies.localIdentity() ? [...(db?.myWeaponStats?.iter() ?? [])]
-      : [...(db?.playerWeaponStat?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
+  function resolveIdentity(identity: string) {
+    return dependencies.directory.identityFor(identity) ?? dependencies.developerIdentityFor(identity)
+      ?? (/^[a-f0-9]{64}$/i.test(identity) ? Identity.fromString(identity) : undefined);
   }
 
   function cachedPlayerProfile(identity: string): PlayerProfileData | null {
     const progress = dependencies.progression.progressFor(identity);
     const lifetime = dependencies.progression.lifetimeFor(identity);
     if (!progress || !lifetime) return null;
+    const db = dependencies.connection()?.db, id = resolveIdentity(identity);
+    const own = identity === dependencies.localIdentity();
+    const weaponRows = own ? [...db?.myWeaponStats?.iter() ?? []] : [...(id && db?.playerWeaponStat?.identity.filter(id)) ?? []];
     return {
       identity,
-      prestigeChallenge: (() => { const row = [...(dependencies.connection()?.db.playerPrestigeChallenge.iter() ?? [])].find(row => row.identity.toHexString() === identity); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
-      aggroChallenge: (() => { const row = [...(dependencies.connection()?.db.playerAggroChallenge?.iter() ?? [])].find(row => row.identity.toHexString() === identity); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
-      prestigeLevel: [...(dependencies.connection()?.db.playerPrestige.iter() ?? [])].find(row => row.identity.toHexString() === identity)?.level ?? 0,
+      prestigeChallenge: (() => { const row = id && db?.playerPrestigeChallenge?.identity.find(id); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
+      aggroChallenge: (() => { const row = id && db?.playerAggroChallenge?.identity.find(id); return { active: row?.active ?? false, completed: row?.completed ?? 0 }; })(),
+      prestigeLevel: (id && db?.playerPrestige?.identity.find(id))?.level ?? 0,
       questBonus: questBonuses.get(identity),
       prestigePerks: (() => {
-        const row = [...(dependencies.connection()?.db.playerPrestigePerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
-        const expansion = [...(dependencies.connection()?.db.playerPrestigeExpansionPerk.iter() ?? [])].find(row => row.identity.toHexString() === identity);
-        const cards = [...(dependencies.connection()?.db.playerPrestigeCardPerk?.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        const row = id && db?.playerPrestigePerk?.identity.find(id);
+        const expansion = id && db?.playerPrestigeExpansionPerk?.identity.find(id);
+        const cards = id && db?.playerPrestigeCardPerk?.identity.find(id);
         return { keenEdge: row?.keenEdge ?? 0, doubleStrike: row?.doubleStrike ?? 0, splitShot: row?.splitShot ?? 0, riposte: row?.riposte ?? 0,
           bossSlayer: expansion?.bossSlayer ?? 0, secondWind: expansion?.secondWind ?? 0, longShot: expansion?.longShot ?? 0, fleetFoot: expansion?.fleetFoot ?? 0,
           quickDraw: expansion?.quickDraw ?? 0, weaponCards: cards?.weaponCards ?? 0, helmetCards: cards?.helmetCards ?? 0, armorCards: cards?.armorCards ?? 0 };
       })(),
-      soulStats: (() => { const row = [...(dependencies.connection()?.db.profileSoulStats?.iter() ?? [])].find(row => row.identity.toHexString() === identity); return row ? cleanSoulStats(row) : null; })(),
-      bonusOff: (() => { const row = [...(dependencies.connection()?.db.playerBonusToggle?.iter() ?? [])].find(row => row.identity.toHexString() === identity); return [...parseBonusOff(row?.off)]; })(),
+      soulStats: (() => { const row = [...(db?.profileSoulStats?.iter() ?? [])].find(row => row.identity.toHexString() === identity); return row ? cleanSoulStats(row) : null; })(),
+      bonusOff: (() => { const row = id && db?.playerBonusToggle?.identity.find(id); return [...parseBonusOff(row?.off)]; })(),
       name: dependencies.directory.nameFor(identity) ?? "PLAYER",
       gender: dependencies.directory.genderFor(identity),
       progress: { ...progress },
@@ -134,39 +135,31 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
       itemUpgradeLevels: dependencies.progression.upgradeLevelsFor(identity),
       // Our own come through my_item_refines; another player's through the profile's player_item_refine subscription.
       itemRefines: (() => {
-        const db = dependencies.connection()?.db;
-        const rows = identity === dependencies.localIdentity() ? [...(db?.myItemRefines?.iter() ?? [])]
-          : [...(db?.playerItemRefine?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
+        const rows = own ? [...(db?.myItemRefines?.iter() ?? [])]
+          : [...(id && db?.playerItemRefine?.identity.filter(id)) ?? []];
         return Object.fromEntries(rows.map(row => [row.itemId, row.level]));
       })(),
       // Their weapons' rolled speed and crit (first copies).
-      weaponStats: Object.fromEntries(weaponStatRows(identity).filter(row => !row.copyId && !row.offerId)
+      weaponStats: Object.fromEntries(weaponRows.filter(row => !row.copyId && !row.offerId)
         .map(row => [row.itemId, { attackSpeed: row.attackSpeed, critDamage: row.critDamage }])),
       // Their looks' kept refines, from my_cosmetic_refines or the profile's player_cosmetic_refine subscription.
       cosmeticRefines: (() => {
-        const db = dependencies.connection()?.db;
-        const rows = identity === dependencies.localIdentity() ? [...(db?.myCosmeticRefines?.iter() ?? [])]
-          : [...(db?.playerCosmeticRefine?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
+        const rows = own ? [...(db?.myCosmeticRefines?.iter() ?? [])]
+          : [...(id && db?.playerCosmeticRefine?.identity.filter(id)) ?? []];
         return Object.fromEntries(rows.map(row => [row.itemId, row.level]));
       })(),
       // Their active cards, from my_active_cards or the profile's player_active_card subscription.
-      activeCards: (() => {
-        const db = dependencies.connection()?.db;
-        const rows = identity === dependencies.localIdentity() ? [...(db?.myActiveCards?.iter() ?? [])]
-          : [...(db?.playerActiveCard?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
-        return activeCardsOfRow(rows[0]);
-      })(),
+      activeCards: activeCardsOfRow(own ? [...db?.myActiveCards?.iter() ?? []][0] : id && db?.playerActiveCard?.identity.find(id)),
       wornSkill: ((): { itemId: string; roll: Record<string, number> } | null => {
-        const db = dependencies.connection()?.db;
         // A dagger's skills are its first copy's weapon roll row.
         const weapon = progress.equippedRightHand || progress.equippedLeftHand || "";
         if (isSkillDagger(weapon)) {
-          const row = weaponStatRows(identity).find(row => row.itemId === weapon && !row.copyId && !row.offerId);
+          const row = weaponRows.find(row => row.itemId === weapon && !row.copyId && !row.offerId);
           return row ? { itemId: weapon, roll: daggerSkillsOf(row) } : null;
         }
         // Your own weapon reads its roll from my_bow_skills / my_sword_skills / my_staff_skills; another player's
         // from player_worn_skill, or player_worn_staff_skill for a staff.
-        if (identity === dependencies.localIdentity()) {
+        if (own) {
           const weapon = progress.equippedRightHand || progress.equippedLeftHand || "";
           const staff = [...(db?.myStaffSkills?.iter() ?? [])].find(row => row.itemId === weapon && !row.copyId && !row.offerId);
           if (staff) return { itemId: weapon, roll: { meteor: staff.meteor, chain: staff.chain, frostNova: staff.frostNova } };
@@ -174,46 +167,41 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
           return own ? { itemId: weapon, roll: { arrowStorm: own.arrowStorm ?? 0, ricochet: own.ricochet ?? 0, piercingShot: own.piercingShot ?? 0,
             whirlwind: own.whirlwind ?? 0, deflect: own.deflect ?? 0, shockwave: own.shockwave ?? 0 } } : null;
         }
-        const staff = [...(db?.playerWornStaffSkill?.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        const staff = id && db?.playerWornStaffSkill?.identity.find(id);
         if (staff) return { itemId: staff.itemId, roll: { meteor: staff.meteor, chain: staff.chain, frostNova: staff.frostNova } };
-        const row = [...(db?.playerWornSkill?.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        const row = id && db?.playerWornSkill?.identity.find(id);
         return row ? { itemId: row.itemId, roll: { arrowStorm: row.arrowStorm, ricochet: row.ricochet, piercingShot: row.piercingShot,
           whirlwind: row.whirlwind, deflect: row.deflect, shockwave: row.shockwave } } : null;
       })(),
       mining: (() => {
-        const db = dependencies.connection()?.db;
-        const row = identity === dependencies.localIdentity() ? [...(db?.myMining?.iter() ?? [])][0]
-          : [...(db?.playerMiningLevel?.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        const row = own ? [...(db?.myMining?.iter() ?? [])][0]
+          : (id && db?.playerMiningLevel?.identity.find(id));
         return row ? row.mining : null;
       })(),
       woodcutting: (() => {
-        const db = dependencies.connection()?.db;
-        const row = identity === dependencies.localIdentity() ? [...(db?.myWoodcutting?.iter() ?? [])][0]
-          : [...(db?.playerWoodcuttingLevel?.iter() ?? [])].find(row => row.identity.toHexString() === identity);
+        const row = own ? [...(db?.myWoodcutting?.iter() ?? [])][0]
+          : (id && db?.playerWoodcuttingLevel?.identity.find(id));
         return row ? row.woodcutting : null;
       })(),
       fishing: (() => {
-        const db = dependencies.connection()?.db;
-        if (identity === dependencies.localIdentity()) {
+        if (own) {
           const own = [...(db?.myFishing?.iter() ?? [])][0];
           return own ? fishingLevel(own.experience) : null;
         }
-        return [...(db?.playerFishingLevel?.iter() ?? [])].find(row => row.identity.toHexString() === identity)?.level ?? null;
+        return (id && db?.playerFishingLevel?.identity.find(id))?.level ?? null;
       })(),
       mastery: (() => {
-        const db = dependencies.connection()?.db;
         const levels: Partial<Record<WeaponSchool, number>> = {};
-        if (identity === dependencies.localIdentity()) {
-          for (const row of db?.playerWeaponMastery?.iter() ?? []) if (row.identity.toHexString() === identity && isWeaponSchool(row.school)) levels[row.school] = masteryLevel(row.points);
+        if (own) {
+          for (const row of (id && db?.playerWeaponMastery?.identity.filter(id)) ?? []) if (isWeaponSchool(row.school)) levels[row.school] = masteryLevel(row.points);
         } else {
-          for (const row of db?.playerMasteryLevel?.iter() ?? []) if (isWeaponSchool(row.school) && row.identity.toHexString() === identity) levels[row.school] = row.level;
+          for (const row of (id && db?.playerMasteryLevel?.identity.filter(id)) ?? []) if (isWeaponSchool(row.school)) levels[row.school] = row.level;
         }
         return levels;
       })(),
       crafts: (() => {
-        const db = dependencies.connection()?.db, own = identity === dependencies.localIdentity();
         const levels: Partial<Record<PlayerCraftSkill, number>> = {};
-        const rows = own ? db?.myCraftSkills?.iter() ?? [] : [...(db?.playerCraftLevel?.iter() ?? [])].filter(row => row.identity.toHexString() === identity);
+        const rows = own ? db?.myCraftSkills?.iter() ?? [] : [...(id && db?.playerCraftLevel?.identity.filter(id)) ?? []];
         for (const row of rows as Iterable<{ skill: string; experience?: bigint; level?: number }>) {
           const skill = row.skill;
           if (isPlayerCraftSkill(skill)) levels[skill] = own ? craftLevel(row.experience ?? 0n) : row.level ?? 1;
@@ -243,13 +231,14 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
   }
 
   function loadPlayerProfile(identity: string): Promise<PlayerProfileData | null> {
-    const existing = cachedPlayerProfile(identity);
-    if (existing && (identity === dependencies.localIdentity() || identity === activeIdentity)) return Promise.resolve(existing);
+    if (identity === dependencies.localIdentity() || identity === activeIdentity) {
+      const existing = cachedPlayerProfile(identity);
+      if (existing) return Promise.resolve(existing);
+    }
     const loading = playerProfileLoads.get(identity);
     if (loading) return loading;
     const connection = dependencies.connection();
-    const dbIdentity = dependencies.directory.identityFor(identity) ?? dependencies.developerIdentityFor(identity)
-      ?? (/^[a-f0-9]{64}$/i.test(identity) ? Identity.fromString(identity) : undefined);
+    const dbIdentity = resolveIdentity(identity);
     if (!connection || !dbIdentity) return Promise.resolve(null);
 
     releasePlayerProfile();
@@ -321,30 +310,21 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
             unsubscribeIfActive(handle);
             return finish(null);
           }
-          for (const row of connection.db.playerProgress.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertProgress(withWideProgress(connection, row));
-          }
-          for (const row of connection.db.playerChatHearts.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertChatHearts(row);
-          }
-          for (const row of connection.db.playerLifetime.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertLifetime(row);
-          }
-          for (const row of connection.db.playerResearch.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertResearch(row);
-          }
-          for (const row of connection.db.playerLuckResearch.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertLuckResearch(row);
-          }
-          for (const row of connection.db.playerItemUpgrade.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.progression.tables.upsertItemUpgrade(row);
-          }
-          for (const row of connection.db.playerProfile.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.directory.tables.upsertProfile(row);
-          }
-          for (const row of connection.db.playerAccountStatus.iter()) {
-            if (row.identity.toHexString() === identity) dependencies.directory.tables.upsertAccountStatus(row);
-          }
+          const progress = connection.db.playerProgress.identity.find(dbIdentity);
+          if (progress) dependencies.progression.tables.upsertProgress(withWideProgress(connection, progress));
+          const hearts = connection.db.playerChatHearts.identity.find(dbIdentity);
+          if (hearts) dependencies.progression.tables.upsertChatHearts(hearts);
+          const lifetime = connection.db.playerLifetime.identity.find(dbIdentity);
+          if (lifetime) dependencies.progression.tables.upsertLifetime(lifetime);
+          const research = connection.db.playerResearch.identity.find(dbIdentity);
+          if (research) dependencies.progression.tables.upsertResearch(research);
+          const luck = connection.db.playerLuckResearch.identity.find(dbIdentity);
+          if (luck) dependencies.progression.tables.upsertLuckResearch(luck);
+          const profile = connection.db.playerProfile.identity.find(dbIdentity);
+          if (profile) dependencies.directory.tables.upsertProfile(profile);
+          const account = connection.db.playerAccountStatus.identity.find(dbIdentity);
+          if (account) dependencies.directory.tables.upsertAccountStatus(account);
+          for (const upgrade of connection.db.playerItemUpgrade.byIdentity.filter(dbIdentity)) dependencies.progression.tables.upsertItemUpgrade(upgrade);
           profilePlayerMaps.set(identity, "");
           let rowVisible = false;
           for (const row of connection.db.player.iter()) {

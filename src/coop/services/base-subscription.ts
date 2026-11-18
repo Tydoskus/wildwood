@@ -393,9 +393,8 @@ export function startBaseSubscription(dependencies: BaseSubscriptionDependencies
   // The bag arrives in its own row (player_inventory); a change there re-reads the progress it belongs to.
   const progressAgain = (bag: TableRow<"playerInventory">) => {
     if (!shouldHandle()) return;
-    for (const row of connection.db.playerProgress.iter()) {
-      if (row.identity.toHexString() === bag.identity.toHexString()) handlers.progress(withWideProgress(connection, row));
-    }
+    const row = connection.db.playerProgress.identity.find(bag.identity);
+    if (row) handlers.progress(withWideProgress(connection, row));
   };
   connection.db.playerInventory.onInsert((_ctx, row) => progressAgain(row));
   connection.db.playerInventory.onUpdate((_ctx, _oldRow, row) => progressAgain(row));

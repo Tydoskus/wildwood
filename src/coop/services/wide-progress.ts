@@ -1,21 +1,18 @@
+import type { DbConnection } from "../../module_bindings";
+import type { Identity } from "spacetimedb";
 import { DUEL_WIDE_FIELDS, REPLAY_WIDE_FIELDS, applyWideFields } from "../../../shared/wide-stats";
 import { progressWithBag, progressWithWideColumns, type StoredBag, type WideColumns } from "../../../shared/progress-row";
 
-type Identified = { identity: { toHexString(): string } };
+type Identified = { identity: Identity };
 type Stats = { maxHp: number; damage: number; armor: number; regen: number };
-type Connection = { db: { playerInventory?: { iter(): Iterable<Identified & StoredBag> } } };
+type Connection = { db: Pick<DbConnection["db"], "playerInventory"> };
 
 /**
  * A player_progress row as the server reads it (shared/progress-row.ts): full stats from its wide
- * columns, its crit rating, and its bag from player_inventory. Only subscribed players' bags are
- * here, so the scan is of a handful of rows.
+ * columns, its crit rating, and its bag from player_inventory.
  */
 export function withWideProgress<T extends Identified & Stats & WideColumns & Partial<StoredBag> & { critRating?: number }>(connection: Connection, row: T): T & StoredBag & { critRating: number } {
-  const id = row.identity.toHexString();
-  let bag: StoredBag | undefined;
-  for (const candidate of connection.db.playerInventory?.iter() ?? []) {
-    if (candidate.identity.toHexString() === id) { bag = candidate; break; }
-  }
+  const bag = connection.db.playerInventory?.identity.find(row.identity) ?? undefined;
   const full = progressWithBag(progressWithWideColumns(row), bag);
   return { ...full, critRating: full.critRating ?? 0 };
 }

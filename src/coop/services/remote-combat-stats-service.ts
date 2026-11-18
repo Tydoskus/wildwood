@@ -135,20 +135,19 @@ export function remoteCombatStatsFromRows(
 }
 
 /** The public rows a remote load subscribes to beside progress, research and slot tiers. */
-function publicStatRows(connection: DbConnection, identity: string): RemoteStatRows {
-  // A table missing from the cache (an older binding) reads as no rows.
-  const db = connection.db, mine = <T extends { identity: { toHexString(): string } }>(table: { iter(): Iterable<T> } | undefined) =>
-    [...table?.iter() ?? []].filter((row) => row.identity.toHexString() === identity);
-  const [perk] = mine(db.playerPrestigePerk), [expansion] = mine(db.playerPrestigeExpansionPerk);
-  const [cardPerk] = mine(db.playerPrestigeCardPerk), [soul] = mine(db.profileSoulStats);
-  const [toggle] = mine(db.playerBonusToggle), [reflect] = mine(db.playerPrestigeChallenge);
-  const [aggro] = mine(db.playerAggroChallenge);
+function publicStatRows(connection: DbConnection, id: Identity): RemoteStatRows {
+  const db = connection.db;
+  const perk = db.playerPrestigePerk?.identity.find(id), expansion = db.playerPrestigeExpansionPerk?.identity.find(id);
+  const cardPerk = db.playerPrestigeCardPerk?.identity.find(id);
+  const soul = Array.from(db.profileSoulStats?.iter() ?? []).find(row => id.isEqual(row.identity));
+  const toggle = db.playerBonusToggle?.identity.find(id), reflect = db.playerPrestigeChallenge?.identity.find(id);
+  const aggro = db.playerAggroChallenge?.identity.find(id);
   const mastery: Partial<Record<WeaponSchool, number>> = {};
-  for (const row of mine(db.playerMasteryLevel)) if (isWeaponSchool(row.school)) mastery[row.school] = row.level;
+  for (const row of db.playerMasteryLevel?.identity.filter(id) ?? []) if (isWeaponSchool(row.school)) mastery[row.school] = row.level;
   return {
-    refines: mine(db.playerItemRefine),
-    weaponStats: mine(db.playerWeaponStat),
-    activeCards: activeCardsOfRow(mine(db.playerActiveCard)[0]),
+    refines: [...db.playerItemRefine?.identity.filter(id) ?? []],
+    weaponStats: [...db.playerWeaponStat?.identity.filter(id) ?? []],
+    activeCards: activeCardsOfRow(db.playerActiveCard?.identity.find(id)),
     perks: { ...perk, ...expansion, ...cardPerk },
     soul: soul ? cleanSoulStats(soul) : null,
     bonusOff: parseBonusOff(toggle?.off), prestigeChallenge: reflect ?? null, aggroChallenge: aggro ?? null, mastery,
@@ -233,15 +232,12 @@ export function createRemoteCombatStatsService(dependencies: {
         .onApplied(() => {
           if (dependencies.connection() !== connection) return finish(null);
           try {
-            const stored = [...connection.db.playerProgress.iter()]
-              .find((row) => row.identity.toHexString() === identity);
+            const stored = connection.db.playerProgress.identity.find(dbIdentity);
             if (!stored) return finish(null);
             const progress = withWideProgress(connection, stored);
-            const research = [...connection.db.playerResearch.iter()]
-              .find((row) => row.identity.toHexString() === identity);
-            const upgrades = [...connection.db.playerItemUpgrade.iter()]
-              .filter((row) => row.identity.toHexString() === identity);
-            finish(remoteCombatStatsFromRows(progress, research, upgrades, publicStatRows(connection, identity)));
+            const research = connection.db.playerResearch.identity.find(dbIdentity);
+            const upgrades = [...connection.db.playerItemUpgrade.byIdentity.filter(dbIdentity)];
+            finish(remoteCombatStatsFromRows(progress, research, upgrades, publicStatRows(connection, dbIdentity)));
           } catch {
             finish(null);
           }

@@ -1,4 +1,8 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.919.2": [
+    "Faster lookups for inventory updates, player profiles, and other players’ combat stats.",
+    "The Cooking Fire now refreshes when game data changes, saving work while the menu is idle.",
+  ],
   "0.919.1": [
     "Cooking now takes 3 to 6 seconds per dish. Watch the timer or choose Cook all for a batch.",
     "Leaving a fire keeps your unfinished ingredients. Walking past with an empty bag lets you keep moving.",
@@ -4146,6 +4150,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.919.2": "2026-11-17",
   "0.919.1": "2026-11-17",
   "0.919": "2026-11-17",
   "0.918.3": "2026-11-16",

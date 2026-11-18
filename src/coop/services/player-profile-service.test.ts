@@ -9,7 +9,7 @@ function fixture() {
   const connection = {
     isActive: true,
     procedures: { getLeaderboardRanks: vi.fn() },
-    db: Object.fromEntries(["playerPrestige", "playerPrestigePerk", "playerPrestigeExpansionPerk", "playerPrestigeChallenge", "playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerLuckResearch", "playerItemUpgrade", "playerItemRefine", "myItemRefines", "playerGearSlots", "playerActiveCard", "myActiveCards", "playerPrestigeCardPerk", "myGearSlots", "playerProfile", "playerAccountStatus", "player", "profileSoulStats"].map(name => [name, { iter: () => [] }])),
+    db: Object.fromEntries(["playerPrestige", "playerPrestigePerk", "playerPrestigeExpansionPerk", "playerPrestigeChallenge", "playerChatHearts", "playerProgress", "playerLifetime", "playerResearch", "playerLuckResearch", "playerItemUpgrade", "playerItemRefine", "myItemRefines", "playerGearSlots", "playerActiveCard", "myActiveCards", "playerPrestigeCardPerk", "myGearSlots", "playerProfile", "playerAccountStatus", "player", "profileSoulStats", "playerMasteryLevel", "playerCraftLevel"].map(name => [name, { iter: () => [] }])),
     subscriptionBuilder() {
       let applied = () => {}, ready = false;
       const unsubscribe = vi.fn(() => { if (!ready) throw new Error("Cannot unsubscribe pending"); });
@@ -24,6 +24,10 @@ function fixture() {
       return builder;
     },
   };
+  for (const table of Object.values(connection.db)) {
+    const filter = (id: Identity) => (table.iter() as { identity: Identity }[]).filter(row => row.identity.isEqual(id));
+    Object.assign(table, { identity: { find: (id: Identity) => filter(id)[0], filter }, byIdentity: { filter } });
+  }
   Object.assign(connection.db.player, {
     onInsert: (fn: Function) => presenceEvents.insert.add(fn), removeOnInsert: (fn: Function) => presenceEvents.insert.delete(fn),
     onUpdate: (fn: Function) => presenceEvents.update.add(fn), removeOnUpdate: (fn: Function) => presenceEvents.update.delete(fn),
@@ -214,9 +218,9 @@ it("loads the inspected player's mastery levels, and only theirs, with the profi
   const request = f.service.api.loadPlayerProfile(hex);
   const sql = f.subscriptions[0].queries.map(query => (query as { toSql(): string }).toSql());
   expect(sql.find(text => text.includes("player_mastery_level"))).toMatch(/WHERE .*identity.* = 0x1{64}/);
-  (f.connection.db as any).playerMasteryLevel = { iter: () => [
+  f.connection.db.playerMasteryLevel.iter = () => [
     { identity, school: "archery", level: 23 }, { identity, school: "wrestling", level: 9 }, { identity: other, school: "sorcery", level: 4 },
-  ] };
+  ] as never;
   f.subscriptions[0].apply();
   expect((await request)?.mastery).toEqual({ archery: 23 });
 });
@@ -228,9 +232,9 @@ it("loads the inspected player's craft levels, and only theirs, with the profile
   const request = f.service.api.loadPlayerProfile(hex);
   const sql = f.subscriptions[0].queries.map(query => (query as { toSql(): string }).toSql());
   expect(sql.find(text => text.includes("player_craft_level"))).toMatch(/WHERE .*identity.* = 0x1{64}/);
-  (f.connection.db as any).playerCraftLevel = { iter: () => [
+  f.connection.db.playerCraftLevel.iter = () => [
     { identity, skill: "fletching", level: 12 }, { identity, skill: "cooking", level: 9 }, { identity, skill: "unknown", level: 3 }, { identity: other, skill: "smithing", level: 4 },
-  ] };
+  ] as never;
   f.subscriptions[0].apply();
   expect((await request)?.crafts).toEqual({ fletching: 12, cooking: 9 });
 });

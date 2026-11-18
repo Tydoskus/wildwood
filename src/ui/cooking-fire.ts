@@ -26,18 +26,16 @@ export function createCookingFire(deps: {
   const clock = dialog.querySelector(".cook-clock")!, status = dialog.querySelector("p")!;
   const held = (stock = deps.ores()) => FISH.filter(fish => (stock[fish.id] ?? 0) > 0);
   let session = 0, busy = false, snapshot = "";
-  const signature = () => {
-    const stock = deps.ores();
-    return [deps.xp(), ...FISH.map(fish => stock[fish.id] ?? 0)].join("/");
-  };
+  const signature = (stock: OreCounts, xp: bigint) => [xp, ...FISH.map(fish => stock[fish.id] ?? 0)].join("/");
   function render() {
-    snapshot = signature();
-    const previous = ingredients.value, fishHeld = held(), level = craftLevel(deps.xp());
+    const stock = deps.ores(), xp = deps.xp();
+    snapshot = signature(stock, xp);
+    const previous = ingredients.value, fishHeld = held(stock), level = craftLevel(xp);
     dialog.querySelector("h2 span")!.textContent = "Cooking Fire · Lv " + level;
     ingredients.replaceChildren(...fishHeld.map(fish => {
       const option = document.createElement("option");
       option.value = fish.id;
-      option.textContent = fish.name + " ×" + deps.ores()[fish.id];
+      option.textContent = fish.name + " ×" + stock[fish.id];
       return option;
     }));
     if (fishHeld.some(fish => fish.id === previous)) ingredients.value = previous;
@@ -51,7 +49,7 @@ export function createCookingFire(deps: {
       const reward = cookingReward(fish, recipe), button = document.createElement("button");
       button.type = "button";
       button.className = "farm-start cook-recipe";
-      button.disabled = recipe.level > level || recipe.fish > (deps.ores()[fish.id] ?? 0);
+      button.disabled = recipe.level > level || recipe.fish > (stock[fish.id] ?? 0);
       button.innerHTML = '<strong></strong><small></small>';
       button.firstElementChild!.textContent = recipe.name;
       button.lastElementChild!.textContent = recipe.level > level ? "Cooking Lv " + recipe.level
@@ -110,7 +108,7 @@ export function createCookingFire(deps: {
   dialog.addEventListener("close", () => { if (!dialog.open) stop(); });
   return {
     open() { if (!dialog.open) { status.textContent = ""; render(); dialog.showModal(); } },
-    refresh() { if (dialog.open && !busy && signature() !== snapshot) render(); },
+    refresh() { if (dialog.open && !busy && signature(deps.ores(), deps.xp()) !== snapshot) render(); },
     hasFish: () => held().length > 0, close, isOpen: () => dialog.open,
   };
 }

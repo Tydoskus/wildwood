@@ -882,7 +882,8 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
 
   offlineProgressSummary = createCoopSessionWiring({
     coop: coopAccess, player, inventory, renderInventory, saveProgress, healthMultiplierBonus, showMessage,
-    windows: { playerSafety, profileWindow, inventory: inventoryController, smith, cardSeller, gearSellers }, leaderboard, runtimeHud, slotUpgrades,
+    windows: { fire: town.fire, playerSafety, profileWindow, inventory: inventoryController, smith, cardSeller, gearSellers },
+    leaderboard, runtimeHud, slotUpgrades,
     inTutorial, isRunning: session.isRunning, moveSpeed: () => playerStats.moveSpeed(), playerInput,
     reconcileMap: () => { if (!inTutorial()) mapController.reconcileMapFromServer(); },
     syncLifetimeKills: progress.syncLifetimeKills, refreshGemCounter, refreshGiftsAndMail: giftsAndMail.refresh,
