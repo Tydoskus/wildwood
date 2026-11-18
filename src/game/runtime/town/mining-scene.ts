@@ -18,6 +18,13 @@ export const miningScene = {
   blocked: null as "vein" | "bag" | null,
   /** The pickaxe's level (shared/tools.ts), for its colour in hand. */
   toolLevel: 0,
+  /** Current Mining stat, for the overhead skill badge. */
+  level: 0,
+  /** Last rock's Mining gain, rising off the badge, and how much of its rise is left, from 1. */
+  gain: 0,
+  gainLeft: 0,
+  /** Seconds to keep the badge visible after swinging or breaking a rock. */
+  badgeLeft: 0,
 };
 
 export function resetMiningScene() {
@@ -28,4 +35,8 @@ export function resetMiningScene() {
   miningScene.swingClock = 0;
   miningScene.blocked = null;
   miningScene.toolLevel = 0;
+  miningScene.level = 0;
+  miningScene.gain = 0;
+  miningScene.gainLeft = 0;
+  miningScene.badgeLeft = 0;
 }

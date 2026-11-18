@@ -1,4 +1,5 @@
 import type { AutoChop } from '../game/runtime/auto-farm/auto-chop';
+import type { AutoFish } from '../game/runtime/auto-farm/auto-fish';
 import type { AutoMine } from '../game/runtime/auto-farm/auto-mine';
 
 /** Auto Mine's "?" page, in the Copper Hills. */
@@ -17,6 +18,15 @@ export const AUTO_CHOP_HELP_LINES: readonly [term: string, line: string][] = [
   ['Bag', 'With no bag room for a kind of log it chops your other kinds, and stops once none are left.'],
   ['Moving', 'Move yourself any time; it carries on when you let go.'],
   ['Leaving', 'Leaving Timberwood stops it.'],
+];
+
+/** Auto Fish's "?" page, along the Town's river and pond. */
+export const AUTO_FISH_HELP_LINES: readonly [term: string, line: string][] = [
+  ['Spots', 'Switch on the stretches of the river and pond to visit.'],
+  ['Fishing', 'Start it near the Town river: it walks to the nearest active spot, fishes until it moves, then walks to the next.'],
+  ['Bag', 'Stops automatically when your bag has no room for new fish.'],
+  ['Moving', 'Move yourself any time; it carries on when you let go.'],
+  ['Leaving', 'Walking away from the river stops it.'],
 ];
 
 /** One switch's worth: a kind of ore or tree, whether it is open (or what opens it), picked, and how many stand. */
@@ -95,4 +105,13 @@ export function createAutoChopView(chop: AutoChop, changed: () => void) {
     kinds: () => chop.stands().map(stand => ({ id: stand.kind, name: stand.name, open: stand.open, locked: stand.locked, picked: stand.picked, total: stand.trees, standing: stand.standing })),
     toggle: id => { const kind = id as Parameters<AutoChop['picked']>[0]; chop.setPicked(kind, !chop.picked(kind)); },
   }, { kind: 'chop', label: 'Trees', unit: 'Trees', attribute: 'tree' }, changed);
+}
+
+/** Auto Fish's body: a switch per river stretch. */
+export function createAutoFishView(fish: AutoFish, changed: () => void) {
+  return createAutoGatherView({
+    state: fish.state,
+    kinds: () => fish.spots().map(spot => ({ id: spot.id, name: spot.name, open: spot.open, locked: spot.locked, picked: spot.picked, total: spot.sites, standing: 1 })),
+    toggle: id => { fish.setPicked(id, !fish.picked(id)); },
+  }, { kind: 'fish', label: 'River Spots', unit: 'Active', attribute: 'spot' }, changed);
 }

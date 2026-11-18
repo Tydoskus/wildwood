@@ -1,14 +1,17 @@
 import { MINING_NODE_KINDS, MINING_NODES, MINING_VEINS, canMineRock, miningBreakSeconds, miningGain, miningRockOre, type MiningNode } from "./mining";
 import { WOOD_STANDS, WOOD_TREE_NODES, WOODCUTTING_LOGS, WOODCUTTING_RESPAWN_SECONDS, canChopStand, woodcuttingChopSeconds, woodcuttingGain, type WoodTree } from "./woodcutting";
+import { fishingCatchSeconds, normalizeFishingExperience, rollFish, type FishId } from "./fishing";
 import { gatherRespawnMs } from "./gather-respawn";
+import { toolBonusYield } from "./tools";
 
 /**
- * What time away is collected as: the player is shown all three on return and picks one. Fighting is
- * shared/offline-progress.ts; mining and chopping split the time evenly over every vein or stand the skill opens.
+ * What time away is collected as: the player is shown all four on return and picks one. Fighting is
+ * shared/offline-progress.ts; mining and chopping split the time evenly over every vein or stand the skill opens,
+ * and fishing reels in catches at half speed over the same window.
  */
-export type OfflineActivity = "fight" | "mine" | "chop";
+export type OfflineActivity = "fight" | "mine" | "chop" | "fish";
 export const offlineActivity = (value: unknown): OfflineActivity | null =>
-  value === "fight" || value === "mine" || value === "chop" ? value : null;
+  value === "fight" || value === "mine" || value === "chop" || value === "fish" ? value : null;
 
 /** Mining and chopping away run at this share of the speed of playing, as offline gold is half. */
 export const OFFLINE_GATHER_SPEED = .5;
@@ -87,4 +90,35 @@ export function simulateOfflineChopping(input: { woodcutting: number; seconds: n
     respawnSeconds: gatherRespawnMs(WOODCUTTING_RESPAWN_SECONDS, input.respawnRank ?? 0) / 1_000,
   })));
   return { stands, ...simulateShares(areas, input.woodcutting, input.seconds) };
+}
+
+/**
+ * Every catch in `seconds` away, at OFFLINE_GATHER_SPEED (boosted by Lanterns, Fishing Rod and Fishing treasures).
+ * Fishing experience rises as catches land, so later bites can open rarer fish and arrive faster.
+ */
+export function simulateOfflineFishing(input: {
+  experience: number;
+  seconds: number;
+  timeFactor?: number;
+  rod?: number;
+  lanterns?: number;
+  courtyard?: number;
+  random: () => number;
+}) {
+  const budget = Math.max(0, input.seconds) * OFFLINE_GATHER_SPEED * (1 + Math.max(0, input.lanterns ?? 0));
+  const timeFactor = Math.max(.1, input.timeFactor ?? 1), rod = input.rod ?? 0, courtyard = Math.max(0, input.courtyard ?? 0);
+  let experience = normalizeFishingExperience(input.experience), now = 0, catches = 0;
+  const fish: Partial<Record<FishId, number>> = {};
+  while (catches < OFFLINE_GATHER_MAX_BREAKS) {
+    const wait = fishingCatchSeconds(experience, rod) * timeFactor;
+    if (now + wait > budget) break;
+    now += wait;
+    const caught = rollFish(experience, input.random());
+    if (!caught) break;
+    const extra = (rod > 0 ? toolBonusYield(rod, input.random()) : 0) + (courtyard > 0 && input.random() < courtyard ? 1 : 0);
+    fish[caught.id] = (fish[caught.id] ?? 0) + 1 + extra;
+    experience += caught.experience;
+    catches++;
+  }
+  return { catches, experienceGain: experience - normalizeFishingExperience(input.experience), fish };
 }

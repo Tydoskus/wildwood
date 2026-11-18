@@ -38,6 +38,7 @@ import * as GetPatreonStatusProcedure from "../get_patreon_status_procedure";
 import * as GetPlayerDirectoryProcedure from "../get_player_directory_procedure";
 import * as GetPlayerModerationHistoryProcedure from "../get_player_moderation_history_procedure";
 import * as GetPlayerPresenceProcedure from "../get_player_presence_procedure";
+import * as GetSkillLeaderboardRanksProcedure from "../get_skill_leaderboard_ranks_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "../get_social_chat_history_with_reactions_procedure";
 import * as GetSocialHubProcedure from "../get_social_hub_procedure";
 import * as GetStatGainBonusProcedure from "../get_stat_gain_bonus_procedure";
@@ -108,6 +109,8 @@ export type GetPlayerModerationHistoryArgs = __Infer<typeof GetPlayerModerationH
 export type GetPlayerModerationHistoryResult = __Infer<typeof GetPlayerModerationHistoryProcedure.returnType>;
 export type GetPlayerPresenceArgs = __Infer<typeof GetPlayerPresenceProcedure.params>;
 export type GetPlayerPresenceResult = __Infer<typeof GetPlayerPresenceProcedure.returnType>;
+export type GetSkillLeaderboardRanksArgs = __Infer<typeof GetSkillLeaderboardRanksProcedure.params>;
+export type GetSkillLeaderboardRanksResult = __Infer<typeof GetSkillLeaderboardRanksProcedure.returnType>;
 export type GetSocialChatHistoryWithReactionsArgs = __Infer<typeof GetSocialChatHistoryWithReactionsProcedure.params>;
 export type GetSocialChatHistoryWithReactionsResult = __Infer<typeof GetSocialChatHistoryWithReactionsProcedure.returnType>;
 export type GetSocialHubArgs = __Infer<typeof GetSocialHubProcedure.params>;

@@ -4,7 +4,9 @@ import type spacetimedbType from "./index";
 import type { OreId } from "../../shared/refine";
 import { miningYield } from "../../shared/mining";
 import { woodcuttingYield } from "../../shared/woodcutting";
-import { simulateOfflineChopping, simulateOfflineMining } from "../../shared/offline-gathering";
+import { simulateOfflineChopping, simulateOfflineFishing, simulateOfflineMining } from "../../shared/offline-gathering";
+import { fishingTimeFactor } from "../../shared/fishing-treasures";
+import { normalizeFishingExperience } from "../../shared/fishing";
 import { MINING_VEINS } from "../../shared/mining";
 import { WOOD_STANDS } from "../../shared/woodcutting";
 import { bagFullForOres, roomForOres } from "../../shared/ore-bag";
@@ -21,6 +23,7 @@ import { equippedFields } from "./gather-batch";
 import { readPlayerProgress } from "./wide-stats";
 import { writeMiningLevel } from "./mining";
 import { writeWoodcuttingLevel } from "./woodcutting";
+import { writeFishingLevel } from "./fishing";
 import { guildHallBonusFor, withCourtyardFind } from "./guild-hall-bonus";
 
 /**
@@ -38,6 +41,19 @@ export const offlineGatherChoice = table({ name: "offline_gather_choice", public
   trees: t.u32(),
   woodcuttingGain: t.u32(),
   chopOres: t.string(),
+});
+
+/**
+ * The fishing a player could collect for their time away, stored in its own table beside offline_gather_choice so
+ * adding Fishing keeps existing clients decoding my_offline_gather_choice cleanly.
+ */
+export const offlineFishingChoice = table({ name: "offline_fishing_choice", public: false }, {
+  identity: t.identity().primaryKey(),
+  grantedAtMicros: t.u64(),
+  catches: t.u32(),
+  experienceGain: t.u32(),
+  /** Fish id to count, as JSON. */
+  fishOres: t.string(),
 });
 
 /** Auto Mine and Auto Chop picks that 0.917.34-35 clients still send; time away no longer reads them. Goes with the next client break. */
@@ -102,16 +118,34 @@ export function storeOfflineGatherChoice(ctx: Ctx, identity: Identity, seconds: 
   };
   if (ctx.db.offlineGatherChoice.identity.find(identity)) ctx.db.offlineGatherChoice.identity.update(row);
   else ctx.db.offlineGatherChoice.insert(row);
+  const progress = readPlayerProgress(ctx, identity);
+  const fishingExp = normalizeFishingExperience(ctx.db.playerFishing.identity.find(identity)?.experience);
+  const rod = toolLevelFor(ctx, identity, "rod");
+  const courtyard = guildHallBonusFor(ctx, identity, "courtyard");
+  const fished = simulateOfflineFishing({
+    experience: fishingExp, seconds, timeFactor: fishingTimeFactor(progress?.equippedHead, progress?.equippedChest),
+    rod, lanterns, courtyard, random: () => ctx.random(),
+  });
+  const fishRow = {
+    identity, grantedAtMicros,
+    catches: Math.min(U32_MAX, fished.catches), experienceGain: Math.min(U32_MAX, fished.experienceGain),
+    fishOres: JSON.stringify(fished.fish),
+  };
+  if (ctx.db.offlineFishingChoice.identity.find(identity)) ctx.db.offlineFishingChoice.identity.update(fishRow);
+  else ctx.db.offlineFishingChoice.insert(fishRow);
 }
 
 export function clearOfflineGatherChoice(ctx: Ctx, identity: Identity) {
   ctx.db.offlineGatherChoice.identity.delete(identity);
+  ctx.db.offlineFishingChoice?.identity.delete(identity);
 }
 
-/** Pays the picked mining or chopping into the bag and the skill. Refused whole when the bag has no slot for a new kind. */
-export function collectOfflineGathering(ctx: Ctx, identity: Identity, choice: any, activity: "mine" | "chop",
+/** Pays the picked mining, chopping or fishing into the bag and the skill. Refused whole when the bag has no slot for a new kind. */
+export function collectOfflineGathering(ctx: Ctx, identity: Identity, choice: any, activity: "mine" | "chop" | "fish",
   inventoryForProgress?: (progress: any) => string[]) {
-  const ores = JSON.parse(activity === "mine" ? choice.mineOres : choice.chopOres) as Counts;
+  const fishChoice = activity === "fish" ? ctx.db.offlineFishingChoice?.identity.find(identity) : null;
+  if (activity === "fish" && (!fishChoice || fishChoice.grantedAtMicros !== choice.grantedAtMicros)) return;
+  const ores = JSON.parse(activity === "mine" ? choice.mineOres : activity === "chop" ? choice.chopOres : fishChoice.fishOres) as Counts;
   const kinds = (Object.keys(ores) as OreId[]).filter(oreId => (ores[oreId] ?? 0) > 0);
   const held = oreCountsFor(ctx, identity);
   if (kinds.some(oreId => !((held[oreId] ?? 0) > 0))) {
@@ -134,7 +168,7 @@ export function collectOfflineGathering(ctx: Ctx, identity: Identity, choice: an
     if (row) ctx.db.playerMining.identity.update(next);
     else ctx.db.playerMining.insert(next);
     writeMiningLevel(ctx, identity);
-  } else {
+  } else if (activity === "chop") {
     const row = ctx.db.playerWoodcutting.identity.find(identity);
     const next = {
       identity, hatchetAt: row?.hatchetAt ?? ctx.timestamp, lastChopAt: row?.lastChopAt ?? ctx.timestamp, lastTreeId: row?.lastTreeId ?? 0,
@@ -144,5 +178,18 @@ export function collectOfflineGathering(ctx: Ctx, identity: Identity, choice: an
     if (row) ctx.db.playerWoodcutting.identity.update(next);
     else ctx.db.playerWoodcutting.insert(next);
     writeWoodcuttingLevel(ctx, identity);
+  } else {
+    const row = ctx.db.playerFishing.identity.find(identity);
+    const lastFish = kinds[kinds.length - 1] ?? row?.lastFish ?? "minnow";
+    const next = {
+      identity,
+      experience: Math.min(U32_MAX, normalizeFishingExperience(row?.experience) + fishChoice.experienceGain),
+      fishCaught: ((row?.fishCaught ?? 0) + fishChoice.catches) % (U32_MAX + 1),
+      lastCatchAt: row?.lastCatchAt ?? ctx.timestamp,
+      lastFish,
+    };
+    if (row) ctx.db.playerFishing.identity.update(next);
+    else ctx.db.playerFishing.insert(next);
+    writeFishingLevel(ctx, identity);
   }
 }

@@ -236,6 +236,7 @@ const afterUpdateGateShell = String.raw`
       <button id="leaderboardRivalsTab" class="profile-tab is-active" type="button" role="tab" aria-selected="true" aria-label="Rivals: players at your prestige level, by power">Rivals</button>
       <button id="leaderboardPowerTab" class="profile-tab" type="button" role="tab" aria-selected="false">Power</button>
       <button id="leaderboardPrestigeTab" class="profile-tab" type="button" role="tab" aria-selected="false">Prestige</button>
+      <button id="leaderboardSkillsTab" class="profile-tab" type="button" role="tab" aria-selected="false">Skills</button>
       <button id="leaderboardTimeTab" class="profile-tab" type="button" role="tab" aria-selected="false">Time Played</button>
     </div>
     <div class="leaderboard-column-headings" aria-hidden="true"><span>Rank</span><span class="leaderboard-player-heading">Player</span><span id="leaderboardValueHeading">Power</span></div>

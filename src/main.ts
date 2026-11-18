@@ -57,6 +57,7 @@ import { createGiftsAndMail, createHudRuntime } from "./ui/hud-runtime";
 import { createReconnectOverlay, type FarmConnection } from "./ui/reconnect-overlay";
 import { createOnboardingRuntime } from "./ui/onboarding-runtime";
 import { beginNewPlayer, createStartupCoordination, createStartupScreen, type StartupCoordinator } from "./ui/startup-runtime";
+import { setNativeOtaReloadHooks } from "./app/native-updates";
 import { createPerformanceMonitor } from "./game/runtime/performance-monitor";
 import { createPresentationInterpolator } from "./game/runtime/render/presentation-interpolator";
 import { createGameBootstrap, createGameBootstrapAssets, startGameRuntime } from "./game/runtime/game-bootstrap";
@@ -747,6 +748,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     suspendPlayerVisibility: () => playerVisibility.suspend(),
     showNewPlayerIntro: () => beginNewPlayer({ recordGameplayReady, settings: appShell, onboarding, startGame, intro: startup }),
     startGame: () => startGame(false),
+    registerNativeOtaHooks: setNativeOtaReloadHooks,
   });
   finishStartup();
   startupCoordinator.startVersionPolling();

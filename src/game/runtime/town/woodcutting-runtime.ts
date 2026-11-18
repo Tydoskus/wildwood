@@ -1,5 +1,5 @@
 import {
-  WOOD_STANDS, WOOD_TREE_NODES, WOODCUTTING_REACH, WOODCUTTING_RESPAWN_SECONDS, canChopTree, woodcuttingChopSeconds, woodcuttingYield, woodStandHint,
+  WOOD_STANDS, WOOD_TREE_NODES, WOODCUTTING_REACH, WOODCUTTING_RESPAWN_SECONDS, canChopTree, woodcuttingChopSeconds, woodcuttingGain, woodcuttingYield, woodStandHint,
   type WoodTree,
 } from "../../../../shared/woodcutting";
 import { REFINE_ORES, type OreId } from "../../../../shared/refine";
@@ -146,6 +146,14 @@ export function createWoodcuttingRuntime(deps: {
     source.queueTreeChop?.(id, at);
     woodcuttingScene.felled.add(id);
     stop();
+    const gain = woodcuttingGain(tree);
+    const before = woodcuttingScene.level;
+    woodcuttingScene.level = Math.max(before + gain, source.woodcutting?.() ?? 0);
+    woodcuttingScene.gain = gain;
+    woodcuttingScene.gainLeft = 1;
+    woodcuttingScene.badgeLeft = 2.6;
+    const unlocked = WOOD_STANDS.find(stand => stand.woodcutting > before && stand.woodcutting <= woodcuttingScene.level);
+    if (unlocked) deps.message?.(`Woodcutting ${unlocked.woodcutting}: ${unlocked.name}s open now.`, "#ffd34d");
     // The felling hit fills the bar: it stays up a moment over the stump.
     Object.assign(woodcuttingScene, { target: id, progress: 1, hatchetOut: true, swingClock: ATTACK_ANIMATION_SECONDS - ATTACK_WINDUP_SECONDS });
     felledShown = FELLED_SHOW_SECONDS;
@@ -167,12 +175,15 @@ export function createWoodcuttingRuntime(deps: {
       session = { source, identity: source.localIdentity?.() ?? "", generation: source.sessionGeneration?.() ?? 0 };
     }
     const at = now();
+    woodcuttingScene.gainLeft = Math.max(0, woodcuttingScene.gainLeft - dt / 1.4);
+    woodcuttingScene.badgeLeft = Math.max(0, woodcuttingScene.badgeLeft - dt);
     if ((stumpCheck -= dt) <= 0) { stumpCheck = STUMP_REFRESH_SECONDS; refreshStumps(at); }
     const here = Boolean(active && source && deps.player.hp > 0 && inTownGrove(deps.player.x, deps.player.y, WOODCUTTING_REACH * 2));
     // Leaving the grove sends what was felled there while the server still has the player in reach.
     if (inGrove && !here) source?.flushWoodcutting?.();
     inGrove = here;
-    if (!here || !source) { stop(); return; }
+    if (!here || !source) { stop(); woodcuttingScene.badgeLeft = 0; return; }
+    woodcuttingScene.level = Math.max(woodcuttingScene.level, source.woodcutting?.() ?? 0);
     listen(source);
     if (felledShown > 0) {
       felledShown -= dt;

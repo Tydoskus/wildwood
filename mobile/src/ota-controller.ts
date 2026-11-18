@@ -10,13 +10,39 @@ export type OtaBridge = {
 export type OtaState = { channel: OtaChannel; current: string; pending: string | null; message: string; busy: boolean; developer: boolean };
 /** How soon after launch a downloaded update restarts the app by itself: the player has only just opened it. */
 export const OTA_APPLY_AT_LAUNCH_MS = 60_000;
+/** Normal interval between automatic update checks after a successful check. */
+export const OTA_CHECK_INTERVAL_MS = 15 * 60_000;
+/** Short backoff after a failed check or download so transient offline/network blips recover promptly. */
+export const OTA_RETRY_BACKOFF_MS = 30_000;
+/** Consecutive startup failures for the same bundle before permanently blocking and rolling back. */
+export const OTA_BOOT_FAILURES_BEFORE_BLOCK = 2;
+const BOOT_FAIL_KEY = 'wildstat.ota.bootFail';
 /**
- * Whether to restart into a downloaded update now: a production update found within a minute of launch, and not
- * one this phone already restarted for (a restart that did not take must not loop).
+ * Whether to restart into a downloaded update now: a production update found within a minute of launch,
+ * while the player is not yet in active gameplay, and not one this phone already restarted for
+ * (a restart that did not take must not loop).
  */
-export function applyAtLaunch(state: OtaState, launchedAt: number, now: number, restartedFor: string | null) {
-  return state.channel === 'production' && !state.busy && Boolean(state.pending) && state.pending !== 'Installed app'
+export function applyAtLaunch(state: OtaState, launchedAt: number, now: number, restartedFor: string | null, gamePlaying = false) {
+  return !gamePlaying && state.channel === 'production' && !state.busy && Boolean(state.pending) && state.pending !== 'Installed app'
     && state.pending !== state.current && state.pending !== restartedFor && now - launchedAt <= OTA_APPLY_AT_LAUNCH_MS;
+}
+/**
+ * Records a startup failure for `bundleId` and returns whether it has failed enough consecutive
+ * times to permanently block and roll back (rather than trying one clean reload first).
+ */
+export function recordBootFailure(storage: Pick<Storage, 'getItem' | 'setItem'>, bundleId: string): boolean {
+  let count = 0;
+  try {
+    const parsed = JSON.parse(storage.getItem(BOOT_FAIL_KEY) || '{}') as { id?: string; count?: number };
+    if (parsed.id === bundleId && typeof parsed.count === 'number' && Number.isFinite(parsed.count)) count = parsed.count;
+  } catch { /* Treat corrupt metadata as first failure. */ }
+  count += 1;
+  try { storage.setItem(BOOT_FAIL_KEY, JSON.stringify({ id: bundleId, count })); }
+  catch { return true; }
+  return count >= OTA_BOOT_FAILURES_BEFORE_BLOCK;
+}
+export function clearBootFailure(storage: Pick<Storage, 'removeItem'>) {
+  try { storage.removeItem(BOOT_FAIL_KEY); } catch { /* Optional cleanup. */ }
 }
 export function createOtaController(options: {
   bridge: OtaBridge; storage: Pick<Storage, 'getItem' | 'setItem'>;
@@ -29,7 +55,7 @@ export function createOtaController(options: {
   const write = (key: string, value: string) => options.storage.setItem(prefix + key, value);
   const preferredChannel = read('channel');
   const state: OtaState = { channel: preferredChannel === 'developer' ? 'developer' : 'production', current: 'Installed app', pending: null, message: 'Updates apply on the next app launch.', busy: false, developer: false };
-  let healthy = false, generation = 0, lastCheck = 0, hold = false;
+  let healthy = false, generation = 0, nextCheckAt = 0, hold = false;
   let readyPromise: Promise<void> | undefined;
   // Serialize native changes: revoking test access must always cancel a queued test bundle.
   let mutation: Promise<void> = Promise.resolve();
@@ -54,14 +80,19 @@ export function createOtaController(options: {
   }
   async function check(force = false) {
     if (!healthy || hold || state.busy || (state.channel === 'developer' && !state.developer)
-      || (!force && Date.now() - lastCheck < 15 * 60_000)) return;
+      || (!force && Date.now() < nextCheckAt)) return;
     const attempt = generation, channel = state.channel;
     const cancelled = () => attempt !== generation || channel !== state.channel;
-    lastCheck = Date.now(); state.busy = true; state.message = 'Checking for updates…'; emit();
+    nextCheckAt = Date.now() + OTA_RETRY_BACKOFF_MS;
+    state.busy = true; state.message = 'Checking for updates…'; emit();
     try {
       const envelope = await options.fetchManifest(channel);
       if (cancelled()) return;
-      if (!envelope) { state.message = 'No update published to this channel.'; return; }
+      if (!envelope) {
+        nextCheckAt = Date.now() + OTA_CHECK_INTERVAL_MS;
+        state.message = 'No update published to this channel.';
+        return;
+      }
       const manifest = validateOtaManifest(await options.verify(envelope), { ...options, channel });
       if (cancelled()) return;
       const previous = Number(read(`sequence.${channel}`) || 0);
@@ -72,9 +103,21 @@ export function createOtaController(options: {
         if (blocked.has(b.id) || nativeBlocked.bundleIds.includes(b.id)) throw new Error('This update previously failed. Waiting for a corrected version.');
         const current = await options.bridge.getCurrentBundle();
         if (cancelled()) return;
-        if (b.id === current.bundleId || state.pending === b.id) {
+        if (b.id === current.bundleId) {
+          // Cancel a pending downgrade (e.g. leaving developer channel while already on latest production).
+          if (state.pending !== null) {
+            await setNext(b.id);
+            if (cancelled()) return;
+            state.pending = null;
+          }
           write(`sequence.${channel}`, String(manifest.sequence));
-          state.message = state.pending ? 'Update ready for the next app launch.' : 'Up to date.'; return;
+          nextCheckAt = Date.now() + OTA_CHECK_INTERVAL_MS;
+          state.message = 'Up to date.'; return;
+        }
+        if (state.pending === b.id) {
+          write(`sequence.${channel}`, String(manifest.sequence));
+          nextCheckAt = Date.now() + OTA_CHECK_INTERVAL_MS;
+          state.message = 'Update ready for the next app launch.'; return;
         }
         const existing = await options.bridge.getBundles();
         if (cancelled()) return;
@@ -92,6 +135,7 @@ export function createOtaController(options: {
       if (cancelled()) return;
       state.pending = manifest.bundle?.id ?? 'Installed app';
       write(`sequence.${channel}`, String(manifest.sequence));
+      nextCheckAt = Date.now() + OTA_CHECK_INTERVAL_MS;
       state.message = 'Ready. Fully close and reopen WildStat to apply.';
     } catch (error) { if (!cancelled()) reportError(error); }
     finally { state.busy = false; emit(); }
@@ -107,7 +151,7 @@ export function createOtaController(options: {
       await setNext(channel === 'production' ? null : current.bundleId);
       if (attempt !== generation) return;
       state.pending = channel === 'production' ? 'Installed app' : null;
-      state.channel = channel; write('channel', channel); lastCheck = 0; hold = false;
+      state.channel = channel; write('channel', channel); nextCheckAt = 0; hold = false;
     } finally { state.busy = false; emit(); }
     await check(true);
   }
@@ -138,7 +182,7 @@ export function createOtaController(options: {
       state.developer = enabled;
       if (!enabled) generation++;
       if (!enabled && state.channel === 'developer') {
-        state.channel = 'production'; state.pending = 'Installed app';
+        state.channel = 'production'; state.pending = 'Installed app'; nextCheckAt = 0;
         write('channel', 'production');
         void setNext(null).catch(reportError).finally(emit);
       }

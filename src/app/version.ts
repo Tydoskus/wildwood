@@ -1,4 +1,5 @@
 import { afterAccountRenewal, whenAccountRenewalSettled } from "./account-renewal-flag";
+import { nativeUpdates, requestNativeUpdateCheck } from "./native-updates";
 export { afterAccountRenewal };
 
 let versionCheckInFlight = false;
@@ -30,8 +31,12 @@ export function isNewerGameVersion(candidate: unknown, current: string) {
 
 export function enforceLatestVersion(version: string, onUpdateDetected?: UpdateDetected, handoff?: {
   canReload: () => boolean; beforeReload: (version: string) => Promise<boolean>;
-}) {
+}, options?: { urgent?: boolean }) {
   clearLoadedVersionQuery(version);
+  if (nativeUpdates()) {
+    requestNativeUpdateCheck(Boolean(options?.urgent));
+    return;
+  }
   if (versionCheckInFlight || reloadScheduled) return;
   versionCheckInFlight = true;
   // This request must bypass HTTP cache so a freshly deployed version is

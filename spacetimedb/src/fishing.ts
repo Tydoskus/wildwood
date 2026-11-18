@@ -6,8 +6,10 @@ import { SenderError, table, t } from "spacetimedb/server";
 import type { Identity } from "spacetimedb";
 import type spacetimedbType from "./index";
 import {
-  FISHING_MOVE_GRACE_MS, FISHING_RATE_SLACK, FISHING_SERVER_REACH, FISHING_SPOTS, fishingCatchSeconds, fishingLevel, fishingSpotAt, normalizeFishingExperience, rollFish,
+  FISHING_MOVE_GRACE_MS, FISHING_RATE_SLACK, FISHING_SERVER_REACH, FISHING_SPOTS, GUILD_POND_SERVER_REACH, GUILD_POND_SPOT,
+  fishingCatchSeconds, fishingLevel, fishingSpotAt, normalizeFishingExperience, rollFish,
 } from "../../shared/fishing";
+import { GUILD_HALL_POND, guildHallBonus, guildHallGuildId, isGuildHallMap, parseGuildHallLevels } from "../../shared/guild-hall";
 import type { OreId } from "../../shared/refine";
 import { TOWN_FEET_OFFSET } from "../../shared/town";
 import { isTownMap } from "./town";
@@ -17,8 +19,13 @@ import { addOres, oreCountsFor } from "./item-refine";
 import { extraCopiesOf } from "./equipment-copies";
 import { bagCapacityFor } from "./bag-capacity";
 import { roomForOres } from "../../shared/ore-bag";
+import { toolBonusYield } from "../../shared/tools";
 import type { MiningDeps } from "./mining";
 import { equippedFields, millisOf } from "./gather-batch";
+import { toolLevelFor } from "./tools";
+import { guildHallBonusFor } from "./guild-hall-bonus";
+import { guildHallMember } from "./guild-hall";
+import { serverBoostGatherMultiplierAt } from "./server-boost-tables";
 
 /**
  * Fishing (shared/fishing.ts): a player's Fishing experience and their last catch, in a private table read through
@@ -82,38 +89,60 @@ function spotWasAt(spot: number, site: number, nowMs: number) {
  */
 export function catchFishFor(ctx: Ctx, args: { spot: number; site: number }, deps: MiningDeps) {
   const player = deps.requireControllingPlayer(ctx);
-  const spot = FISHING_SPOTS[args.spot], point = spot?.sites[args.site];
-  if (!spot || !point || !Number.isInteger(args.spot) || !Number.isInteger(args.site)) throw new SenderError("There is no fishing spot there.");
-  if (!spotWasAt(args.spot, args.site, millisOf(ctx.timestamp))) throw new SenderError("The fishing spot moved.");
-  if (!isTownMap(player.mapId) || !withinStationReach(ctx, player, { x: point.x, y: point.y - TOWN_FEET_OFFSET }, FISHING_SERVER_REACH)) {
-    throw new SenderError("Walk up to the fishing spot first.");
+  const nowMs = millisOf(ctx.timestamp);
+  let pondLevel = 0, pondBonus = 0;
+  if (args.spot === GUILD_POND_SPOT && args.site === 0) {
+    if (!isGuildHallMap(player.mapId) || !guildHallMember(ctx, ctx.sender, player.mapId)) {
+      throw new SenderError("There is no fishing pond here.");
+    }
+    const hall = ctx.db.guildHall.guildId.find(guildHallGuildId(player.mapId));
+    const levels = parseGuildHallLevels(hall?.levels);
+    pondLevel = levels.pond;
+    if (pondLevel < 1) throw new SenderError("Your guild hall does not have a Fishing Pond yet.");
+    pondBonus = guildHallBonus(levels, "pond");
+    if (!withinStationReach(ctx, player, { x: GUILD_HALL_POND.x, y: GUILD_HALL_POND.y - TOWN_FEET_OFFSET }, GUILD_POND_SERVER_REACH)) {
+      throw new SenderError("Walk up to the fishing pond first.");
+    }
+  } else {
+    const spot = FISHING_SPOTS[args.spot], point = spot?.sites[args.site];
+    if (!spot || !point || !Number.isInteger(args.spot) || !Number.isInteger(args.site)) throw new SenderError("There is no fishing spot there.");
+    if (!spotWasAt(args.spot, args.site, nowMs)) throw new SenderError("The fishing spot moved.");
+    if (!isTownMap(player.mapId) || !withinStationReach(ctx, player, { x: point.x, y: point.y - TOWN_FEET_OFFSET }, FISHING_SERVER_REACH)) {
+      throw new SenderError("Walk up to the fishing spot first.");
+    }
   }
   if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
   const row = ctx.db.playerFishing.identity.find(ctx.sender), experience = normalizeFishingExperience(row?.experience);
   const sinceMicros = row ? Number(ctx.timestamp.microsSinceUnixEpoch - row.lastCatchAt.microsSinceUnixEpoch) : Infinity;
   const progress = readPlayerProgress(ctx, ctx.sender);
-  const timeFactor = fishingTimeFactor(progress?.equippedHead, progress?.equippedChest);
-  if (sinceMicros < fishingCatchSeconds(experience) * timeFactor * FISHING_RATE_SLACK * 1_000_000) throw new SenderError("Still fishing.");
+  const rod = toolLevelFor(ctx, ctx.sender, "rod");
+  const timeFactor = fishingTimeFactor(progress?.equippedHead, progress?.equippedChest) / (1 + pondBonus);
+  if (sinceMicros < fishingCatchSeconds(experience, rod) * timeFactor * FISHING_RATE_SLACK * 1_000_000) throw new SenderError("Still fishing.");
   // A fish not held yet needs a free bag slot; with none, one of the kinds already held bites instead.
   const ores = oreCountsFor(ctx, ctx.sender), held = (fishId: string) => (ores[fishId as OreId] ?? 0) > 0;
-  let fish = rollFish(experience, ctx.random());
+  const rarityBoost = pondLevel * .75;
+  let fish = rollFish(experience, ctx.random(), undefined, rarityBoost);
   if (fish && !held(fish.id)) {
     const { room } = roomForOres({
       owned: progress && deps.inventoryForProgress ? deps.inventoryForProgress(progress) : [], equipped: progress ? equippedFields(progress) : [],
       extraCopies: extraCopiesOf(ctx, ctx.sender).length, ores, capacity: bagCapacityFor(ctx, ctx.sender),
     }, [fish.id]);
-    if (!room) fish = rollFish(experience, ctx.random(), candidate => held(candidate.id));
+    if (!room) fish = rollFish(experience, ctx.random(), candidate => held(candidate.id), rarityBoost);
   }
   if (!fish) throw new SenderError("Your bag is full. Free a slot for your fish.");
-  addOres(ctx, ctx.sender, fish.id, 1);
-  const treasure = rollFishingTreasure(fishingLevel(experience), ctx.random());
+  const courtyard = guildHallBonusFor(ctx, ctx.sender, "courtyard");
+  const extra = (rod > 0 ? toolBonusYield(rod, ctx.random()) : 0) + (courtyard > 0 && ctx.random() < courtyard ? 1 : 0);
+  const boost = serverBoostGatherMultiplierAt(ctx, nowMs);
+  addOres(ctx, ctx.sender, fish.id, (1 + extra) * boost);
+  const treasure = rollFishingTreasure(fishingLevel(experience), ctx.random() / (1 + pondBonus));
   if (treasure && !isDropIgnored(ctx, ctx.sender, treasure.id)) {
     awardDrops(ctx, new Map([[treasure.id, 1]]));
     touchCombatProfile(ctx, ctx.sender);
   }
+  const xpGain = Math.round(fish.experience * (1 + pondBonus)) * boost;
   const next = {
     identity: ctx.sender,
-    experience: Math.min(U32_MAX, experience + fish.experience),
+    experience: Math.min(U32_MAX, experience + xpGain),
     fishCaught: ((row?.fishCaught ?? 0) + 1) % (U32_MAX + 1),
     lastCatchAt: ctx.timestamp,
     lastFish: fish.id,

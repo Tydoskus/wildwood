@@ -1,7 +1,11 @@
 import { table, t } from "spacetimedb/server";
-import { LEADERBOARD_BOARDS, LEADERBOARD_PAGE_SIZE, leaderboardBoard, leaderboardWindowRanks, type LeaderboardBoard } from "../../shared/leaderboard-window";
+import {
+  LEADERBOARD_BOARDS, LEADERBOARD_PAGE_SIZE, isSkillLeaderboardBoard, leaderboardBoard, leaderboardWindowRanks,
+  type CoreLeaderboardBoard,
+} from "../../shared/leaderboard-window";
 import type { GameReducerContext, GameViewContext } from "./index";
 import type { Identity } from "spacetimedb";
+import { moveSkillLeaderboardStanding, skillLeaderboardRank } from "./skill-leaderboard";
 
 /**
  * The boards are stored as pages of 100 identities, keyed "board:page", and a
@@ -45,7 +49,7 @@ export type Standing = { identity: Identity; prestige: number; power: number; pl
 const key = (standing: Standing) => standing.identity.toHexString();
 
 /** Each board's players in order. Ties fall to the identity, so the order never flickers between snapshots. */
-export function sortBoards(standings: readonly Standing[]): Record<LeaderboardBoard, Standing[]> {
+export function sortBoards(standings: readonly Standing[]): Record<CoreLeaderboardBoard, Standing[]> {
   const byIdentity = (a: Standing, b: Standing) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0;
   const byPower = (a: Standing, b: Standing) => b.power - a.power || byIdentity(a, b);
   const byTime = (a: Standing, b: Standing) => (a.playedMicros > b.playedMicros ? -1 : a.playedMicros < b.playedMicros ? 1 : 0) || byIdentity(a, b);
@@ -63,7 +67,7 @@ export function sortBoards(standings: readonly Standing[]): Record<LeaderboardBo
 }
 
 /** A page's key. Rivals has a board per prestige level. */
-const pageKey = (board: LeaderboardBoard, level: number, page: number) => board === "rivals" ? `rivals:${level}:${page}` : `${board}:${page}`;
+const pageKey = (board: CoreLeaderboardBoard, level: number, page: number) => board === "rivals" ? `rivals:${level}:${page}` : `${board}:${page}`;
 
 /**
  * Writes the pages that changed and returns each player's page per board, in
@@ -73,7 +77,7 @@ export function writeLeaderboardPages(ctx: Pick<GameReducerContext, "db">, stand
   const boards = sortBoards(standings);
   const pages = new Map(standings.map(row => [key(row), LEADERBOARD_BOARDS.map(() => 0)]));
   const live = new Set<string>(), levels = new Map<number, number>();
-  const writePages = (index: number, board: LeaderboardBoard, level: number, rows: Standing[]) => {
+  const writePages = (index: number, board: CoreLeaderboardBoard, level: number, rows: Standing[]) => {
     for (let offset = 0, page = 0; offset < rows.length; offset += LEADERBOARD_PAGE_SIZE, page++) {
       const slice = rows.slice(offset, offset + LEADERBOARD_PAGE_SIZE), identities = slice.map(row => row.identity);
       for (const row of slice) pages.get(key(row))![index] = page + 1;
@@ -117,7 +121,7 @@ function rivalsLevel(ctx: Pick<GameViewContext, "db">, identity: Identity) {
 }
 
 /** A player's rank on one board: their page, then their place on it. 0 is unranked. Two key lookups. */
-export function leaderboardRank(ctx: Pick<GameViewContext, "db">, board: LeaderboardBoard, identity: Identity) {
+export function leaderboardRank(ctx: Pick<GameViewContext, "db">, board: CoreLeaderboardBoard, identity: Identity) {
   const standing = ctx.db.leaderboardStanding.identity.find(identity);
   const page = standing?.pages[LEADERBOARD_BOARDS.indexOf(board)] ?? 0;
   if (!standing || !page) return 0;
@@ -142,9 +146,10 @@ export function moveLeaderboardStanding(ctx: Pick<GameReducerContext, "db">, gue
     const row = page ? ctx.db.leaderboardRankPage.key.find(pageKey(board, standing.prestige, page - 1)) : null;
     if (row) ctx.db.leaderboardRankPage.key.update({ ...row, identities: row.identities.map(id => id.equals(guest) ? account : id) });
   }
+  moveSkillLeaderboardStanding(ctx, guest, account);
 }
 
-function readRanks(ctx: Viewer, board: LeaderboardBoard, level: number, ranks: number[]) {
+function readRanks(ctx: Viewer, board: CoreLeaderboardBoard, level: number, ranks: number[]) {
   const pages = new Map<number, Identity[]>();
   return ranks.flatMap(rank => {
     const page = Math.floor((rank - 1) / LEADERBOARD_PAGE_SIZE);
@@ -157,7 +162,7 @@ function readRanks(ctx: Viewer, board: LeaderboardBoard, level: number, ranks: n
   });
 }
 
-const boardTotal = (ctx: Viewer, board: LeaderboardBoard, level: number) => board === "rivals"
+const boardTotal = (ctx: Viewer, board: CoreLeaderboardBoard, level: number) => board === "rivals"
   ? ctx.db.leaderboardPrestigeSize.prestige.find(level)?.total ?? 0
   : ctx.db.leaderboardSize.id.find(LEADERBOARD_BOARDS.indexOf(board))?.total ?? 0;
 
@@ -194,6 +199,7 @@ export function readLeaderboardRanks(ctx: Viewer, requested: string, requestedSt
 
 /** Where one player stands on a board, for the leaderboard's search. Rank 0 is unranked, and so is another level's rival. */
 export function findLeaderboardSpot(ctx: Viewer, requested: string, _prestige: number, identity: Identity) {
+  if (isSkillLeaderboardBoard(requested)) return { rank: skillLeaderboardRank(ctx, requested, identity), prestige: -1 };
   const board = leaderboardBoard(requested);
   if (board === "rivals" && rivalsLevel(ctx, identity) !== rivalsLevel(ctx, ctx.sender)) return { rank: 0, prestige: -1 };
   return { rank: leaderboardRank(ctx, board, identity), prestige: -1 };

@@ -7,6 +7,7 @@ import { LEADERBOARD_BOARDS, leaderboardEligible } from "../../shared/leaderboar
 import { effectivePowerStatsForProgress, powerForProgress } from "./player-power";
 import { leaderboardAppearanceForProgress } from "./progress-helpers";
 import { writeLeaderboardPages, type Standing } from "./leaderboard-pages";
+import { dropSkillLeaderboardStanding, writeSkillLeaderboardPages } from "./skill-leaderboard";
 import { legacyU32Power } from "../../shared/player-power";
 
 /** The regular snapshot: online players and those marked since. */
@@ -14,7 +15,7 @@ export const LEADERBOARD_REFRESH_INTERVAL_MICROS = 900_000_000n;
 /** Every player recomputed, in case something changed one offline without marking them. */
 export const LEADERBOARD_FULL_REFRESH_MICROS = 6n * 3_600_000_000n;
 
-export const LEADERBOARD_REFRESH_VERSION = 14;
+export const LEADERBOARD_REFRESH_VERSION = 15;
 
 /** A version no build uses, so refreshLeaderboardIfDue rebuilds on its next pass. */
 export const LEADERBOARD_REFRESH_QUEUED = 0;
@@ -70,6 +71,7 @@ const ENTRY_FIELDS = ["displayName", "power", "powerLevel", "profileIcon", "gend
 function dropPlayer(ctx: any, identity: any) {
   if (ctx.db.leaderboardEntry.identity.find(identity)) ctx.db.leaderboardEntry.identity.delete(identity);
   if (ctx.db.leaderboardStanding.identity.find(identity)) ctx.db.leaderboardStanding.identity.delete(identity);
+  dropSkillLeaderboardStanding(ctx, identity);
 }
 
 /** The retired per-player rank tables of the per-prestige-level boards, emptied once. */
@@ -122,6 +124,7 @@ export function refreshLeaderboard(ctx: any, { full = true }: { full?: boolean }
   // Sort everyone, write the pages that changed, then the standings that changed.
   const rows = [...standings.values()];
   const pages = writeLeaderboardPages(ctx, rows);
+  writeSkillLeaderboardPages(ctx, rows.map(row => row.identity));
   for (const row of rows) {
     const next = { ...row, pages: pages.get(row.identity.toHexString()) ?? LEADERBOARD_BOARDS.map(() => 0) };
     const old = ctx.db.leaderboardStanding.identity.find(row.identity);

@@ -1,3 +1,4 @@
+import { rodSpeed } from "./tools";
 import { townRandom } from "./town";
 
 /**
@@ -56,6 +57,10 @@ export const FISHING_CATCH_SECONDS = 9;
 /** How close a player's feet come to a spot to fish it, and the server's allowance on top for lag. */
 export const FISHING_REACH = 130;
 export const FISHING_SERVER_REACH = 190;
+/** Spot ID used for a guild hall's permanent Fishing Pond (never moves). */
+export const GUILD_POND_SPOT = 100;
+export const GUILD_POND_REACH = FISHING_REACH + 50;
+export const GUILD_POND_SERVER_REACH = FISHING_SERVER_REACH + 60;
 /** The server takes a catch this soon at the earliest, as a share of the wait: clocks and packets wander. */
 export const FISHING_RATE_SLACK = .75;
 /** A catch that lands just after its spot moved still counts, as the client's clock may run a little behind. */
@@ -78,22 +83,28 @@ export function fishingLevel(experience: unknown) {
   return level;
 }
 
-/** Seconds to a bite at this experience: 9 at level 1, half that at 99. */
-export const fishingCatchSeconds = (experience: unknown) => FISHING_CATCH_SECONDS / (1 + (fishingLevel(experience) - 1) / (FISHING_MAX_LEVEL - 1));
+/** Seconds to a bite at this experience and rod level: 9 at level 1, half that at 99, faster with an upgraded rod. */
+export const fishingCatchSeconds = (experience: unknown, rodLevel = 0) =>
+  FISHING_CATCH_SECONDS / (1 + (fishingLevel(experience) - 1) / (FISHING_MAX_LEVEL - 1)) / rodSpeed(rodLevel);
 
 export const canCatchFish = (fish: Pick<Fish, "level">, experience: unknown) => fishingLevel(experience) >= fish.level;
 
 /** The fish this experience can catch, rarest last. */
 export const fishOpenAt = (experience: unknown) => FISH.filter(fish => canCatchFish(fish, experience));
 
-/** Which fish bites, for a roll in [0, 1): weighted among the fish open and `allowed` (all of them by default), or null. */
-export function rollFish(experience: unknown, roll: number, allowed: (fish: Fish) => boolean = () => true): Fish | null {
+/**
+ * Which fish bites, for a roll in [0, 1): weighted among the fish open and `allowed` (all of them by default), or null.
+ * `rarityBoost` (> 0 at a guild hall's Fishing Pond) boosts higher-level fish weights so rarer catches bite more often.
+ */
+export function rollFish(experience: unknown, roll: number, allowed: (fish: Fish) => boolean = () => true, rarityBoost = 0): Fish | null {
   const pool = fishOpenAt(experience).filter(allowed);
-  const total = pool.reduce((sum, fish) => sum + fish.weight, 0);
+  const weightOf = (fish: Fish) => rarityBoost > 0 ? fish.weight * (1 + (fish.level / 90) * rarityBoost) : fish.weight;
+  const total = pool.reduce((sum, fish) => sum + weightOf(fish), 0);
   let left = Math.max(0, Math.min(1, roll)) * total;
   for (const fish of pool) {
-    if (left < fish.weight) return fish;
-    left -= fish.weight;
+    const w = weightOf(fish);
+    if (left < w) return fish;
+    left -= w;
   }
   return pool[pool.length - 1] ?? null;
 }
@@ -109,6 +120,9 @@ export type FishingSpot = {
 };
 const sites = (...points: readonly (readonly [number, number])[]) => Object.freeze(points.map(([x, y]) => Object.freeze({ x, y })));
 /** Picked off the river's water mask (scripts/art/pick-fishing-sites.mts): open water, a bank in reach, nothing drawn over either. */
+export const FISHING_SPOT_NAMES: readonly string[] = Object.freeze([
+  "West Bridge", "Southwest Bend", "Southeast Bank", "East Bridge", "Northeast Pond",
+]);
 export const FISHING_SPOTS: readonly FishingSpot[] = Object.freeze([
   // West of the village, either side of its west bridge.
   { sites: sites([4112, 4972], [4672, 5612], [4512, 5932]), staySeconds: 300 },

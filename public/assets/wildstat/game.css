@@ -3771,25 +3771,27 @@
   #leaderboardRivalsTab, .leaderboard-podium[data-stat="rivals"] { --leaderboard-tab-color: #ff8a6b; }
   #leaderboardPowerTab, .leaderboard-podium[data-stat="power"] { --leaderboard-tab-color: #ffe05d; }
   #leaderboardPrestigeTab, .leaderboard-podium[data-stat="prestige"] { --leaderboard-tab-color: #c79bff; }
+  #leaderboardSkillsTab, .leaderboard-podium[data-stat^="skill:"] { --leaderboard-tab-color: #6ad3ff; }
   #leaderboardTimeTab, .leaderboard-podium[data-stat="time"], .leaderboard-podium[data-stat="created"] { --leaderboard-tab-color: #c3cbcf; }
   /* Reference stage is 460 × 200; container units keep its artwork and live players aligned. */
-  /* A segmented bar: four tabs of one height, the open one lit in its board's colour. */
+  /* A segmented bar: five tabs of one height, the open one lit in its board's colour. */
   .leaderboard-tabs.profile-tabs {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 100%; gap: 3px; overflow: visible;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 100%; gap: 3px; overflow: visible;
     padding: 3px; border: 1px solid rgba(255,255,255,.09); border-radius: 11px; background: rgba(255,255,255,.035);
   }
   .leaderboard-tabs .profile-tab {
-    position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
-    width: 100%; height: 36px; aspect-ratio: auto; min-width: 0; min-height: 0; margin: 0; padding: 0 6px;
+    position: relative; display: flex; align-items: center; justify-content: center; gap: 5px;
+    width: 100%; height: 36px; aspect-ratio: auto; min-width: 0; min-height: 0; margin: 0; padding: 0 5px;
     border: 0; border-radius: 8px;
     background: transparent; box-shadow: none; white-space: nowrap;
-    color: #a5a599; opacity: 1; font-size: 13px; text-shadow: 0 1px 1px #000;
+    color: #a5a599; opacity: 1; font-size: 12.5px; text-shadow: 0 1px 1px #000;
     transition: background-color .15s, color .15s;
   }
-  .leaderboard-tabs .profile-tab::before { content: ""; flex: 0 0 16px; width: 16px; height: 16px; background: var(--leaderboard-tab-color); opacity: .75; mask: var(--leaderboard-stat-icon) center / contain no-repeat; }
+  .leaderboard-tabs .profile-tab::before { content: ""; flex: 0 0 15px; width: 15px; height: 15px; background: var(--leaderboard-tab-color); opacity: .75; mask: var(--leaderboard-stat-icon) center / contain no-repeat; }
   #leaderboardRivalsTab { --leaderboard-stat-icon: url("ui/leaderboard/rivals.svg"); }
   #leaderboardPowerTab { --leaderboard-stat-icon: url("ui/leaderboard/power.svg"); }
   #leaderboardPrestigeTab { --leaderboard-stat-icon: url("ui/leaderboard/prestige.svg"); }
+  #leaderboardSkillsTab { --leaderboard-stat-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%23000' d='M10 1.5l2.4 5.2 5.6.7-4.1 3.9 1 5.6L10 14.2 5.1 16.9l1-5.6L2 7.4l5.6-.7z'/%3E%3C/svg%3E"); }
   #leaderboardTimeTab { --leaderboard-stat-icon: url("ui/leaderboard/time.svg"); }
   .leaderboard-tabs .profile-tab:hover { color: #e8e8dc; background: rgba(255,255,255,.04); transform: none; }
   .leaderboard-tabs .profile-tab.is-active {
@@ -3799,8 +3801,8 @@
   }
   .leaderboard-tabs .profile-tab.is-active::before { opacity: 1; }
   .leaderboard-tabs .profile-tab:focus-visible { outline: 1px solid rgba(255,255,255,.7); outline-offset: -2px; }
-  /* Four labels fit a phone only without their icons. */
-  @media (max-width: 440px) { .leaderboard-tabs .profile-tab::before { display: none; } }
+  /* Five labels fit a phone cleanly without their icons. */
+  @media (max-width: 520px) { .leaderboard-tabs .profile-tab::before { display: none; } }
   .leaderboard-podium {
     container-type: inline-size; position: relative; display: grid;
     grid-template-columns: 26% 31% 28%; align-items: end; justify-content: center; gap: 2.4%;
@@ -4516,7 +4518,7 @@
   .window-banner.window-banner--blue { --banner-filter: hue-rotate(90deg) saturate(.85); }
 
 /* Native Android only: a dismissible prompt, safely above the bottom toolbar. */
-#androidUpdateBanner, #appUpdateReadyBanner { position: fixed; z-index: 30; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 108px); transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 12px 14px; border: 2px solid #090e13; border-radius: 12px; background: #121b24; box-shadow: 0 4px 16px #0008; color: #fff; font-size: 15px; font-weight: 900; }
+#androidUpdateBanner, #appUpdateReadyBanner { position: fixed; z-index: 100010; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 108px); transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 12px 14px; border: 2px solid #090e13; border-radius: 12px; background: #121b24; box-shadow: 0 4px 16px #0008; color: #fff; font-size: 15px; font-weight: 900; }
 #androidUpdateBanner[hidden], #appUpdateReadyBanner[hidden] { display: none; }
 #androidUpdateBanner button, #appUpdateReadyBanner button { min-width: 66px; min-height: 44px; padding: 8px 12px; border: 1px solid #416980; border-radius: 8px; background: #264e68; color: #fff; font: inherit; }
 #androidUpdateBanner .android-update-later { border-color: transparent; background: transparent; }
@@ -5215,7 +5217,27 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
   .exchange-hero.is-buy .exchange-pill { background: #1f2a1c; color: var(--buy); border: 1px solid var(--buy-line); }
   .exchange-hero.is-sell .exchange-pill { background: #2a261c; color: var(--sand); border: 1px solid var(--sand-line); }
   .exchange-hero-name { font-size: 17px; }
-  .exchange-market { margin: 0; color: var(--muted); font-size: 12px; white-space: pre; }
+  .exchange-market { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0; color: var(--muted); font-size: 12px; }
+  .exchange-market-stat { padding: 3px 7px; border-radius: 4px; background: rgba(255,255,255,.04); }
+  .exchange-market-btn {
+    padding: 3px 8px; border: 1px solid var(--cell-line); border-radius: 4px; background: var(--cell);
+    color: var(--sand); font: inherit; cursor: pointer;
+  }
+  .exchange-market-btn:hover { border-color: var(--sand-line); background: #2c2a22; }
+  .exchange-filters { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 8px; }
+  .exchange-filter {
+    padding: 4px 10px; border: 1px solid var(--cell-line); border-radius: 999px; background: var(--cell);
+    color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .exchange-filter.is-active { border-color: var(--sand-line); background: #2c281c; color: var(--sand); }
+  .exchange-filter-held { margin-left: auto; }
+  .cook-skill-meter { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(14,14,14,.55); }
+  .cook-skill-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
+  .cook-skill-xp { color: #bdbdbd; font-size: 12px; }
+  .cook-skill-track { height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
+  .cook-skill-fill { display: block; height: 100%; border-radius: 3px; background: #ffd34d; transition: width .2s ease; }
+  .cook-skill-next { color: #b7c2bf; font-size: 11.5px; }
+  .offline-progress-later { margin-top: 6px; width: 100%; }
   /* Label, step down, field, step up, extra: the same columns in every row, each cell the same height. */
   .exchange-stepper { display: grid; grid-template-columns: 82px 52px minmax(0, 1fr) 52px 52px; align-items: center; gap: 6px; margin-bottom: 10px; }
   .exchange-stepper-label { color: var(--muted); font-size: 13px; white-space: nowrap; }

@@ -10,6 +10,7 @@ import { oreCount, standsAtTheSmith, takeOres } from "./item-refine";
 import { goldFor, takeGold } from "./gold";
 import { normalizeMining } from "../../shared/mining";
 import { normalizeWoodcutting } from "../../shared/woodcutting";
+import { fishingLevel } from "../../shared/fishing";
 
 /**
  * Each player's tool levels (shared/tools.ts), one row per upgraded tool. No row means Worn (level 0). Private;
@@ -29,11 +30,12 @@ export function toolLevelFor(ctx: Ctx, identity: Identity, tool: ToolId) {
   return normalizeToolLevel(ctx.db.playerTool.key.find(toolKey(identity, tool))?.level);
 }
 
-/** The skill a tool's levels are gated by: the Mining or Woodcutting stat, or the craft's level. Read here, as mining.ts reads this file. */
+/** The skill a tool's levels are gated by: the Mining or Woodcutting stat, Fishing level, or craft level. */
 function toolSkillFor(ctx: Ctx, identity: Identity, tool: ToolId) {
   const skill = TOOLS[tool].skill;
   if (skill === "mining") return normalizeMining(ctx.db.playerMining.identity.find(identity)?.mining);
   if (skill === "woodcutting") return normalizeWoodcutting(ctx.db.playerWoodcutting.identity.find(identity)?.woodcutting);
+  if (skill === "fishing") return fishingLevel(ctx.db.playerFishing.identity.find(identity)?.experience);
   return craftLevel(ctx.db.playerCraftSkill.key.find(`${identity.toHexString()}:${skill}`)?.experience ?? 0n);
 }
 

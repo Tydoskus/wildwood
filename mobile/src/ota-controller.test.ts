@@ -1,12 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
-import { applyAtLaunch, createOtaController, OTA_APPLY_AT_LAUNCH_MS, type OtaBridge, type OtaState } from './ota-controller';
+import {
+  applyAtLaunch,
+  clearBootFailure,
+  createOtaController,
+  OTA_APPLY_AT_LAUNCH_MS,
+  OTA_BOOT_FAILURES_BEFORE_BLOCK,
+  OTA_CHECK_INTERVAL_MS,
+  OTA_RETRY_BACKOFF_MS,
+  recordBootFailure,
+  type OtaBridge,
+  type OtaState,
+} from './ota-controller';
 import type { OtaManifest } from '../../shared/ota-update';
 function fixture() {
   let manifest: OtaManifest = { schema: 1, channel: 'production', platform: 'ios', sequence: 100,
     runtime: 'test', saveFormat: 1, protocol: 106, minBuild: 743, maxBuild: 743,
     bundle: { id: 'test-one', url: 'https://example.com/one.zip', checksum: 'a'.repeat(64), signature: 'a'.repeat(128) } };
   const data = new Map<string, string>();
-  const bridge = { ready: vi.fn(async () => ({ currentBundleId: null, previousBundleId: null, rollback: false })),
+  const bridge = { ready: vi.fn(async () => ({ currentBundleId: null as string | null, previousBundleId: null as string | null, rollback: false })),
     getCurrentBundle: vi.fn(async () => ({ bundleId: null as string | null })),
     getBlockedBundles: vi.fn(async () => ({ bundleIds: [] as string[] })), getBundles: vi.fn(async () => ({ bundleIds: [] as string[] })),
     downloadBundle: vi.fn(async (_: unknown) => {}), setNextBundle: vi.fn(async (_: unknown) => {}),
@@ -134,11 +145,90 @@ describe('restarting into an update found at launch', () => {
     expect(applyAtLaunch(ready, 0, 5_000, 'android-0.914.5-b')).toBe(false);
     expect(applyAtLaunch(ready, 0, 5_000, 'android-0.914.4-a')).toBe(true);
   });
-  it('never for the installed app, the developer channel, or mid-download', () => {
+  it('never for the installed app, the developer channel, mid-download, or active gameplay', () => {
     expect(applyAtLaunch({ ...ready, pending: 'Installed app' }, 0, 5_000, null)).toBe(false);
     expect(applyAtLaunch({ ...ready, pending: null }, 0, 5_000, null)).toBe(false);
     expect(applyAtLaunch({ ...ready, channel: 'developer' }, 0, 5_000, null)).toBe(false);
     expect(applyAtLaunch({ ...ready, busy: true }, 0, 5_000, null)).toBe(false);
     expect(applyAtLaunch({ ...ready, current: 'android-0.914.5-b' }, 0, 5_000, null)).toBe(false);
+    expect(applyAtLaunch(ready, 0, 5_000, null, true)).toBe(false);
+  });
+});
+
+describe('OTA retry, channel switch, and startup failure recovery', () => {
+  it('retries failed checks after the short backoff instead of locking out for 15 minutes', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-11-18T12:00:00Z'));
+      const f = fixture();
+      await f.controller.ready();
+      f.fetchManifest.mockRejectedValueOnce(new Error('Offline'));
+      await f.controller.check();
+      expect(f.fetchManifest).toHaveBeenCalledTimes(1);
+
+      // Inside retry backoff: throttled.
+      vi.advanceTimersByTime(OTA_RETRY_BACKOFF_MS - 1_000);
+      await f.controller.check();
+      expect(f.fetchManifest).toHaveBeenCalledTimes(1);
+
+      // Past retry backoff (still well inside 15m): retries and succeeds.
+      vi.advanceTimersByTime(2_000);
+      await f.controller.check();
+      expect(f.fetchManifest).toHaveBeenCalledTimes(2);
+      expect(f.controller.snapshot().pending).toBe('test-one');
+
+      // After a successful check: throttled for the full 15-minute interval.
+      vi.advanceTimersByTime(OTA_RETRY_BACKOFF_MS + 1_000);
+      await f.controller.check();
+      expect(f.fetchManifest).toHaveBeenCalledTimes(2);
+
+      vi.advanceTimersByTime(OTA_CHECK_INTERVAL_MS);
+      await f.controller.check();
+      expect(f.fetchManifest).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels the pending Installed app downgrade when returning to production while already on the latest production bundle', async () => {
+    const f = fixture();
+    f.bridge.ready.mockResolvedValue({ currentBundleId: 'test-one', previousBundleId: null, rollback: false });
+    f.bridge.getCurrentBundle.mockResolvedValue({ bundleId: 'test-one' });
+    await f.controller.ready();
+    f.controller.setDeveloperAccess(true);
+    f.manifest.channel = 'developer';
+    await f.controller.selectChannel('developer');
+
+    // Switch back to production: selectChannel queues Installed app (null), then check(true) sees
+    // production also serves 'test-one' (our current bundle) and cancels the downgrade.
+    f.manifest.channel = 'production';
+    await f.controller.selectChannel('production');
+    expect(f.bridge.setNextBundle).toHaveBeenLastCalledWith({ bundleId: 'test-one' });
+    expect(f.controller.snapshot().pending).toBeNull();
+  });
+
+  it('allows one clean retry on a transient boot error before blocking on the second consecutive failure', () => {
+    const map = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => { map.set(k, v); },
+      removeItem: (k: string) => { map.delete(k); },
+    };
+    expect(OTA_BOOT_FAILURES_BEFORE_BLOCK).toBe(2);
+    // First failure retries without blocking; second consecutive failure blocks and rolls back.
+    expect(recordBootFailure(storage, 'bundle-a')).toBe(false);
+    expect(recordBootFailure(storage, 'bundle-a')).toBe(true);
+    // A healthy boot clears the counter.
+    clearBootFailure(storage);
+    expect(recordBootFailure(storage, 'bundle-a')).toBe(false);
+    // A different bundle starts fresh.
+    expect(recordBootFailure(storage, 'bundle-b')).toBe(false);
+    expect(recordBootFailure(storage, 'bundle-b')).toBe(true);
+    // If storage cannot persist the counter, block immediately rather than reload-looping.
+    const brokenStorage = {
+      getItem: () => null,
+      setItem: () => { throw new Error('QuotaExceeded'); },
+    };
+    expect(recordBootFailure(brokenStorage, 'bundle-c')).toBe(true);
   });
 });

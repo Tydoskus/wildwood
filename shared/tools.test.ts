@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  CRAFT_TOOL, TOOLS, TOOL_IDS, TOOL_LEVEL_NAMES, TOOL_MAX_LEVEL, normalizeToolLevel, toolBonusChance, toolBonusYield, toolEffectText, toolExperience,
-  toolLevelNeed, toolName, toolNeedText, toolSaveShare, toolSavedMaterials, toolSpeed, toolUpgradeCost,
+  CRAFT_TOOL, TOOLS, TOOL_IDS, TOOL_LEVEL_NAMES, TOOL_MAX_LEVEL, normalizeToolLevel, rodSpeed, skilletBonus, toolBonusChance, toolBonusYield,
+  toolEffectText, toolExperience, toolLevelNeed, toolName, toolNeedText, toolSaveShare, toolSavedMaterials, toolSpeed, toolUpgradeCost,
 } from "./tools";
 import { CRAFT_SKILLS, MATERIAL_NAMES } from "./crafting";
 import { MINING_NODES, miningBreakSeconds, miningYield } from "./mining";
@@ -11,7 +11,7 @@ const levels = Array.from({ length: TOOL_MAX_LEVEL }, (_, index) => index + 1);
 
 describe("tools", () => {
   it("are one per skill, each craft with its own", () => {
-    expect(TOOL_IDS.map(tool => TOOLS[tool].skill)).toEqual(["mining", "woodcutting", "smithing", "fletching", "enchanting"]);
+    expect(TOOL_IDS.map(tool => TOOLS[tool].skill)).toEqual(["mining", "woodcutting", "fishing", "cooking", "smithing", "fletching", "enchanting"]);
     for (const skill of CRAFT_SKILLS) expect(TOOLS[CRAFT_TOOL[skill]].skill).toBe(skill);
   });
 
@@ -82,6 +82,10 @@ describe("tools", () => {
     expect(toolEffectText("pickaxe", 0)).toBe("No Bonus");
     expect(toolEffectText("pickaxe", 3)).toBe("+30% Speed · 7.5% Extra Ore");
     expect(toolEffectText("hatchet", 10)).toBe("+100% Speed · 25% Extra Log");
+    expect(toolEffectText("rod", 4)).toBe("+20% Speed · 10% Extra Fish");
+    expect(toolEffectText("skillet", 6)).toBe("+30% Gold & XP · 15% Save Fish");
     expect(toolEffectText("focus", 3)).toBe("Saves 7.5% Materials · +9% Experience");
+    expect([rodSpeed(0), rodSpeed(10)]).toEqual([1, 1.5]);
+    expect([skilletBonus(0), skilletBonus(10)]).toEqual([1, 1.5]);
   });
 });

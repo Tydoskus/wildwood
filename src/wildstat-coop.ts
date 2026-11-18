@@ -1,5 +1,5 @@
 import { watchDefeatSession } from "./coop/services/defeat-session-watch";
-import { watchOfflineProgress, type OfflineActivity, type OfflineProgressSummary } from "./coop/services/offline-progress-watch";
+import { createOfflineProgressService } from "./coop/services/offline-progress-watch";
 import { createAccountAudioSettings } from "./coop/services/account-audio-settings";
 import { createAccountRowServices, keptCardSlots, presenceGatherClock } from "./coop/services/account-row-services";
 import { createFramePlayers } from "./coop/services/frame-players";
@@ -92,7 +92,7 @@ const updateResumeMode = consumeUpdateResumeMode({ version: GAME_VERSION, store:
 let connection: DbConnection | null = null;
 let localIdentity = "";
 /** Held until the UI has shown it; the server keeps its own copy until then. */
-let pendingOfflineProgress: OfflineProgressSummary | null = null;
+const offlineProgressService = createOfflineProgressService(() => connection, onChange);
 let localDbIdentity: Identity | null = null;
 let connecting = false;
 let connectionGeneration = 0;
@@ -717,10 +717,7 @@ function connect() {
       if (!signedIn) accountService.storeGuestToken(token);
       accountService.watchLegalConsent(conn);
       watchDefeatSession(conn, accountService.connectionCredential(), () => generation === connectionGeneration && connection === conn, message => accountService.handleDefeatRestriction(message));
-      watchOfflineProgress(conn, () => generation === connectionGeneration && connection === conn, summary => {
-        pendingOfflineProgress = summary;
-        onChange();
-      });
+      offlineProgressService.watch(conn, () => generation === connectionGeneration && connection === conn);
       accountRows.watch(conn, () => generation === connectionGeneration && connection === conn);
       accountAudio.watch(conn, () => generation === connectionGeneration && connection === conn, () => protocolReadyGeneration === generation && !protocolBlocked);
       const protocolProbe = latency.begin(true);
@@ -903,15 +900,11 @@ export const wildstatCoop = {
   localIdentity() {
     return localIdentity;
   },
-  pendingOfflineProgress: () => pendingOfflineProgress,
+  ...offlineProgressService.api,
   runTiming: () => accountRows.api.runTimingWith(progressionService.lifetimeFor(localIdentity)),
   ...accountRows.api,
   weaponMasteryInPlay: (): MasteryPoints => masteryPointsInPlay(accountRows.api.weaponMastery(), progressionService.api.prestigeChallenge().active || progressionService.api.aggroChallenge().active), // None during challenges.
   accountAudio: accountAudio.api,
-  async acknowledgeOfflineProgress(activity: OfflineActivity = "fight") {
-    if (connection?.isActive) await connection.reducers.collectOfflineProgressAs({ activity });
-    pendingOfflineProgress = null;
-  },
   async simulateTimeAway(seconds: number) {
     if (!connection?.isActive || !isDeveloperIdentity(localIdentity)) return false;
     await connection.reducers.simulateTimeAway({ seconds });

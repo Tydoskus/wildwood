@@ -1,6 +1,8 @@
 import {
   isTownMap, townChunkOf, townRoomAt, townWalkClamp, TOWN_ARRIVAL, TOWN_DOORS, TOWN_FEET_OFFSET, type TownDoor,
 } from "../../../../shared/town";
+import { isGuildHallMap } from "../../../../shared/guild-hall";
+import { guildHallShown } from "../../guild-hall";
 import { SOUL_DOORS_OPEN, SOUL_INTERIOR_SOLIDS, TOWN_VILLAGE_PITS, TOWN_VILLAGE_SOLIDS, type SoulSolid } from "../../town-village";
 import { furnishedInteriorSolids, townWindowDecor } from "../../town-world";
 import { TOWN_EXCHANGE_SOLIDS } from "../../town-exchange";
@@ -11,6 +13,7 @@ import type { PlayerState } from "../types";
 import { createMiningRuntime, type MiningSource } from "./mining-runtime";
 import { createWoodcuttingRuntime, type WoodcuttingSource } from "./woodcutting-runtime";
 import { createFishingRuntime, type FishingSource } from "./fishing-runtime";
+import { cookingScene, resetCookingScene } from "./cooking-scene";
 import type { InventoryState } from "../../inventory";
 import type { OreCounts } from "../../../../shared/ore-bag";
 import { bagSlotCapacity } from "../../../../shared/gems";
@@ -148,9 +151,10 @@ export function createTownRuntime(deps: {
       capacity: bagSlotCapacity(current.inventorySlotsUnlocked?.() ?? 0, current.research?.().inventorySlots ?? 0),
     };
   };
+  const guildPondLevel = () => isGuildHallMap(deps.currentMapId()) && !guildHallShown.indoors ? guildHallShown.pond : 0;
   const mining = createMiningRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
   const woodcutting = createWoodcuttingRuntime({ source, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
-  const fishing = createFishingRuntime({ source, equipment: deps.inventory, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag });
+  const fishing = createFishingRuntime({ source, equipment: deps.inventory, player: deps.player, message: deps.message, logPickup: deps.logPickup, burst: deps.burst, bag, guildPondLevel });
 
   /** Brings the props around the player up to date. */
   function refreshWindow(force = false) {
@@ -315,10 +319,16 @@ export function createTownRuntime(deps: {
       const free = step(dt);
       mining.update(dt, free);
       woodcutting.update(dt, free);
-      fishing.update(dt, free);
+      fishing.update(dt, free || guildPondLevel() > 0);
+      if (!isTownMap(deps.currentMapId())) resetCookingScene();
+      else {
+        cookingScene.gainLeft = Math.max(0, cookingScene.gainLeft - dt / 1.4);
+        if (!cookingScene.active) cookingScene.badgeLeft = Math.max(0, cookingScene.badgeLeft - dt);
+      }
     },
     tap(clientX: number, clientY: number) {
-      if (!deps.camera || !isTownMap(deps.currentMapId()) || deps.player.hp <= 0) return false;
+      const mapId = deps.currentMapId();
+      if (!deps.camera || (!isTownMap(mapId) && guildPondLevel() <= 0) || deps.player.hp <= 0) return false;
       if (fall || doorway) return true;
       const x = deps.camera.x + clientX / deps.camera.zoom, y = deps.camera.y + clientY / deps.camera.zoom;
       return fishing.tap(x, y);

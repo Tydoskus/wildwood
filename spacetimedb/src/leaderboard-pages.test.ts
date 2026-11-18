@@ -140,7 +140,7 @@ describe("leaderboard snapshots", () => {
     eligible(f, f.ctx.sender, 100);
     f.seed("leaderboardRefreshState", { id: 1, refreshedAtMicros: 1n, version: 13 });
     refreshLeaderboardIfDue(f.ctx);
-    expect(f.db.leaderboardRefreshState.id.find(2)).toMatchObject({ version: 14 });
+    expect(f.db.leaderboardRefreshState.id.find(2)).toMatchObject({ version: 15 });
     expect(f.db.leaderboardStanding.identity.find(f.ctx.sender)).toBeTruthy();
     f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 1_000_000_000n);
     refreshLeaderboardIfDue(f.ctx);

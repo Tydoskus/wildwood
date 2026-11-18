@@ -1,4 +1,4 @@
-import { GUILD_HALL_WORLD, type GuildHallLevels, type GuildHallPart } from "../../shared/guild-hall";
+import { GUILD_HALL_POND, GUILD_HALL_WORLD, guildHallPondSolid, type GuildHallLevels, type GuildHallPart } from "../../shared/guild-hall";
 import scene from "./guild-hall-scene.json";
 import type { SoulSolid } from "./town-village";
 import type { WorldDecor } from "./world";
@@ -48,8 +48,8 @@ export const guildHallDoorState = { open: false };
  * The hall's badge (its index in GUILD_EMBLEMS, -1 until the guild is known), seats, and whether the player is
  * indoors now: set by the runtime, drawn by the renderer.
  */
-export const guildHallShown: { emblem: number; size: number; seats: readonly GuildHallSeat[]; indoors: boolean } = {
-  emblem: -1, size: 0, seats: [], indoors: false,
+export const guildHallShown: { emblem: number; size: number; pond: number; seats: readonly GuildHallSeat[]; indoors: boolean } = {
+  emblem: -1, size: 0, pond: 0, seats: [], indoors: false,
 };
 /**
  * How close a standing player's feet must be to a seat to be sitting in it. Sitting is drawn, never moved: every
@@ -91,6 +91,31 @@ export function guildHallDecor(levels: GuildHallLevels, indoors = false): WorldD
     // Just in front of its banner, so the badge is never under the cloth.
     decor.push({ type: "soulProp", sheet: "hall", frame: "", crest: crest.size, s: 1, x: crest.x, y: crest.d + .01, dy: crest.dy });
   }
+  // Pondside courtyard lanterns at Koi Pond, and warm glowing braziers at Grand Fishing Pond.
+  if (!indoors && levels.pond >= 1) {
+    const spots: [number, number][] = [
+      [GUILD_HALL_POND.x - GUILD_HALL_POND.rx - 18, GUILD_HALL_POND.y - 34],
+      [GUILD_HALL_POND.x + GUILD_HALL_POND.rx + 18, GUILD_HALL_POND.y - 34],
+    ];
+    for (const [x, y] of spots) {
+      decor.push(
+        { type: "soulProp", sheet: "hall", frame: "13", s: 1, x, y, dy: 0, shadow: true },
+        { type: "soulProp", sheet: "hall", frame: "14", s: 1, x, y, dy: 0 },
+      );
+    }
+    if (levels.pond >= 2) {
+      const grandSpots: [number, number][] = [
+        [GUILD_HALL_POND.x - GUILD_HALL_POND.rx - 16, GUILD_HALL_POND.y + 42],
+        [GUILD_HALL_POND.x + GUILD_HALL_POND.rx + 16, GUILD_HALL_POND.y + 42],
+      ];
+      for (const [x, y] of grandSpots) {
+        decor.push(
+          { type: "soulProp", sheet: "hall", frame: "11", s: 1, x, y, dy: 0, shadow: true },
+          { type: "soulProp", sheet: "hall", frame: "12", s: 1, x, y, dy: 0 },
+        );
+      }
+    }
+  }
   return decor;
 }
 
@@ -100,8 +125,12 @@ function solid(flat: readonly number[]): SoulSolid {
   return { xs, ys, left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
 }
 const SOLIDS = (scene.solids as { points: number[]; when?: Condition }[]).map(entry => ({ when: entry.when, solid: solid(entry.points) }));
-/** What nobody walks through at these levels: the building, trees, walls and furniture. */
-export const guildHallSolids = (levels: GuildHallLevels) => SOLIDS.filter(entry => shownAt(levels, entry.when)).map(entry => entry.solid);
+const POND_SOLID: SoulSolid = guildHallPondSolid();
+/** What nobody walks through at these levels: the building, trees, walls, pond and furniture. */
+export const guildHallSolids = (levels: GuildHallLevels) => [
+  ...SOLIDS.filter(entry => shownAt(levels, entry.when)).map(entry => entry.solid),
+  ...(levels.pond >= 1 ? [POND_SOLID] : []),
+];
 
 export type GuildHallSeat = { x: number; y: number; side: "north" | "south" };
 /** The great table's seats at these levels. North seats are behind the table, south seats in front. */

@@ -223,7 +223,7 @@ export function createDevPanel(d: Record<string, any>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createLeaderboardPanel(d: Record<string, any>) {
   const e = d.e;
-  return createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { rivals: e.leaderboardRivalsTab, power: e.leaderboardPowerTab, prestige: e.leaderboardPrestigeTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, podium: e.leaderboardPodiumEl, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl, filterChips: e.leaderboardPrestigeChips, filterHeading: e.leaderboardPrestigeHeading }, d.options);
+  return createLeaderboardController({ button: e.leaderboardBtn, overlay: e.leaderboardEl, closeButton: e.closeLeaderboardBtn, tabs: { rivals: e.leaderboardRivalsTab, power: e.leaderboardPowerTab, prestige: e.leaderboardPrestigeTab, skills: e.leaderboardSkillsTab, time: e.leaderboardTimeTab }, valueHeading: e.leaderboardValueHeading, podium: e.leaderboardPodiumEl, rows: e.leaderboardRowsEl, loading: e.leaderboardLoadingEl, empty: e.leaderboardEmptyEl, filterChips: e.leaderboardPrestigeChips, filterHeading: e.leaderboardPrestigeHeading }, d.options);
 }
 
 /** Wires standard game-window actions and escape priority from UI controllers. */

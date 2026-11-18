@@ -100,6 +100,7 @@ export type StartupCoordinationDeps = {
   suspendPlayerVisibility: () => void;
   showNewPlayerIntro: () => void;
   startGame: () => void;
+  registerNativeOtaHooks?: (hooks: { isPlaying: () => boolean; prepareReload: (target: string) => Promise<boolean> }) => void;
 };
 
 /**
@@ -137,9 +138,13 @@ export function createStartupCoordination(deps: StartupCoordinationDeps) {
     checkVersion: () => enforceLatestVersion(version, latestVersion => {
       deps.suspendPlayerVisibility();
       coordinator.showGameUpdating(latestVersion);
-    }, updateHandoff),
+    }, updateHandoff, { urgent: true }),
   });
   const updateHandoff = { canReload: scheduledUpdate.canReload, beforeReload: scheduledUpdate.prepareReload };
+  deps.registerNativeOtaHooks?.({
+    isPlaying: () => session.hasStarted(),
+    prepareReload: async () => updateHandoff.canReload() && await updateHandoff.beforeReload(version),
+  });
   installCanvasPurgeRecovery({
     watch: [deps.canvas],
     contextEvent: STATIC_WORLD_LAYER_RESET_EVENT,

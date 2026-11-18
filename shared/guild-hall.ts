@@ -28,7 +28,7 @@ export const GUILD_HALL_ARRIVAL = Object.freeze({ ...geometry.arrival });
 /** The portal home, on the round pad at the foot of the yard's path. */
 export const GUILD_HALL_HOME_PAD = Object.freeze({ ...geometry.homePad, width: 150, height: 150, depth: geometry.homePad.y });
 
-export type GuildHallPart = "table" | "size" | "banners" | "hearth" | "trophies" | "lights" | "courtyard";
+export type GuildHallPart = "table" | "size" | "banners" | "hearth" | "trophies" | "lights" | "courtyard" | "pond";
 export type GuildHallLevels = Record<GuildHallPart, number>;
 /** Each upgrade's name, what each level is, and what each level costs in quest points (level 0 is free). */
 export const GUILD_HALL_PARTS: readonly { id: GuildHallPart; name: string; levels: readonly string[]; costs: readonly number[] }[] = [
@@ -39,7 +39,21 @@ export const GUILD_HALL_PARTS: readonly { id: GuildHallPart; name: string; level
   { id: "trophies", name: "Trophy Wall", levels: ["Bare Wall", "Trophy Shelf", "Trophy Wall"], costs: [0, 250, 600] },
   { id: "lights", name: "Lanterns", levels: ["A Few Lanterns", "Lantern Rows", "Chandeliers"], costs: [0, 100, 250] },
   { id: "courtyard", name: "Courtyard", levels: ["Bare Yard", "Trees And Flowers", "Fountain Garden"], costs: [0, 150, 400] },
+  { id: "pond", name: "Fishing Pond", levels: ["No Pond", "Koi Pond", "Grand Fishing Pond"], costs: [0, 300, 750] },
 ];
+/** Permanent guild courtyard fishing pond: on the open east lawn beside the arrival path, never moves. */
+export const GUILD_HALL_POND = Object.freeze({ x: 2140, y: 2360, rx: 108, ry: 74 });
+/** Octagonal water footprint of the guild hall pond so feet stop cleanly at its stone rim. */
+export function guildHallPondSolid() {
+  const { x, y, rx, ry } = GUILD_HALL_POND;
+  const xs: number[] = [], ys: number[] = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    xs.push(Math.round(x + Math.cos(a) * (rx - 6)));
+    ys.push(Math.round(y + Math.sin(a) * (ry - 6)));
+  }
+  return { xs, ys, left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+}
 export const GUILD_HALL_PART_IDS = GUILD_HALL_PARTS.map(part => part.id);
 export const EMPTY_GUILD_HALL_LEVELS: Readonly<GuildHallLevels> = Object.freeze(Object.fromEntries(GUILD_HALL_PART_IDS.map(id => [id, 0])) as GuildHallLevels);
 
@@ -60,9 +74,11 @@ export const GUILD_HALL_BONUSES: Readonly<Record<GuildHallPart, { values: readon
   // Every boss's head wants a place on the wall: gold on its first clear in a run.
   trophies: { values: [0, 2, 4], text: value => `+${value} Gold Per First Boss Clear` },
   // Work goes on by lantern light while away.
-  lights: { values: [0, .1, .2], text: value => `+${percent(value)} Offline Mining And Chopping Speed` },
-  // The garden's soil: a chance of one more ore or log from each rock or tree.
-  courtyard: { values: [0, .03, .06], text: value => `+${percent(value)} Chance Of An Extra Ore Or Log` },
+  lights: { values: [0, .1, .2], text: value => `+${percent(value)} Offline Gathering Speed` },
+  // The garden's soil: a chance of one more ore, log or fish.
+  courtyard: { values: [0, .03, .06], text: value => `+${percent(value)} Chance Of An Extra Ore, Log Or Fish` },
+  // A stocked guild pond that never moves: faster bites, more Fishing XP and richer catches.
+  pond: { values: [0, .25, .45], text: value => `+${percent(value)} Guild Pond Fishing Speed & XP · Never Moves` },
 };
 /** An upgrade's bonus at the hall's levels. */
 export const guildHallBonus = (levels: GuildHallLevels, part: GuildHallPart) => GUILD_HALL_BONUSES[part].values[levels[part]] ?? 0;

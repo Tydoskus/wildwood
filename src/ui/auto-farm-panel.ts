@@ -11,7 +11,7 @@ import { actionForKey, onControlAction } from '../game/runtime/control-bindings'
 import { installMovableHudCard } from './movable-hud-card';
 import type { AggroChallenge } from '../../shared/aggro-challenge';
 import type { RewardType } from '../game/enemies';
-import { AUTO_CHOP_HELP_LINES, AUTO_MINE_HELP_LINES, createAutoChopView, createAutoMineView } from './auto-gather-view';
+import { AUTO_CHOP_HELP_LINES, AUTO_FISH_HELP_LINES, AUTO_MINE_HELP_LINES, createAutoChopView, createAutoFishView, createAutoMineView } from './auto-gather-view';
 import { setAttr, setHidden, setText } from './dom-write';
 
 /** Where the card was dragged to; positions saved under older keys are ignored, so the card starts centred. */
@@ -115,17 +115,20 @@ export function createAutoFarmPanel(options: {
   const startButton = element<HTMLButtonElement>('.farm-start');
   const backButton = element<HTMLButtonElement>('.farm-close');
   const aggroRow = element('.farm-aggro-row');
-  const mine = options.farm.mine ?? null, chop = options.farm.chop ?? null;
+  const mine = options.farm.mine ?? null, chop = options.farm.chop ?? null, fish = options.farm.fish ?? null;
   const mineView = mine ? createAutoMineView(mine, () => updateSelection()) : null;
   const chopView = chop ? createAutoChopView(chop, () => updateSelection()) : null;
+  const fishView = fish ? createAutoFishView(fish, () => updateSelection()) : null;
+  if (fishView) element('.farm-body').after(fishView.body);
   if (chopView) element('.farm-body').after(chopView.body);
   if (mineView) element('.farm-body').after(mineView.body);
-  /** Auto Mine in the Copper Hills, Auto Chop in Timberwood: the one whose area the player is in, or null. */
+  /** Auto Mine in the Copper Hills, Auto Chop in Timberwood, Auto Fish along the river: the one whose area the player is in, or null. */
   const gather = () => mine?.here() ? { name: 'Auto Mine', run: mine, view: mineView!, help: AUTO_MINE_HELP_LINES }
-    : chop?.here() ? { name: 'Auto Chop', run: chop, view: chopView!, help: AUTO_CHOP_HELP_LINES } : null;
+    : chop?.here() ? { name: 'Auto Chop', run: chop, view: chopView!, help: AUTO_CHOP_HELP_LINES }
+    : fish?.here() ? { name: 'Auto Fish', run: fish, view: fishView!, help: AUTO_FISH_HELP_LINES } : null;
   const mining = () => Boolean(gather());
   /** The rest of the Town has nothing to run: no button there. */
-  const shown = () => options.visible() && (mining() || !(mine?.inTown() ?? chop?.inTown() ?? false));
+  const shown = () => options.visible() && (mining() || !(mine?.inTown() ?? chop?.inTown() ?? fish?.inTown() ?? false));
   // Waiting to carry on after a map change counts: it starts again by itself, so it shows On and Stop cancels it.
   const farming = () => {
     const here = gather();
@@ -165,6 +168,7 @@ export function createAutoFarmPanel(options: {
     body.hidden = open || Boolean(view);
     if (mineView) mineView.body.hidden = open || view !== mineView;
     if (chopView) chopView.body.hidden = open || view !== chopView;
+    if (fishView) fishView.body.hidden = open || view !== fishView;
     helpToggle.setAttribute('aria-expanded', String(open));
   }
   /** Each stat's mode in this window, applied by Start or Go and kept when it closes. */

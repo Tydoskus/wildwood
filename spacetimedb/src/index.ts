@@ -20,7 +20,7 @@ import { playerMultiplayerPreference, writeMultiplayerPreference } from "./multi
 import { enemyDefeatBank, enemyDefeatBudget, playerDefeatClock, playerMapDeparture, acceptEnemyDefeats, permittedDefeatMaps, pruneIdleDefeatBudgets, throttleKillReports, type EnemyDefeatBatch, type ThrottledClocks } from "./enemy-defeats";
 import { grantVirtualPlayerConsent, revokeVirtualPlayerConsent } from "./virtual-player-consent";
 import { offlineProgressTables, beginOfflineWindow, grantOfflineProgress, collectOfflineProgress, setSimulatedTimeAway } from "./offline-progress";
-import { offlineGatherChoice, playerGatherPicks, registerGatherPicks } from "./offline-gathering";
+import { offlineFishingChoice, offlineGatherChoice, playerGatherPicks, registerGatherPicks } from "./offline-gathering";
 import { ensureRunTiming, playerRunTiming, playerRunHistory } from "./run-timing";
 import { playerNockedArrow, registerArrows } from "./arrows";
 import { offlineActivity } from "../../shared/offline-gathering";
@@ -70,6 +70,7 @@ import { awardRegularEnemyLoot } from "./enemy-loot-award";
 import { moderateReportedMessage } from "./chat-report-moderation";
 import { PLAYER_SKIN_TONES } from "../../shared/player-skin-tones";
 import { leaderboardPageTables, readLeaderboardWindow, readLeaderboardRanks, findLeaderboardSpot } from "./leaderboard-pages";
+import { skillLeaderboardTables, readSkillLeaderboardRanks } from "./skill-leaderboard";
 import { effectiveMovementSpeedForProgress, refreshPrestigeMovement, attackIntervalForProgress, savedAttackRange } from "./player-speed";
 import { playerBonusToggle } from "./bonus-toggles";
 import { playerLuckResearch } from "./luck-research";
@@ -1408,6 +1409,7 @@ const spacetimedb = schema({
   playerGemDrop,
   ...proceduralMapTables,
   ...leaderboardPageTables,
+  ...skillLeaderboardTables,
   ...gemPurchaseTables,
   ...patreonTables, ...serverBoostTables, ...chatAnnouncementTables, ...exchangeTables,
   homeReturnLocation,
@@ -1429,7 +1431,7 @@ const spacetimedb = schema({
   playerGemWallet,
   gemTransaction,
   dailyGemBonus,
-  playerAdReward, playerAdWatch, playerChatMute, playerClientHost, offlineGatherChoice, playerGatherPicks, playerRunTiming, playerRunHistory, playerNockedArrow,
+  playerAdReward, playerAdWatch, playerChatMute, playerClientHost, offlineGatherChoice, offlineFishingChoice, playerGatherPicks, playerRunTiming, playerRunHistory, playerNockedArrow,
   balanceApologyNotice,
   playerEquipmentLock, playerItemGift, playerBowSkill, playerSwordSkill, playerStaffSkill, playerWornStaffSkill, playerWeaponStat, playerEquipmentCopy, pendingEquipmentOffer, playerIgnoredDrop, playerLootSetting, playerItemRefine, playerCopyRefine, playerOre, playerRefineResult, playerRefinePity, playerCard, playerGearSlots, playerCopySlots, playerCardDrop, playerCardAttackCap, playerBossCardRoll, playerBuild, playerBuildName, playerWeaponMastery, playerMasteryLevel, playerGold, playerCardMeter, playerCardShopPurchase, playerItemCollection, playerWornSkill, playerMining, playerMinedNode, playerMiningLevel, playerWoodcutting, playerChoppedTree, playerWoodcuttingLevel, playerFishing, playerFishingLevel, cookingAttempt, playerCraftSkill, playerCraftLevel, playerTool, oldGearPayout, playerStarterWeapon, gemKillDaily, gemLedgerTrim,
   mailboxLetter, mailboxReceipt, playerJoinDate, mailboxEquipment, accountDeletionRequest,
@@ -3363,6 +3365,10 @@ export const myOfflineGatherChoice = spacetimedb.view(
   { name: "my_offline_gather_choice", public: true }, t.array(offlineGatherChoice.rowType),
   ctx => { const row = ctx.db.offlineGatherChoice.identity.find(ctx.sender); return row ? [row] : []; },
 );
+export const myOfflineFishingChoice = spacetimedb.view(
+  { name: "my_offline_fishing_choice", public: true }, t.array(offlineFishingChoice.rowType),
+  ctx => { const row = ctx.db.offlineFishingChoice.identity.find(ctx.sender); return row ? [row] : []; },
+);
 /** The caller's prestige run timing (run-timing.ts): its start in active play and each boss's first clear. */
 export const myRunTiming = spacetimedb.view(
   { name: "my_run_timing", public: true }, t.array(playerRunTiming.rowType),
@@ -4205,6 +4211,12 @@ export const getLeaderboardRanks = spacetimedb.procedure(
   t.object("LeaderboardRanks", { entries: t.array(t.object("LeaderboardRank", { rank: t.u32(), entry: leaderboardEntry.rowType, joinedAtMicros: t.u64() })),
     startRank: t.u32(), endRank: t.u32(), localRank: t.u32(), total: t.u32(), prestige: t.u32() }),
   (ctx, { board, startRank, count }) => ctx.withTx(tx => readLeaderboardRanks(tx, board, startRank, count)),
+);
+export const getSkillLeaderboardRanks = spacetimedb.procedure(
+  { board: t.string(), startRank: t.u32(), count: t.u32() },
+  t.object("SkillLeaderboardRanks", { entries: t.array(t.object("SkillLeaderboardRank", { rank: t.u32(), entry: leaderboardEntry.rowType, score: t.u64() })),
+    startRank: t.u32(), endRank: t.u32(), localRank: t.u32(), total: t.u32() }),
+  (ctx, { board, startRank, count }) => ctx.withTx(tx => readSkillLeaderboardRanks(tx, board, startRank, count)),
 );
 export const findLeaderboardPlayer = spacetimedb.procedure({ stat: t.string(), prestige: t.i32(), identity: t.identity() },
   t.object("LeaderboardSpot", { rank: t.u32(), prestige: t.i32() }), (ctx, { stat, prestige, identity }) => ctx.withTx(tx => findLeaderboardSpot(tx, stat, prestige, identity)));

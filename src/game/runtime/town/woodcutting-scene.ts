@@ -18,6 +18,13 @@ export const woodcuttingScene = {
   blocked: null as "stand" | "bag" | null,
   /** The hatchet's level (shared/tools.ts), for its axe in hand. */
   toolLevel: 0,
+  /** Current Woodcutting stat, for the overhead skill badge. */
+  level: 0,
+  /** Last tree's Woodcutting gain, rising off the badge, and how much of its rise is left, from 1. */
+  gain: 0,
+  gainLeft: 0,
+  /** Seconds to keep the badge visible after swinging or felling a tree. */
+  badgeLeft: 0,
 };
 
 export function resetWoodcuttingScene() {
@@ -28,4 +35,8 @@ export function resetWoodcuttingScene() {
   woodcuttingScene.swingClock = 0;
   woodcuttingScene.blocked = null;
   woodcuttingScene.toolLevel = 0;
+  woodcuttingScene.level = 0;
+  woodcuttingScene.gain = 0;
+  woodcuttingScene.gainLeft = 0;
+  woodcuttingScene.badgeLeft = 0;
 }

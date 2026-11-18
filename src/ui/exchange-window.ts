@@ -1,4 +1,5 @@
 import { EXCHANGE_FEE_PERCENT, EXCHANGE_NAME, EXCHANGE_SUPPORTER_OFFERS, exchangeOfferSlots, isExchangeGear, isExchangeResource } from "../../shared/exchange";
+import { isFishId } from "../../shared/fishing";
 import { itemDisplayName } from "../../shared/items";
 import { ORE_ORDER } from "../../shared/ore-bag";
 import { REFINE_ORES, type OreId } from "../../shared/refine";
@@ -16,6 +17,16 @@ import { autoNameColor } from "./player-identity";
 import { nameColorHex } from "../../shared/name-colors";
 
 type Side = "buy" | "sell";
+type ResourceCategory = "all" | "ores" | "logs" | "arrows" | "fish";
+const RESOURCE_CATEGORIES: readonly [ResourceCategory, string][] = [
+  ["all", "All"], ["ores", "Ores"], ["logs", "Logs"], ["arrows", "Arrows"], ["fish", "Fish"],
+];
+function resourceCategory(itemId: OreId): Exclude<ResourceCategory, "all"> {
+  if (isFishId(itemId)) return "fish";
+  if (itemId.endsWith("_arrow")) return "arrows";
+  if (itemId.endsWith("_log")) return "logs";
+  return "ores";
+}
 type GearPiece = { itemId: string; copyId: bigint; refine: number; roll: WeaponSkillRoll | null };
 type Draft = { buy: boolean; itemId: string; copyId?: bigint; refine: number; quantity: number; max: number; price: bigint };
 type Screen = { kind: "slots" } | { kind: "pick"; side: Side } | { kind: "item"; itemId: string } | { kind: "offer"; draft: Draft };
@@ -110,6 +121,7 @@ export function createExchangeController(deps: ExchangeDeps) {
   const body = dialog.querySelector<HTMLElement>(".exchange-body")!;
   const back = dialog.querySelector<HTMLButtonElement>(".window-back-button")!;
   let screen: Screen = { kind: "slots" }, busy = false, rendered = "", query = "";
+  let category: ResourceCategory = "all", sellHeldOnly = false;
 
   const mine = (identity: string) => identity === deps.identity();
   const myOffers = deps.myOffers, myListings = deps.myListings;
@@ -264,6 +276,29 @@ export function createExchangeController(deps: ExchangeDeps) {
     return parts;
   }
 
+  /** Category filter bar above resource grids: All · Ores · Logs · Arrows · Fish, plus an optional Held Only switch on Sell. */
+  function filterBar(onChange: () => void, withHeld = false) {
+    const bar = el("div", "exchange-filters");
+    bar.setAttribute("role", "tablist");
+    bar.setAttribute("aria-label", "Resource category");
+    for (const [id, label] of RESOURCE_CATEGORIES) {
+      const chip = el("button", `exchange-filter${category === id ? " is-active" : ""}`, label);
+      chip.type = "button";
+      chip.setAttribute("role", "tab");
+      chip.setAttribute("aria-selected", String(category === id));
+      chip.addEventListener("click", () => { if (category !== id) { category = id; onChange(); } });
+      bar.append(chip);
+    }
+    if (withHeld) {
+      const heldBtn = el("button", `exchange-filter exchange-filter-held${sellHeldOnly ? " is-active" : ""}`, "Held Only");
+      heldBtn.type = "button";
+      heldBtn.setAttribute("aria-pressed", String(sellHeldOnly));
+      heldBtn.addEventListener("click", () => { sellHeldOnly = !sellHeldOnly; onChange(); });
+      bar.append(heldBtn);
+    }
+    return bar;
+  }
+
   /** Buy: a search box over the market. Empty, the resources and the gear for sale as grids; typed, a row per seller. */
   function buyScreen() {
     const field = el("label", "exchange-search");
@@ -276,7 +311,8 @@ export function createExchangeController(deps: ExchangeDeps) {
     const fill = () => {
       if (!foldPlayerName(query)) {
         const resources = el("div", "exchange-grid");
-        for (const itemId of ORE_ORDER) {
+        const visibleResources = category === "all" ? ORE_ORDER : ORE_ORDER.filter(itemId => resourceCategory(itemId) === category);
+        for (const itemId of visibleResources) {
           const price = best(itemId, false);
           resources.append(tile(itemId, 0, price === null ? "" : short(price), () => go({ kind: "item", itemId })));
         }
@@ -286,7 +322,7 @@ export function createExchangeController(deps: ExchangeDeps) {
         const gear = el("div", "exchange-grid");
         for (const row of gearForSale) gear.append(tile(row.itemId, 0, short(row.lowestAsk!), () => go({ kind: "item", itemId: row.itemId })));
         deps.watch([]);
-        results.replaceChildren(section("Resources"), resources, section("Gear"), gearForSale.length ? gear : el("p", "exchange-empty", "None"));
+        results.replaceChildren(section("Resources"), filterBar(fill), resources, section("Gear"), gearForSale.length ? gear : el("p", "exchange-empty", "None"));
         return;
       }
       // Matched the way the leaderboard matches names (whole name, then its start, then a word's start, then anywhere),
@@ -318,8 +354,9 @@ export function createExchangeController(deps: ExchangeDeps) {
   function sellScreen() {
     const held = deps.ores();
     const resources = el("div", "exchange-grid");
-    // Every resource that trades, the ones not held greyed, so a player sees what could be sold.
-    for (const itemId of ORE_ORDER) {
+    // Every resource that trades (filtered by category and optional Held Only), unheld ones greyed.
+    const visibleResources = ORE_ORDER.filter(itemId => (category === "all" || resourceCategory(itemId) === category) && (!sellHeldOnly || (held[itemId] ?? 0) > 0));
+    for (const itemId of visibleResources) {
       const have = held[itemId] ?? 0;
       const piece = tile(itemId, 0, short(BigInt(have)), have > 0 ? () => go({ kind: "offer",
         draft: { buy: false, itemId, refine: 0, quantity: have, max: have, price: best(itemId, true) ?? last(itemId) ?? 1n } }) : undefined);
@@ -331,7 +368,8 @@ export function createExchangeController(deps: ExchangeDeps) {
       gear.append(tile(piece.itemId, piece.refine, "", () => go({ kind: "offer",
         draft: { buy: false, itemId: piece.itemId, copyId: piece.copyId, refine: piece.refine, quantity: 1, max: 1, price: gearStartPrice(piece.itemId) } })));
     }
-    return [heading("Sell"), section("Resources"), resources,
+    return [heading("Sell"), section("Resources"), filterBar(() => render(true), true),
+      resources.childElementCount ? resources : el("p", "exchange-empty", "None held"),
       section("Gear"), gear.childElementCount ? gear : el("p", "exchange-empty", "None")];
   }
 
@@ -352,15 +390,25 @@ export function createExchangeController(deps: ExchangeDeps) {
     const gear = draft.copyId !== undefined;
     const hero = el("div", `exchange-hero is-${draft.buy ? "buy" : "sell"}`);
     const lowest = best(draft.itemId, false), highest = best(draft.itemId, true), recent = last(draft.itemId);
-    const market = el("p", "exchange-market");
-    market.textContent = gear ? "" : [`Lowest ${lowest === null ? "—" : short(lowest)}`, `Highest ${highest === null ? "—" : short(highest)}`,
-      `Last ${recent === null ? "—" : short(recent)}`].join("   ");
+    const market = el("div", "exchange-market");
+    const redraw = () => render(true);
+    if (!gear) {
+      for (const [label, value] of [["Lowest", lowest], ["Highest", highest], ["Last", recent]] as const) {
+        if (value === null) market.append(el("span", "exchange-market-stat", `${label} —`));
+        else {
+          const snap = el("button", "exchange-market-btn", `${label} ${short(value)}`);
+          snap.type = "button";
+          snap.title = `Set price to ${value.toLocaleString("en-US")} gold`;
+          snap.addEventListener("click", () => { draft.price = value; redraw(); });
+          market.append(snap);
+        }
+      }
+    }
     const piece = gear ? deps.gear().find(each => each.itemId === draft.itemId && each.copyId === draft.copyId) : undefined;
     hero.append(el("span", "exchange-pill", draft.buy ? "Buy" : "Sell"),
       tile(draft.itemId, draft.refine, "", gear && deps.inspect ? () => deps.inspect!(draft.itemId, draft.refine, piece?.roll ?? null) : undefined),
       el("strong", "exchange-hero-name", `${itemName(draft.itemId)}${draft.refine ? ` ★${draft.refine}` : ""}`), market);
     const parts: HTMLElement[] = [hero];
-    const redraw = () => render(true);
     const clampQty = (value: number) => Math.max(1, Math.min(draft.max, Math.floor(value) || 1));
     if (!gear) {
       parts.push(stepper("Amount", String(draft.quantity), text => { draft.quantity = clampQty(Number(text)); updateTotal(); }, [

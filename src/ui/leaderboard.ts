@@ -1,6 +1,11 @@
 import { applyAvatarFrame } from "../app/avatar-frames";
 import { appendPlayerNameTags, appendPrestigeBadge, playerPrestigeLevel } from "../app/player-name-tags";
-import { LEADERBOARD_TABS, type LeaderboardBoard, type LeaderboardStat } from "../../shared/leaderboard-window";
+import {
+  LEADERBOARD_SKILL_VIEWS, LEADERBOARD_TABS, isSkillLeaderboardBoard,
+  type LeaderboardBoard, type LeaderboardStat,
+} from "../../shared/leaderboard-window";
+import { fishingLevel } from "../../shared/fishing";
+import { craftLevel } from "../../shared/crafting";
 import { formatCompactNumber } from "./number-format";
 import type { LeaderboardEntry } from "../wildstat-coop";
 import { appendPlayerGenderIcon } from "../game/player-gender-icon";
@@ -36,6 +41,8 @@ export function formatCreatedDate(ms: number | undefined) {
 }
 
 export function leaderboardValueHeading(view: LeaderboardView) {
+  const skill = LEADERBOARD_SKILL_VIEWS.find(entry => entry.board === view);
+  if (skill) return skill.label;
   return view === "time" ? "Time Played" : view === "created" ? "Created" : view === "prestige" ? "Prestige" : "Power";
 }
 
@@ -48,6 +55,12 @@ export function sortedLeaderboardEntries(stat: LeaderboardView, entries: Leaderb
 }
 
 export function leaderboardValueText(stat: LeaderboardView, entry: LeaderboardEntry) {
+  if (isSkillLeaderboardBoard(stat)) {
+    const score = Math.max(0, entry.skillScore ?? 0);
+    if (stat === "skill:fishing") return `Lv ${fishingLevel(score)}`;
+    if (stat === "skill:mining" || stat === "skill:woodcutting") return formatCompactNumber(score);
+    return `Lv ${craftLevel(score)}`;
+  }
   const valueKey = leaderboardValueKey(stat);
   return stat === "time"
     ? formatPlayedTime(entry.playedSeconds)
@@ -80,7 +93,7 @@ export function setLeaderboardTab(
     element.classList.toggle("is-active", active);
     element.setAttribute("aria-selected", String(active));
   }
-  elements.valueHeading.textContent = leaderboardValueHeading(stat);
+  elements.valueHeading.textContent = stat === "skills" ? "Fishing" : leaderboardValueHeading(stat);
   return stat;
 }
 

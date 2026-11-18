@@ -20,6 +20,7 @@ import { formatCompactNumber } from '../../../../shared/compact-number';
 import { isSoulMap, SOUL_STAT_DETAILS, type SoulStatId } from '../../../../shared/soul-dimension';
 import { soulStatOfCampName } from '../../soul-world';
 import { createAutoChop, type AutoChopSource } from './auto-chop';
+import { createAutoFish, type AutoFishSource } from './auto-fish';
 import { createAutoMine, type AutoMineSource } from './auto-mine';
 import { bossAggroRange, BOSS_ZONE_PAD } from './boss-zone';
 
@@ -164,16 +165,17 @@ export function createAutoFarmController(options: {
   reportDeath?: (detail: string) => void;
   /** Whether a kill of this reward gives nothing now, the stat at its cap: the "Capped" its label shows (reward-labels.ts). */
   rewardCapped?: (reward: FarmReward, soul: SoulStatId | null) => boolean;
-  /** The gathering session: with it, the button runs Auto Mine in the Copper Hills and Auto Chop in Timberwood instead. */
-  mining?: () => (AutoMineSource & AutoChopSource) | null | undefined;
+  /** The gathering session: with it, the button runs Auto Mine in the Copper Hills, Auto Chop in Timberwood and Auto Fish by the river. */
+  mining?: () => (AutoMineSource & AutoChopSource & AutoFishSource) | null | undefined;
 }) {
   const { player, enemies, spawnSites } = options;
   const now = options.now ?? monotonicNowMs;
-  /** Auto Mine and Auto Chop steer in their own areas of the Town, where nothing is farmed; Auto Farm everywhere else. */
+  /** Auto Mine, Auto Chop and Auto Fish steer in their own areas of the Town, where nothing is farmed; Auto Farm everywhere else. */
   const gathering = options.mining ? { player, mapId: options.mapId, source: options.mining, storage: options.priorityStorage, identity: options.localIdentity,
     unavailable: options.unavailable, connection: options.connection, paused: options.paused, speed: options.speed, now } : null;
   const mine = gathering ? createAutoMine(gathering) : null;
   const chop = gathering ? createAutoChop(gathering) : null;
+  const fish = gathering ? createAutoFish(gathering) : null;
   let priority: AutoFarmPriority = readAutoFarmPriority(options.priorityStorage);
   let pullAll = readAutoFarmPull(options.priorityStorage);
   /** The groups switched to Aggro beside their sliders; null until one is touched, when Pull Whole Group's own picks apply. */
@@ -766,6 +768,7 @@ export function createAutoFarmController(options: {
   function travelStarted() {
     mine?.travelStarted();
     chop?.travelStarted();
+    fish?.travelStarted();
     bossBeatenOn = null;
     // A new visit (a prestige run too) looks at every boss again.
     opensNothing.clear();
@@ -787,7 +790,7 @@ export function createAutoFarmController(options: {
 
   function movement(manual: Movement, dt: number): Movement {
     refresh();
-    const gathered = mine?.movement(manual, dt) ?? chop?.movement(manual, dt);
+    const gathered = mine?.movement(manual, dt) ?? chop?.movement(manual, dt) ?? fish?.movement(manual, dt);
     if (gathered) return gathered;
     manualControl = Boolean(manual.x || manual.y);
     if (active) notePlayerBossFight();
@@ -986,7 +989,7 @@ export function createAutoFarmController(options: {
 
   return { start, stop: (reason?: string) => { zeroWaiting = false; stop(reason); }, defeated, refresh,
     // Copies for the window: the kept ones are recounted every frame.
-    choices: () => choices().map(choice => ({ ...choice, kinds: [...choice.kinds], reward: { ...choice.reward } })), movement, travelStarted, travelRefused, mine, chop,
+    choices: () => choices().map(choice => ({ ...choice, kinds: [...choice.kinds], reward: { ...choice.reward } })), movement, travelStarted, travelRefused, mine, chop, fish,
     /** Whether it is walking to the portal for this map now (Move On). */
     headingTo: (destination: string) => active && phase === 'portal' && travellingTo === destination,
     /** `waiting`: stopped for travel, and starting again on the next map with enemies. The player can still Stop it. */

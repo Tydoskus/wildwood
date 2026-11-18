@@ -18,7 +18,7 @@ import { readPlayerProgress } from "./wide-stats";
 import { collectItem, freeBagSlots, insertKeptCopy, reforgeCopySkills, setFirstCopyRoll } from "./equipment-copies";
 import { activeItemUpgradeEntriesFor } from "./upgrade-bench-slots";
 import { luckInPlay } from "./luck-research";
-import { CRAFT_TOOL, toolCraftCost, toolExperience, toolSavedMaterials } from "../../shared/tools";
+import { CRAFT_TOOL, toolBonusYield, toolCraftCost, toolExperience, toolSavedMaterials } from "../../shared/tools";
 import { fishById } from "../../shared/fishing";
 import { COOK_FIRES, FIRE_REACH, COOKING_RECIPES, cookingReward } from "../../shared/cooking";
 import { addGold } from "./gold";
@@ -245,8 +245,12 @@ export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: Craf
     if (Number(ctx.timestamp.microsSinceUnixEpoch - started.started.microsSinceUnixEpoch) < recipe.seconds * 1e6)
       throw new SenderError("The dish is still cooking.");
     attempt.delete(ctx.sender);
-    if (!takeOres(ctx, ctx.sender, { [fish.id]: recipe.fish })) throw new SenderError(`You need ${recipe.fish} ${fish.name}.`);
-    const reward = cookingReward(fish, recipe);
+    if (oreCount(ctx, ctx.sender, fish.id) < recipe.fish) throw new SenderError(`You need ${recipe.fish} ${fish.name}.`);
+    const skillet = toolLevelFor(ctx, ctx.sender, "skillet");
+    const saved = skillet > 0 ? toolBonusYield(skillet, ctx.random()) : 0;
+    const cost = Math.max(0, recipe.fish - saved);
+    if (cost > 0 && !takeOres(ctx, ctx.sender, { [fish.id]: cost })) throw new SenderError(`You need ${recipe.fish} ${fish.name}.`);
+    const reward = cookingReward(fish, recipe, skillet);
     addGold(ctx, ctx.sender, reward.gold);
     addCraftExperience(ctx, ctx.sender, "cooking", reward.experience);
   }

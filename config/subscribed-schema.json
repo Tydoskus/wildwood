@@ -613,6 +613,13 @@
       "identity:identity",
       "arrowId:string"
     ],
+    "my_offline_fishing_choice": [
+      "identity:identity",
+      "grantedAtMicros:u64",
+      "catches:u32",
+      "experienceGain:u32",
+      "fishOres:string"
+    ],
     "my_offline_gather_choice": [
       "identity:identity",
       "grantedAtMicros:u64",

@@ -15,11 +15,17 @@ export const fishingScene = {
   castAge: 0,
   bite: 0,
   caughtFish: null as FishId | null,
+  /** The fishing rod's level (shared/tools.ts), for its reel and hardware colour in hand. */
+  toolLevel: 0,
   /** Fishing experience, for the level and progress shown over the player while the rod is out. */
   experience: 0,
   /** The last catch's experience, rising off that display, and how much of its rise is left, from 1. */
   gain: 0,
   gainLeft: 0,
+  /** True when the bag is full for every fish open (read by Auto Fish). */
+  blocked: null as "bag" | null,
+  /** Requested by Auto Fish once standing on the bank in reach; consumed by fishing-runtime.ts. */
+  wantSpot: null as number | null,
 };
 
 export function resetFishingScene() {
@@ -28,7 +34,10 @@ export function resetFishingScene() {
   fishingScene.rodOut = false;
   fishingScene.splash = 0;
   fishingScene.castAge = 0; fishingScene.bite = 0; fishingScene.caughtFish = null;
+  fishingScene.toolLevel = 0;
   fishingScene.experience = 0;
   fishingScene.gain = 0;
   fishingScene.gainLeft = 0;
+  fishingScene.blocked = null;
+  fishingScene.wantSpot = null;
 }

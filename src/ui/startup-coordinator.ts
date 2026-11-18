@@ -188,7 +188,7 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
       finishStartup();
     }
     dependencies.updateScreen.setUpdating(machine.state().value === "updating");
-    if (account?.updating) enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff);
+    if (account?.updating) enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff, { urgent: true });
   }
 
   function startVersionPolling() {
@@ -215,7 +215,7 @@ export function createStartupCoordinator(dependencies: StartupCoordinatorDepende
     });
     window.setInterval(() => {
       const updating = dependencies.accountState()?.updating === true;
-      if (updating) enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff);
+      if (updating) enforceLatestVersion(dependencies.version, showGameUpdating, dependencies.updateHandoff, { urgent: true });
       if (!updateReloadPending()) refusedSession.tick(updating, dependencies.connected());
     }, 5_000);
   }

@@ -1,7 +1,7 @@
 import { isDeveloperIdentity } from "../../../shared/developer-identity";
 import { withRequestDeadline } from "./request-deadline";
 import { unsubscribeIfActive, type ActiveSubscription } from "./subscription-handoff";
-import type { LeaderboardBoard, LeaderboardPage, LeaderboardStat } from "../../../shared/leaderboard-window";
+import { isSkillLeaderboardBoard, type LeaderboardBoard, type LeaderboardPage, type LeaderboardStat } from "../../../shared/leaderboard-window";
 import { Identity } from "spacetimedb";
 import { tables, type DbConnection } from "../../module_bindings";
 import { createEmptyResearchRanks } from "../../../shared/research";
@@ -422,16 +422,28 @@ export function createPlayerProfileService(dependencies: PlayerProfileServiceDep
     const connection = dependencies.connection();
     if (!connection?.isActive) return Promise.reject(new Error("Not connected. Try again."));
     const generation = leaderboardGeneration, identity = dependencies.localIdentity();
-    const request = withRequestDeadline(connection.procedures.getLeaderboardRanks({ board, startRank, count })).then(page => {
-      if (generation !== leaderboardGeneration || connection !== dependencies.connection() || identity !== dependencies.localIdentity()) throw new Error("Session changed. Reopen the leaderboard.");
-      const entries = page.entries.map(({ rank, entry: row, joinedAtMicros }) => {
-        const entry = { ...leaderboardEntryFromRow(row), rank, joinedAt: Number(joinedAtMicros / 1000n) || undefined };
-        dependencies.directory.rememberPresentation({ identity: entry.identity, identityValue: row.identity,
-          displayName: entry.name, profileIcon: row.profileIcon, skinTone: entry.skinTone, gender: entry.gender, isGuest: entry.isGuest });
-        return entry;
-      });
-      return { ...page, entries };
-    }).finally(() => { if (leaderboardPages.get(key) === request) leaderboardPages.delete(key); });
+    const fetchPage = isSkillLeaderboardBoard(board)
+      ? withRequestDeadline(connection.procedures.getSkillLeaderboardRanks({ board, startRank, count })).then(page => {
+          if (generation !== leaderboardGeneration || connection !== dependencies.connection() || identity !== dependencies.localIdentity()) throw new Error("Session changed. Reopen the leaderboard.");
+          const entries = page.entries.map(({ rank, entry: row, score }) => {
+            const entry = { ...leaderboardEntryFromRow(row), rank, skillScore: Number(score) };
+            dependencies.directory.rememberPresentation({ identity: entry.identity, identityValue: row.identity,
+              displayName: entry.name, profileIcon: row.profileIcon, skinTone: entry.skinTone, gender: entry.gender, isGuest: entry.isGuest });
+            return entry;
+          });
+          return { ...page, entries };
+        })
+      : withRequestDeadline(connection.procedures.getLeaderboardRanks({ board, startRank, count })).then(page => {
+          if (generation !== leaderboardGeneration || connection !== dependencies.connection() || identity !== dependencies.localIdentity()) throw new Error("Session changed. Reopen the leaderboard.");
+          const entries = page.entries.map(({ rank, entry: row, joinedAtMicros }) => {
+            const entry = { ...leaderboardEntryFromRow(row), rank, joinedAt: Number(joinedAtMicros / 1000n) || undefined };
+            dependencies.directory.rememberPresentation({ identity: entry.identity, identityValue: row.identity,
+              displayName: entry.name, profileIcon: row.profileIcon, skinTone: entry.skinTone, gender: entry.gender, isGuest: entry.isGuest });
+            return entry;
+          });
+          return { ...page, entries };
+        });
+    const request = fetchPage.finally(() => { if (leaderboardPages.get(key) === request) leaderboardPages.delete(key); });
     leaderboardPages.set(key, request);
     return request;
   }

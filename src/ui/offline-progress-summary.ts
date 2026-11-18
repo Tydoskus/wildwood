@@ -71,6 +71,7 @@ export function createOfflineProgressSummary(dependencies: {
     <div class="offline-progress-stats"></div>
     <div class="offline-choices"></div>
     <p class="offline-progress-note"></p>
+    <button type="button" class="window-back-button offline-progress-later" hidden>Later</button>
     <button type="button" class="window-back-button offline-progress-collect">OK</button>
   </div>`;
   document.body.append(overlay);
@@ -78,17 +79,45 @@ export function createOfflineProgressSummary(dependencies: {
   const stats = overlay.querySelector<HTMLElement>(".offline-progress-stats")!;
   const choices = overlay.querySelector<HTMLElement>(".offline-choices")!;
   const note = overlay.querySelector<HTMLParagraphElement>(".offline-progress-note")!;
+  const later = overlay.querySelector<HTMLButtonElement>(".offline-progress-later")!;
   const collect = overlay.querySelector<HTMLButtonElement>(".offline-progress-collect")!;
-  let open = false;
+  const reminder = document.createElement("button");
+  reminder.id = "offlineReadyHint";
+  reminder.type = "button";
+  reminder.className = "hud-reminder";
+  reminder.textContent = "Offline Ready";
+  reminder.hidden = true;
+  let open = false, shownSummary: OfflineProgressSummary | null = null;
+  /** The grant dismissed with "Later", so the frame poll doesn't immediately reopen it. */
+  let dismissedKey: string | null = null;
+
+  const summaryKey = (summary: OfflineProgressSummary) =>
+    summary.grantedAtMicros ?? `${summary.seconds}:${summary.kills}:${summary.mapId}:${Boolean(summary.choice)}`;
+
+  function mountReminder() {
+    if (reminder.isConnected) return;
+    const column = document.getElementById("hudTimerColumn");
+    if (column) column.prepend(reminder);
+  }
 
   function hide() {
     open = false;
     overlay.hidden = true;
   }
 
+  function dismissForLater() {
+    if (!open) return;
+    if (shownSummary) dismissedKey = summaryKey(shownSummary);
+    hide();
+    mountReminder();
+    reminder.hidden = !dependencies.pending();
+  }
+
   function close() {
     if (!open) return;
     hide();
+    reminder.hidden = true;
+    dismissedKey = null;
     void dependencies.acknowledge();
   }
 
@@ -167,6 +196,8 @@ export function createOfflineProgressSummary(dependencies: {
     for (const button of enabled) button.disabled = true;
     try {
       await dependencies.acknowledge(activity);
+      dismissedKey = null;
+      reminder.hidden = true;
       hide();
     } catch (error) {
       note.textContent = error instanceof Error && error.message ? error.message : "That did not go through. Try again.";
@@ -181,23 +212,33 @@ export function createOfflineProgressSummary(dependencies: {
     const fight = summary.blocked ? `${offlineMapName(summary.mapId)} would have finished you`
       : summary.mapId ? `${kills}\n${offlineMapName(summary.mapId)}` : "Nothing to fight";
     const fightPaid = fightRows(summary);
-    choices.replaceChildren(
+    const items = [
       option("fight", "Fight", fight, fightPaid, !summary.blocked && summary.kills > 0),
       option("mine", "Mine", `${formatCompactNumber(choice.rocks)} rock${choice.rocks === 1 ? "" : "s"}`,
         oreRows(choice.mineOres, "Mining", choice.miningGain), choice.rocks > 0),
       option("chop", "Chop", `${formatCompactNumber(choice.trees)} tree${choice.trees === 1 ? "" : "s"}`,
         oreRows(choice.chopOres, "Woodcutting", choice.woodcuttingGain), choice.trees > 0),
-    );
-    note.textContent = "Mining and chopping go at half speed while you are away.";
+    ];
+    if (choice.fishing) {
+      const fish = choice.fishing;
+      items.push(option("fish", "Fish", `${formatCompactNumber(fish.catches)} catch${fish.catches === 1 ? "" : "es"}`,
+        oreRows(fish.fishOres, "Fishing XP", fish.experienceGain), fish.catches > 0));
+    }
+    choices.replaceChildren(...items);
+    note.textContent = "Gathering goes at half speed while you are away.";
   }
 
   function show(summary: OfflineProgressSummary) {
+    shownSummary = summary;
     const map = offlineMapName(summary.mapId);
     const away = formatOfflineDuration(summary.seconds);
     stats.replaceChildren();
     choices.replaceChildren();
     // The stylesheet's display wins over [hidden] on this button.
     collect.style.display = summary.choice ? "none" : "";
+    later.hidden = !summary.choice;
+    later.style.display = summary.choice ? "" : "none";
+    reminder.hidden = true;
     if (summary.choice) {
       showChoice(summary);
     } else if (summary.blocked) {
@@ -213,7 +254,7 @@ export function createOfflineProgressSummary(dependencies: {
     }
     open = true;
     overlay.hidden = false;
-    window.requestAnimationFrame(() => (summary.choice ? choices.querySelector<HTMLButtonElement>(".offline-choice-collect:not(:disabled)") : collect)?.focus());
+    window.requestAnimationFrame(() => (summary.choice ? choices.querySelector<HTMLButtonElement>(".offline-choice-collect:not(:disabled)") ?? later : collect)?.focus());
   }
 
   /**
@@ -222,11 +263,35 @@ export function createOfflineProgressSummary(dependencies: {
    * one-shot: it waits for a playable moment and then opens, once.
    */
   function showPending() {
-    if (open || !dependencies.readyToShow()) return;
     const summary = dependencies.pending();
-    if (summary) show(summary);
+    if (!summary) {
+      dismissedKey = null;
+      reminder.hidden = true;
+      if (open) hide();
+      return;
+    }
+    const key = summaryKey(summary);
+    if (open) {
+      // Upgrade in place if the choice/fishing rows finished arriving after the modal opened.
+      if (shownSummary !== summary) show(summary);
+      return;
+    }
+    if (dismissedKey === key) {
+      mountReminder();
+      reminder.hidden = false;
+      return;
+    }
+    if (!dependencies.readyToShow()) return;
+    show(summary);
   }
 
   collect.addEventListener("click", close);
+  later.addEventListener("click", dismissForLater);
+  reminder.addEventListener("click", () => {
+    const summary = dependencies.pending();
+    if (!summary) { reminder.hidden = true; return; }
+    dismissedKey = null;
+    show(summary);
+  });
   return { show, showPending, close, isOpen: () => open };
 }

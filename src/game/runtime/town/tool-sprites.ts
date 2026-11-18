@@ -1,4 +1,5 @@
 import { TOOL_MAX_LEVEL, normalizeToolLevel, type ToolId } from "../../../../shared/tools";
+import { paintFishingRod } from "./fishing-rod-sprite";
 import { hatchetArtSource } from "./hatchet-sprite";
 import { PLAIN_STEEL, paintPickaxe, type ToolMetal } from "./pickaxe-sprite";
 
@@ -77,9 +78,19 @@ export function paintFocus(c: Context, metal: ToolMetal = PLAIN_STEEL) {
   c.fillStyle = "rgba(255,255,255,.85)"; c.fillRect(85, 20, 3, 8);
 }
 
+/** The cook's skillet: a wrapped handle into a heavy metal pan with a lit rim. */
+export function paintSkillet(c: Context, metal: ToolMetal = PLAIN_STEEL) {
+  haft(c, 58);
+  metalShape(c, () => { c.beginPath(); c.arc(82, 30, 20, 0, Math.PI * 2); }, metal, 28);
+  c.beginPath(); c.arc(82, 30, 14, 0, Math.PI * 2);
+  c.fillStyle = metal.dark; c.fill();
+  c.lineWidth = 2; c.strokeStyle = metal.edge;
+  c.beginPath(); c.arc(82, 30, 17, Math.PI * 1.15, Math.PI * 1.85); c.stroke();
+}
+
 type PaintedTool = Exclude<ToolId, "hatchet">;
 const PAINTERS: Readonly<Record<PaintedTool, (c: Context, metal?: ToolMetal) => void>> = {
-  pickaxe: paintPickaxe, hammer: paintHammer, knife: paintKnife, focus: paintFocus,
+  pickaxe: paintPickaxe, rod: paintFishingRod, skillet: paintSkillet, hammer: paintHammer, knife: paintKnife, focus: paintFocus,
 };
 
 /** A tool painted at its level onto the wooden sword's 118 × 59 canvas, or nothing where there is no canvas (tests). */
@@ -107,8 +118,8 @@ export function toolArtSource(tool: ToolId, level: number) {
 }
 
 const sprites = new Map<string, HTMLImageElement | undefined>();
-/** The Pickaxe or Hatchet in hand at its level, an image the player's drawing can hold. Made once each. */
-export function toolSprite(tool: "pickaxe" | "hatchet", level: number) {
+/** The Pickaxe, Hatchet or Fishing Rod in hand at its level, an image the player's drawing can hold. Made once each. */
+export function toolSprite(tool: "pickaxe" | "hatchet" | "rod", level: number) {
   const key = `${tool}:${normalizeToolLevel(level)}`;
   if (!sprites.has(key)) {
     const source = typeof Image === "undefined" ? "" : toolArtSource(tool, level);

@@ -1,5 +1,5 @@
 import type { Fish } from "./fishing";
-
+import { skilletBonus } from "./tools";
 import { TOWN_CENTER } from "./town";
 
 // Feet of the animated open campfires in the baked village scene.
@@ -17,10 +17,11 @@ export const COOKING_RECIPES = [
 
 export type CookingRecipe = typeof COOKING_RECIPES[number];
 
-export function cookingReward(fish: Fish, recipe: CookingRecipe) {
+export function cookingReward(fish: Fish, recipe: CookingRecipe, skilletLevel = 0) {
+  const factor = skilletBonus(skilletLevel);
   return {
-    gold: recipe.fish * (1 + Math.floor(fish.level / 12)) + recipe.bonus,
-    experience: recipe.fish * Math.ceil(fish.experience / 8) + recipe.bonus * recipe.level,
+    gold: Math.round((recipe.fish * (1 + Math.floor(fish.level / 12)) + recipe.bonus) * factor),
+    experience: Math.round((recipe.fish * Math.ceil(fish.experience / 8) + recipe.bonus * recipe.level) * factor),
   };
 }
 

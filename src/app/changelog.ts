@@ -1,4 +1,16 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.920": [
+    "Fishing Rod and Cooking Skillet tools added at the Smith: faster bites and extra fish while fishing, more gold, Cooking XP, and a chance to save a fish while cooking.",
+    "Auto Fish along the Town river and Offline Fishing in While You Were Away; Guild Hall Lanterns and Courtyard bonuses now apply to Fishing too.",
+    "Patreon 2x Server Boost now doubles fish caught and Fishing XP.",
+    "Guild Hall Fishing Pond upgrade: guild leaders can build a Koi Pond and Grand Fishing Pond in the courtyard that never moves, with faster bites, bonus Fishing XP, and richer catches.",
+    "Mining, Woodcutting, and Cooking now show the same overhead level, progress bar, and floating gain badge as Fishing.",
+    "Cooking Fire now shows your Cooking XP bar and next recipe unlock, remembers Cook all, and adds an All fish option to cook through your bag.",
+    "New Skills tab on the Leaderboard ranking Fishing, Cooking, Mining, Woodcutting, Smithing, Fletching, and Enchanting.",
+    "Trade Chrysanthemum adds category filters (Ores, Logs, Arrows, Fish), a Held Only filter on Sell, and one-tap Lowest/Highest/Last price buttons.",
+    "Fixed While You Were Away getting stuck when your bag is full or after collecting: added a Later button with an Offline Ready chip so you can free a bag slot and collect anytime.",
+    "Android app over-the-air updates now wait for progress saves and sign-in refresh before restarting, show the Update Ready banner on the start and update screens, and retry cleanly after brief offline drops.",
+  ],
   "0.919.2": [
     "Faster lookups for inventory updates, player profiles, and other players’ combat stats.",
     "The Cooking Fire now refreshes when game data changes, saving work while the menu is idle.",
@@ -4150,6 +4162,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.920": "2026-11-18",
   "0.919.2": "2026-11-17",
   "0.919.1": "2026-11-17",
   "0.919": "2026-11-17",

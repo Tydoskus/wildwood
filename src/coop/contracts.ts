@@ -206,6 +206,8 @@ export type LeaderboardEntry = {
   playedSeconds: number;
   /** When the account began (ms), sent with Account Created. */
   joinedAt?: number;
+  /** Raw skill score (XP for Fishing/Crafting, stat for Mining/Woodcutting), sent with Skills boards. */
+  skillScore?: number;
   isGuest: boolean;
   skinTone: number;
   headItem: string;

@@ -1,5 +1,5 @@
 import {
-  MINING_NODES, MINING_NODE_KINDS, MINING_REACH, canMineRock, miningBreakSeconds, miningRockHint, miningYield, type MiningNode,
+  MINING_NODES, MINING_NODE_KINDS, MINING_REACH, MINING_VEINS, canMineRock, miningBreakSeconds, miningGain, miningRockHint, miningYield, type MiningNode,
 } from "../../../../shared/mining";
 import { REFINE_ORES, type OreId } from "../../../../shared/refine";
 import { gatherRespawnMs } from "../../../../shared/gather-respawn";
@@ -170,6 +170,14 @@ export function createMiningRuntime(deps: {
     if (rock.kind === "mysterious") source.flushMining?.();
     miningScene.bare.add(id);
     stop();
+    const gain = miningGain(rock);
+    const before = miningScene.level;
+    miningScene.level = Math.max(before + gain, source.mining?.() ?? 0);
+    miningScene.gain = gain;
+    miningScene.gainLeft = 1;
+    miningScene.badgeLeft = 2.6;
+    const unlocked = MINING_VEINS.find(vein => vein.mining > before && vein.mining <= miningScene.level);
+    if (unlocked) deps.message?.(`Mining ${unlocked.mining}: ${REFINE_ORES[unlocked.ore].name} veins open now.`, "#ffd34d");
     // The breaking hit fills the bar: it stays up a moment over the broken rock.
     Object.assign(miningScene, { target: id, progress: 1, pickaxeOut: true, swingClock: ATTACK_ANIMATION_SECONDS - ATTACK_WINDUP_SECONDS });
     brokenShown = BROKEN_SHOW_SECONDS;
@@ -191,12 +199,15 @@ export function createMiningRuntime(deps: {
       session = { source, identity: source.localIdentity?.() ?? "", generation: source.sessionGeneration?.() ?? 0 };
     }
     const at = now();
+    miningScene.gainLeft = Math.max(0, miningScene.gainLeft - dt / 1.4);
+    miningScene.badgeLeft = Math.max(0, miningScene.badgeLeft - dt);
     if ((bareCheck -= dt) <= 0) { bareCheck = BARE_REFRESH_SECONDS; refreshBare(at); }
     const here = Boolean(active && source && deps.player.hp > 0 && inTownHills(deps.player.x, deps.player.y, MINING_REACH * 2));
     // Leaving the hills (walking out, a door, a trip) sends what was broken there while the server still has the player in reach.
     if (inHills && !here) source?.flushMining?.();
     inHills = here;
-    if (!here || !source) { stop(); return; }
+    if (!here || !source) { stop(); miningScene.badgeLeft = 0; return; }
+    miningScene.level = Math.max(miningScene.level, source.mining?.() ?? 0);
     listen(source);
     // The broken rock's full bar, while it lasts; walking on ends it.
     if (brokenShown > 0) {

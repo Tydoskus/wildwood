@@ -4,6 +4,7 @@ import { recordConnectionDiagnostic, connectionDiagnosticsActive } from "../coop
 /** The installed app's own files, not a downloaded update. */
 const INSTALLED = "Installed app";
 const REPORT_CHECK_MS = 30_000;
+const INSTALLED_KEY = Symbol.for("wildstat.app-update-notice");
 
 /** A downloaded update waiting for the next launch: something to tell the player about. */
 export function updateWaiting(state: Pick<NativeUpdateState, "channel" | "pending"> | null | undefined) {
@@ -20,6 +21,10 @@ export function updateReport(state: Pick<NativeUpdateState, "channel" | "current
  * opened again, and a report to the server whenever the updater's state changes, so stuck phones show up.
  */
 export function installAppUpdateNotice(doc: Document = document) {
+  // Both coop-client.js (for the start/protocol-refusal screens) and game.js call this; install once per document.
+  const markerHost = doc as unknown as Record<symbol, unknown>;
+  if (markerHost[INSTALLED_KEY]) return;
+  markerHost[INSTALLED_KEY] = true;
   let banner: HTMLElement | null = null, dismissed = "", reported = "";
   function render() {
     const state = nativeUpdates()?.snapshot();
@@ -43,7 +48,11 @@ export function installAppUpdateNotice(doc: Document = document) {
         const now = doc.createElement("button");
         now.type = "button";
         now.textContent = "Restart";
-        now.addEventListener("click", () => { void nativeUpdates()?.applyNow?.().catch(() => {}); });
+        now.addEventListener("click", () => {
+          if (now.disabled) return;
+          now.disabled = true;
+          void Promise.resolve(nativeUpdates()?.applyNow?.()).catch(() => {}).finally(() => { now.disabled = false; });
+        });
         banner.append(message, now, ok);
       } else banner.append(message, ok);
       doc.body.append(banner);

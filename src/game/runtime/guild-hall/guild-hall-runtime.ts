@@ -66,6 +66,7 @@ export function createGuildHallRuntime(deps: {
     guildHallShown.indoors = indoors;
     size = current.size;
     guildHallShown.size = size;
+    guildHallShown.pond = current.pond;
     solids = guildHallSolids(current);
     guildHallShown.seats = guildHallSeats(current);
     deps.decor.splice(0, deps.decor.length, ...guildHallDecor(current, indoors));
@@ -162,7 +163,7 @@ export function createGuildHallRuntime(deps: {
     update(dt: number) {
       const mapId = deps.currentMapId();
       if (!isGuildHallMap(mapId)) {
-        if (shownKey) { shownKey = ""; guildHallShown.seats = []; guildHallDoorState.open = false; doorway = null; emblemFor = ""; }
+        if (shownKey) { shownKey = ""; guildHallShown.seats = []; guildHallShown.pond = 0; guildHallDoorState.open = false; doorway = null; emblemFor = ""; }
         return;
       }
       refresh(mapId);

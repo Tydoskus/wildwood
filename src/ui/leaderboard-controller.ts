@@ -43,10 +43,11 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
   const scroller = elements.rows.closest<HTMLElement>(".leaderboard-scroll") ?? elements.rows;
   let stat: LeaderboardStat = "rivals", requestGeneration = 0, snapshotIdentity = "", error = "";
   let loading = false, snapshot: Window | undefined, lastScrollTop = 0;
-  // Keyed by board: the Time Played tab has two, Time Played and Account Created.
+  // Keyed by board: Skills switches between Town skills, and Time Played switches between Time Played and Account Created.
   const snapshots = new Map<LeaderboardBoard, Window>();
   let timeBoard: LeaderboardBoard = "time";
-  const board = (): LeaderboardBoard => stat === "time" ? timeBoard : stat;
+  let skillBoard: LeaderboardBoard = "skill:fishing";
+  const board = (): LeaderboardBoard => stat === "time" ? timeBoard : stat === "skills" ? skillBoard : stat;
   // A switch between Time Played and Account Created empties the podium while it loads, so one's winners never stand on the other's.
   let clearPodium = false;
   let podiumPlayers: RenderedLeaderboardPodiumPlayer[] = [], nameTagRevision = -1;
@@ -234,15 +235,16 @@ export function createLeaderboardController(elements: LeaderboardControllerEleme
     if (delta < 0 && top < EDGE_DISTANCE) void loadMore("above");
     else if (delta > 0 && scroller.scrollHeight - scroller.clientHeight - top < EDGE_DISTANCE) void loadMore("below");
   }
-  /** Time Played or Account Created. The pick holds for the session. */
+  /** Switches sub-board on Skills or Time Played. The pick holds for the session. */
   function pickAge(next: LeaderboardBoard) {
-    timeBoard = next; clearPodium = true;
+    if (stat === "skills") skillBoard = next; else timeBoard = next;
+    clearPodium = true;
     if (!elements.overlay.hidden) void select(stat);
   }
   async function open() {
     hooks.beforeOpen(); elements.overlay.hidden = false; elements.button.setAttribute("aria-expanded", "true");
     if (snapshotIdentity !== hooks.localIdentity()) {
-      snapshots.clear(); snapshot = undefined; timeBoard = "time";
+      snapshots.clear(); snapshot = undefined; timeBoard = "time"; skillBoard = "skill:fishing";
       podiumPlayers = renderLeaderboardPodium(elements.podium, board(), [], actions);
     }
     snapshotIdentity = hooks.localIdentity();

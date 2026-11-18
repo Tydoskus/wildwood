@@ -11,8 +11,10 @@ import { woodcuttingScene } from "../town/woodcutting-scene";
 import { fishingScene } from "../town/fishing-scene";
 import { createFishingRodSprite, FISHING_ROD, FISHING_ROD_OVERRIDES } from "../town/fishing-rod-sprite";
 import { createFishingLine } from "../town/fishing-line";
-import { FISHING_BADGE_HEIGHT, paintFishingBadge } from "../town/fishing-badge";
+import { activeSkillBadge, paintSkillBadge, SKILL_BADGE_HEIGHT } from "../town/fishing-badge";
 import { createFishingSpotRenderer } from "../town/fishing-spot-renderer";
+import { createGuildHallPondRenderer } from "../guild-hall/guild-hall-pond";
+import { guildHallShown } from "../../guild-hall";
 import { createWoodTreeRenderer } from "../town/wood-tree-renderer";
 import { createStarterChestRenderer } from "./starter-chest-renderer";
 import { drawSoulWellFall, soulWellFall } from "../soul/soul-well-fall";
@@ -203,15 +205,15 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
   if (hatchetSprite) options.playerAppearanceAssets.equipment[WOODCUTTING_HATCHET] = { sprite: hatchetSprite };
   const rodSprite = createFishingRodSprite();
   if (rodSprite) options.playerAppearanceAssets.equipment[FISHING_ROD] = { sprite: rodSprite };
-  // The tool out, if any: the pickaxe in the Copper Hills coloured by its level, the hatchet in Timberwood its level's axe.
-  const inHand = (id: string, tool: "pickaxe" | "hatchet", level: number, plain: HTMLImageElement) => {
+  // The tool out, if any: the pickaxe, hatchet or fishing rod coloured by its level.
+  const inHand = (id: string, tool: "pickaxe" | "hatchet" | "rod", level: number, plain: HTMLImageElement) => {
     const asset = options.playerAppearanceAssets.equipment[id], sprite = (level > 0 && toolSprite(tool, level)) || plain;
     if (asset && asset.sprite !== sprite) asset.sprite = sprite;
     return id;
   };
   const toolInHand = () => miningScene.pickaxeOut && pickaxeSprite ? inHand(MINING_PICKAXE, "pickaxe", miningScene.toolLevel, pickaxeSprite)
     : woodcuttingScene.hatchetOut && hatchetSprite ? inHand(WOODCUTTING_HATCHET, "hatchet", woodcuttingScene.toolLevel, hatchetSprite)
-    : fishingScene.rodOut && rodSprite ? FISHING_ROD : null;
+    : fishingScene.rodOut && rodSprite ? inHand(FISHING_ROD, "rod", fishingScene.toolLevel, rodSprite) : null;
   const drawEntityShadow: DrawShadow = (x, y, width, alpha) => {
     // Arena scenes are visually separate from the current world map and retain
     // their shadows. Night Forest relies on its vignette to ground world actors.
@@ -357,9 +359,10 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
     drawStatus: options.drawStatus,
     drawIdentity: options.drawIdentity,
     drawSpeechBubble: options.drawSpeechBubble,
-    // Over the player's own plate while the rod is out: the Fishing level and experience.
+    // Over the player's own plate while fishing, mining, chopping or cooking: unified skill badge and rising gains.
     drawLocalOverhead: (identity, x, headTop) => {
-      if (fishingScene.rodOut) options.drawAbovePlate?.(identity, x, headTop, FISHING_BADGE_HEIGHT, bottom => paintFishingBadge(options.ctx, bottom));
+      const skill = activeSkillBadge();
+      if (skill) options.drawAbovePlate?.(identity, x, headTop, SKILL_BADGE_HEIGHT, bottom => paintSkillBadge(options.ctx, bottom, skill));
     },
     publicName: options.publicPlayerName,
     worldHealthBarHeight: options.worldHealthBarHeight,
@@ -440,10 +443,15 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawsOnCanvas: () => !worldSprites?.recording(),
       hallProps: () => options.assets.guildHallProps, marketProps: () => options.assets.townMarketSprites,
       drawCrest: createGuildCrestDrawer(() => options.assets.guildEmblemSheets) });
+    const drawGuildHallPond = createGuildHallPondRenderer({ ctx: options.ctx, camera: options.camera, time: options.gameTime });
+    // The fishing spots lie on the water, under everyone on the bank (Town river and Guild Hall Pond).
+    const drawFishingSpots = createFishingSpotRenderer({ ctx: options.ctx, camera: options.camera, viewport: options.viewport, time: options.gameTime,
+      active: () => isTownMap(options.currentMapId()) || (isGuildHallMap(options.currentMapId()) && !guildHallShown.indoors && guildHallShown.pond > 0) });
     hallGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.guildHallGround, area: GUILD_HALL_GROUND,
       interiors: () => undefined, drawRooms: createGuildHallRoomsDrawer({ ctx: options.ctx, camera: options.camera, rooms: () => options.assets.guildHallRooms,
         devicePixelRatio: options.devicePixelRatio }),
       drawUnder: createGuildHallUnderDrawer({ ctx: options.ctx, camera: options.camera }),
+      drawWater: () => { drawGuildHallPond(); drawFishingSpots(); },
       decor: options.decor, drawProp: drawSoulProp, viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isGuildHallMap(options.currentMapId()) });
     // The Town's ground, rooms, flat props and shadows are baked into the static world's tiles: only its water moves.
     // The WebGL world draws the river with its tiles when it can; the canvas draws it otherwise.
@@ -452,9 +460,6 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         time: options.gameTime, active: () => isTownMap(options.currentMapId()) && !lowPerformance() }),
       createSoulWater({ ctx: options.ctx, camera: options.camera, water: () => options.assets.soulWater, shore: () => options.assets.soulShore,
         viewport: options.viewport, time: options.gameTime, active: () => !lowPerformance() }));
-    // The fishing spots lie on the water, under everyone on the bank.
-    const drawFishingSpots = createFishingSpotRenderer({ ctx: options.ctx, camera: options.camera, viewport: options.viewport, time: options.gameTime,
-      active: () => isTownMap(options.currentMapId()) });
     soulGround = createSoulGroundRenderer({ ctx: options.ctx, camera: options.camera, ground: () => options.assets.townVillageGround, interiors: () => options.assets.soulInteriors,
       decor: options.decor, drawProp: drawSoulProp, baked: true,
       drawWater: () => { drawRiver(); drawFishingSpots(); },

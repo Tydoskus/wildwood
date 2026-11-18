@@ -228,7 +228,7 @@ async function guildHallWindow() {
   await gameMarkup();
   document.body.style.background = GROUND;
   const { createGuildHallWindow } = await import("../../src/ui/guild-hall-window");
-  const levels = { table: 2, size: 1, banners: 0, hearth: 2, trophies: 1, lights: 0, courtyard: 1 };
+  const levels = { table: 2, size: 1, banners: 0, hearth: 2, trophies: 1, lights: 0, courtyard: 1, pond: 1 };
   createGuildHallWindow({
     state: () => ({ guild: { name: "Wild Ones", emblem: 3, canUpgrade: true }, fund: 420, levels, inHall: false }),
     upgrade: async () => true, enter: async () => true, pause: () => {},

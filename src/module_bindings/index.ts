@@ -273,6 +273,7 @@ import * as GetPatreonStatusProcedure from "./get_patreon_status_procedure";
 import * as GetPlayerDirectoryProcedure from "./get_player_directory_procedure";
 import * as GetPlayerModerationHistoryProcedure from "./get_player_moderation_history_procedure";
 import * as GetPlayerPresenceProcedure from "./get_player_presence_procedure";
+import * as GetSkillLeaderboardRanksProcedure from "./get_skill_leaderboard_ranks_procedure";
 import * as GetSocialChatHistoryWithReactionsProcedure from "./get_social_chat_history_with_reactions_procedure";
 import * as GetSocialHubProcedure from "./get_social_hub_procedure";
 import * as GetStatGainBonusProcedure from "./get_stat_gain_bonus_procedure";
@@ -347,6 +348,7 @@ import MyMailboxV2Row from "./my_mailbox_v_2_table";
 import MyMinedNodesRow from "./my_mined_nodes_table";
 import MyMiningRow from "./my_mining_table";
 import MyNockedArrowRow from "./my_nocked_arrow_table";
+import MyOfflineFishingChoiceRow from "./my_offline_fishing_choice_table";
 import MyOfflineGatherChoiceRow from "./my_offline_gather_choice_table";
 import MyOfflinePreferenceRow from "./my_offline_preference_table";
 import MyOfflineProgressRow from "./my_offline_progress_table";
@@ -1712,6 +1714,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyNockedArrowRow),
+  myOfflineFishingChoice: __table({
+    name: 'my_offline_fishing_choice',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyOfflineFishingChoiceRow),
   myOfflineGatherChoice: __table({
     name: 'my_offline_gather_choice',
     indexes: [
@@ -2167,6 +2176,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_player_directory", GetPlayerDirectoryProcedure.params, GetPlayerDirectoryProcedure.returnType),
   __procedureSchema("get_player_moderation_history", GetPlayerModerationHistoryProcedure.params, GetPlayerModerationHistoryProcedure.returnType),
   __procedureSchema("get_player_presence", GetPlayerPresenceProcedure.params, GetPlayerPresenceProcedure.returnType),
+  __procedureSchema("get_skill_leaderboard_ranks", GetSkillLeaderboardRanksProcedure.params, GetSkillLeaderboardRanksProcedure.returnType),
   __procedureSchema("get_social_chat_history_with_reactions", GetSocialChatHistoryWithReactionsProcedure.params, GetSocialChatHistoryWithReactionsProcedure.returnType),
   __procedureSchema("get_social_hub", GetSocialHubProcedure.params, GetSocialHubProcedure.returnType),
   __procedureSchema("get_stat_gain_bonus", GetStatGainBonusProcedure.params, GetStatGainBonusProcedure.returnType),

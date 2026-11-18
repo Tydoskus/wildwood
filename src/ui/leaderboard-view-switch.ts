@@ -1,4 +1,4 @@
-import { LEADERBOARD_TIME_VIEWS, type LeaderboardBoard, type LeaderboardStat } from "../../shared/leaderboard-window";
+import { LEADERBOARD_SKILL_VIEWS, LEADERBOARD_TIME_VIEWS, type LeaderboardBoard, type LeaderboardStat } from "../../shared/leaderboard-window";
 
 /**
  * The control under the list. It always says where the viewer stands. On
@@ -44,17 +44,18 @@ export function renderLeaderboardViewSwitch(
 ) {
   bindMenu(elements);
   const doc = elements.chips.ownerDocument;
-  const switchable = state.tab === "time";
-  const selected = LEADERBOARD_TIME_VIEWS.find(view => view.board === state.board) ?? LEADERBOARD_TIME_VIEWS[0];
+  const views = state.tab === "skills" ? LEADERBOARD_SKILL_VIEWS : state.tab === "time" ? LEADERBOARD_TIME_VIEWS : null;
+  const switchable = Boolean(views);
+  const selected = views?.find(view => view.board === state.board) ?? views?.[0];
   elements.heading.dataset.filter = switchable ? "on" : "off";
   if (!switchable) setMenuOpen(elements, false);
-  elements.chips.replaceChildren(...LEADERBOARD_TIME_VIEWS.map(view => {
+  elements.chips.replaceChildren(...(views ?? []).map(view => {
     const chip = doc.createElement("button");
     chip.type = "button";
     chip.className = "leaderboard-prestige-chip";
     chip.dataset.board = view.board;
     chip.setAttribute("role", "option");
-    const active = view.board === selected.board;
+    const active = view.board === selected?.board;
     chip.classList.toggle("is-active", active);
     chip.setAttribute("aria-selected", String(active));
     const label = doc.createElement("span");
@@ -70,12 +71,12 @@ export function renderLeaderboardViewSwitch(
 
   const title = doc.createElement("span");
   title.className = "leaderboard-prestige-title";
-  title.textContent = switchable ? selected.label : leaderboardScopeLabel(state.tab, state.prestige);
+  title.textContent = switchable && selected ? selected.label : leaderboardScopeLabel(state.tab, state.prestige);
   const note = doc.createElement("span");
   note.className = "leaderboard-prestige-rank";
   note.textContent = state.loading ? "" : state.localRank > 0 ? `You're #${state.localRank}` : "Not Ranked Yet";
   note.hidden = !note.textContent;
   elements.heading.replaceChildren(title, note);
   elements.heading.toggleAttribute("aria-disabled", !switchable);
-  elements.heading.setAttribute("aria-label", switchable ? `${selected.label}. Change ranking` : `${title.textContent}. ${note.textContent}`);
+  elements.heading.setAttribute("aria-label", switchable && selected ? `${selected.label}. Change ranking` : `${title.textContent}. ${note.textContent}`);
 }

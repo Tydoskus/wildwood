@@ -1,4 +1,5 @@
-import { signalNativeBootReady } from '../app/native-updates';
+import { installAppUpdateNotice } from '../app/app-update-notice';
+import { NATIVE_URGENT_CHECK_MIN_MS, requestNativeUpdateCheck, signalNativeBootReady } from '../app/native-updates';
 import { recentReleaseNotes } from "../app/changelog";
 import { AUDIO_UNSYNCED_KEY, MUSIC_VOLUME_KEY } from "../game/runtime/game-settings";
 import {
@@ -30,11 +31,35 @@ type StartupBootstrapDependencies = {
 /** Whether game.js, as the bootstrap loaded it, is the script running: see game-script-gate.ts. */
 export { runningAsGameScript } from "./game-script-gate";
 export function startStartupBootstrap(dependencies: StartupBootstrapDependencies) {
+  // Mount the Android OTA banner before game.js boots so players stranded on the start or
+  // protocol-refusal screens still see Update Ready and can restart straight into the fix.
+  installAppUpdateNotice();
   // First, before any account work: game.js and the game's first artwork start downloading.
   const gameDownload = preloadDeferredGameBundle();
   if (gameDownload) requestDeferredGameAssets();
   const artworkReveal = startStartupArtworkReveal();
   let gameBundleRequested = false;
+  let protocolUpdateTimer: number | null = null;
+  const clearProtocolUpdateTimer = () => {
+    if (protocolUpdateTimer === null) return;
+    window.clearInterval(protocolUpdateTimer);
+    protocolUpdateTimer = null;
+  };
+  const syncProtocolUpdateCheck = () => {
+    if (gameBundleRequested || !dependencies.accountState().updating) {
+      clearProtocolUpdateTimer();
+      return;
+    }
+    requestNativeUpdateCheck(true);
+    if (protocolUpdateTimer === null) {
+      protocolUpdateTimer = window.setInterval(() => {
+        if (gameBundleRequested || !dependencies.accountState().updating) { clearProtocolUpdateTimer(); return; }
+        requestNativeUpdateCheck(true);
+      }, NATIVE_URGENT_CHECK_MIN_MS);
+    }
+  };
+  const onOtaAvailable = () => { if (!gameBundleRequested && dependencies.accountState().updating) requestNativeUpdateCheck(true); };
+  window.addEventListener("wildstat:ota-available", onOtaAvailable);
   const installControl = createStartupInstallControl();
   const musicToggle = createStartupMusicToggle({ storageKey: MUSIC_VOLUME_KEY, unsyncedKey: AUDIO_UNSYNCED_KEY });
   const releaseNotes = createStartupReleaseNotes({
@@ -42,8 +67,16 @@ export function startStartupBootstrap(dependencies: StartupBootstrapDependencies
   });
   createStartupAuthGate({
     ...dependencies,
+    subscribe(listener) {
+      return dependencies.subscribe(() => {
+        syncProtocolUpdateCheck();
+        listener();
+      });
+    },
     loadGame: async () => {
       gameBundleRequested = true;
+      clearProtocolUpdateTimer();
+      window.removeEventListener("wildstat:ota-available", onOtaAvailable);
       window.dispatchEvent(new Event("wildstat:game-boot-start"));
       const telemetry = dependencies.beginTelemetryStage?.("game-bundle");
       try {

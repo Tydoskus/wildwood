@@ -1,6 +1,6 @@
 /**
  * Server Boost: a Patreon supporter doubles kill stat rewards, gold, and the
- * wood and ore gathered for everyone online. The server owns the rules; the
+ * wood, ore and fish gathered (plus Fishing XP) for everyone online. The server owns the rules; the
  * client reads the same row.
  */
 export const SERVER_BOOST_MULTIPLIER = 2;

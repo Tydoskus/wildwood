@@ -1,7 +1,12 @@
 import { fishingTimeFactor } from "../../../../shared/fishing-treasures";
-import { FISH, FISHING_REACH, fishOpenAt, fishingCatchSeconds, fishingLevel, fishingSpotsAt, type Fish, type FishId } from "../../../../shared/fishing";
+import {
+  FISH, FISHING_REACH, GUILD_POND_REACH, GUILD_POND_SPOT, fishOpenAt, fishingCatchSeconds, fishingLevel, fishingSpotsAt,
+  type Fish, type FishId,
+} from "../../../../shared/fishing";
+import { GUILD_HALL_BONUSES, GUILD_HALL_POND } from "../../../../shared/guild-hall";
 import { TOWN_FEET_OFFSET } from "../../../../shared/town";
 import { bagSlotsWithOres, type BagSpace } from "../../../../shared/ore-bag";
+import type { ToolId } from "../../../../shared/tools";
 import type { PlayerState } from "../types";
 import { REJECTED_COLOR } from "./mining-runtime";
 import { fishingScene, resetFishingScene } from "./fishing-scene";
@@ -11,6 +16,8 @@ export type FishingSource = {
   localIdentity?: () => string | undefined;
   sessionGeneration?: () => number;
   fishingExperience?: () => number;
+  toolLevel?: (tool: ToolId) => number;
+  serverBoostMultiplier?: () => number;
   catchFish?: (spot: number, site: number) => Promise<{ ok: boolean; error?: string }>;
   setOnFishCaught?: (callback: ((fish: Fish) => void) | null) => void;
   serverNowMs?: () => number;
@@ -45,10 +52,12 @@ export function createFishingRuntime(deps: {
   burst?: (x: number, y: number, color: string, count: number, speed: number) => void;
   /** The bag as the server counts it: a new kind of fish needs a free slot (shared/ore-bag.ts). */
   bag?: () => BagSpace | null | undefined;
+  /** Non-zero when standing outdoors in a guild hall that owns a Fishing Pond (1 = Koi Pond, 2 = Grand Fishing Pond). */
+  guildPondLevel?: () => number;
 }) {
   let fishingAt: { spot: number; site: number } | null = null;
   let heading: { spot: number; site: number; left: number } | null = null;
-  let elapsed = 0, waiting = false, clock = 0, active = false, movesAtMs = -Infinity, workedOutAt = Infinity;
+  let elapsed = 0, waiting = false, clock = 0, active = false, movesAtMs = -Infinity, workedOutAt = Infinity, pondMode = false;
   /** The Fishing level last shown, so a catch that raises it says so. */
   let shownLevel = 1;
   let hint = { text: "", at: -Infinity };
@@ -58,9 +67,10 @@ export function createFishingRuntime(deps: {
 
   const now = () => deps.source()?.serverNowMs?.() ?? Date.now();
   const feet = () => ({ x: deps.player.x, y: deps.player.y + TOWN_FEET_OFFSET });
-  const inReach = (spot: { x: number; y: number }) => {
-    const at = feet();
-    return Math.hypot(spot.x - at.x, spot.y - at.y) <= FISHING_REACH;
+  const pondBonus = () => GUILD_HALL_BONUSES.pond.values[deps.guildPondLevel?.() ?? 0] ?? 0;
+  const inReach = (spot: { spot: number; x: number; y: number }) => {
+    const at = feet(), reach = spot.spot === GUILD_POND_SPOT ? GUILD_POND_REACH : FISHING_REACH;
+    return Math.hypot(spot.x - at.x, spot.y - at.y) <= reach;
   };
 
   function sameSession(source: FishingSource | null | undefined) {
@@ -88,8 +98,17 @@ export function createFishingRuntime(deps: {
     hint = { text: "", at: -Infinity };
   }
 
-  /** Where every spot is: worked out again only as one moves on, or when the clock was set back. */
+  /** Where every spot is: the single permanent Guild Pond when in a hall courtyard, else the Town river's roaming spots. */
   function refreshSpots(at: number) {
+    const guildPond = (deps.guildPondLevel?.() ?? 0) > 0;
+    if (guildPond) {
+      if (!pondMode || !fishingScene.spots.length) {
+        pondMode = true;
+        fishingScene.spots = [{ spot: GUILD_POND_SPOT, site: 0, x: GUILD_HALL_POND.x, y: GUILD_HALL_POND.y }];
+      }
+      return;
+    }
+    if (pondMode) { pondMode = false; movesAtMs = -Infinity; }
     if (at < movesAtMs && at >= workedOutAt && fishingScene.spots.length) return;
     const spots = fishingSpotsAt(at);
     fishingScene.spots = spots;
@@ -110,8 +129,9 @@ export function createFishingRuntime(deps: {
     const started = session;
     source.setOnFishCaught(fish => {
       if (session !== started || !sameSession(deps.source())) return;
-      const color = FISH_COLORS[fish.id];
-      deps.logPickup?.(`+1 ${fish.name}`, color);
+      const color = FISH_COLORS[fish.id], boost = source.serverBoostMultiplier?.() ?? 1;
+      const bonus = fishingAt?.spot === GUILD_POND_SPOT ? pondBonus() : 0;
+      deps.logPickup?.(`+${boost} ${fish.name}`, color);
       const spot = fishingScene.spots.find(each => each.spot === fishingAt?.spot);
       if (spot) {
         deps.burst?.(spot.x, spot.y - 6, WATER, 14, 110);
@@ -120,7 +140,7 @@ export function createFishingRuntime(deps: {
         fishingScene.splash = 1;
         fishingScene.castAge = 0;
       }
-      fishingScene.gain = fish.experience;
+      fishingScene.gain = Math.round(fish.experience * (1 + bonus)) * boost;
       fishingScene.gainLeft = 1;
       const level = fishingLevel(source.fishingExperience?.() ?? 0), opened = FISH.find(each => each.level === level);
       if (level > shownLevel) deps.message?.(opened ? `Fishing Lv ${level}: ${opened.name} can bite now.` : `Fishing Lv ${level}`, LEVEL_UP);
@@ -130,7 +150,8 @@ export function createFishingRuntime(deps: {
 
   function start(source: FishingSource, spot: { spot: number; site: number; x: number; y: number }) {
     heading = null;
-    if (bagFull(source)) { say("Your bag is full. Free a slot for your fish.", "#ff9b91"); return; }
+    if (bagFull(source)) { fishingScene.blocked = "bag"; say("Your bag is full. Free a slot for your fish.", "#ff9b91"); return; }
+    fishingScene.blocked = null;
     fishingAt = { spot: spot.spot, site: spot.site };
     elapsed = 0; waiting = false;
     shownLevel = fishingLevel(source.fishingExperience?.() ?? 0);
@@ -169,23 +190,31 @@ export function createFishingRuntime(deps: {
     fishingScene.splash = Math.max(0, fishingScene.splash - dt / .9);
     fishingScene.gainLeft = Math.max(0, fishingScene.gainLeft - dt / 1.4);
     fishingScene.experience = source?.fishingExperience?.() ?? 0;
+    const rod = source?.toolLevel?.("rod") ?? 0;
+    fishingScene.toolLevel = rod;
     active = Boolean(here && source && deps.player.hp > 0);
-    if (!active || !source) { stop(); heading = null; return; }
+    if (!active || !source) { stop(); heading = null; fishingScene.wantSpot = null; fishingScene.blocked = null; return; }
     listen(source);
     if (fishingAt) {
-      const spot = fishingScene.spots[fishingAt.spot];
+      const spot = fishingScene.spots.find(each => each.spot === fishingAt!.spot);
       if (!spot || spot.site !== fishingAt.site) { stop(); say("The fishing spot moved.", WATER); return; }
       if (deps.player.moving || !inReach(spot)) { stop(); return; }
       if (fishingScene.splash === 0) fishingScene.castAge += dt;
-      const duration = fishingCatchSeconds(source.fishingExperience?.() ?? 0)
-        * fishingTimeFactor(deps.equipment?.equippedHead, deps.equipment?.equippedChest);
+      const bonus = spot.spot === GUILD_POND_SPOT ? pondBonus() : 0;
+      const duration = fishingCatchSeconds(source.fishingExperience?.() ?? 0, rod)
+        * fishingTimeFactor(deps.equipment?.equippedHead, deps.equipment?.equippedChest) / (1 + bonus);
       if (!waiting) elapsed += dt;
       fishingScene.bite = waiting ? 1 : Math.max(0, 1 - (duration - elapsed) / 1.45);
       if (!waiting && elapsed >= duration) cast(source, spot);
       return;
     }
+    if (fishingScene.wantSpot !== null) {
+      const wanted = fishingScene.spots.find(each => each.spot === fishingScene.wantSpot);
+      fishingScene.wantSpot = null;
+      if (wanted && !deps.player.moving && inReach(wanted)) { start(source, wanted); return; }
+    }
     if (!heading) return;
-    const spot = fishingScene.spots[heading.spot];
+    const spot = fishingScene.spots.find(each => each.spot === heading!.spot);
     if ((heading.left -= dt) <= 0 || !spot || spot.site !== heading.site) { heading = null; return; }
     if (!deps.player.moving && inReach(spot)) start(source, spot);
   }
@@ -197,10 +226,11 @@ export function createFishingRuntime(deps: {
   function tap(x: number, y: number) {
     const source = deps.source();
     if (!active || !source?.catchFish) return false;
-    let picked: (typeof fishingScene.spots)[number] | null = null, best = TAP_RADIUS;
+    let picked: (typeof fishingScene.spots)[number] | null = null, best = Infinity;
     for (const spot of fishingScene.spots) {
+      const radius = spot.spot === GUILD_POND_SPOT ? GUILD_HALL_POND.rx + 25 : TAP_RADIUS;
       const distance = Math.hypot(spot.x - x, spot.y - y);
-      if (distance <= best) { picked = spot; best = distance; }
+      if (distance <= radius && distance < best) { picked = spot; best = distance; }
     }
     if (!picked) return false;
     if (fishingAt?.spot === picked.spot) return true;

@@ -211,6 +211,23 @@ jobs:
           name: ota-feed
           path: dist/ota
 
+      # Keep the live production feed when android-ota skipped or failed (unless
+      # a committed public/ota/production-android.json is already in dist).
+      - name: Preserve live Android update feed
+        if: needs.android-ota.outputs.published != 'yes'
+        run: |
+          if [ ! -f dist/ota/production-android.json ]; then
+            if curl -fsSL --max-time 15 "https://wildstatmmo.com/ota/production-android.json?t=$(date +%s)" -o /tmp/live-ota.json \
+              && node -e 'const d = JSON.parse(require("fs").readFileSync("/tmp/live-ota.json", "utf8")); if (typeof d.payload !== "string" || typeof d.signature !== "string") process.exit(1);'; then
+              mkdir -p dist/ota
+              mv /tmp/live-ota.json dist/ota/production-android.json
+              echo "Preserved live /ota/production-android.json."
+            else
+              rm -f /tmp/live-ota.json
+              echo "::notice title=Android OTA::No live production-android.json preserved (missing or unavailable)."
+            fi
+          fi
+
       # wildstatmmo.com, the main site, so it goes first: GitHub Pages waits for it.
       # On while the repo variable CLOUDFLARE_DEPLOY is "on" (the dashboard's own
       # Git build stays off, or every push deploys twice).

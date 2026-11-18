@@ -13,6 +13,7 @@ type StartupAccountState = StartupAccountSnapshot & {
   knownAccount?: boolean;
   signInRequired?: boolean;
   signInReady?: boolean;
+  updating?: boolean;
   notice?: string;
 };
 
@@ -390,7 +391,7 @@ function preloadSettled(link: HTMLLinkElement) {
   });
 }
 
-export function loadDeferredGameBundle(documentValue = document, checkForUpdate = () => enforceLatestVersion(GAME_VERSION)) {
+export function loadDeferredGameBundle(documentValue = document, checkForUpdate = () => enforceLatestVersion(GAME_VERSION, undefined, undefined, { urgent: true })) {
   requestDeferredGameAssets(documentValue);
   const existing = documentValue.getElementById("wildstatGameScript") as HTMLScriptElement | null;
   if (existing) return Promise.resolve();

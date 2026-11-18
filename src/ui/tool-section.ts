@@ -1,4 +1,5 @@
-import { MATERIAL_NAMES, craftLevel, type CraftSkill } from "../../shared/crafting";
+import { MATERIAL_NAMES, craftLevel, type PlayerCraftSkill } from "../../shared/crafting";
+import { fishingLevel } from "../../shared/fishing";
 import type { OreId } from "../../shared/refine";
 import {
   TOOLS, TOOL_IDS, TOOL_MAX_LEVEL, TOOL_SKILL_NAMES, normalizeToolLevel, toolEffectText, toolLevelNeed, toolName, toolNeedText, toolUpgradeCost,
@@ -159,7 +160,8 @@ export type ToolCoop = {
   upgradeTool?: (tool: ToolId, expectedLevel: number) => Promise<Result>;
   mining?: () => number;
   woodcutting?: () => number;
-  craftSkills?: () => Readonly<Partial<Record<CraftSkill, bigint>>>;
+  fishingExperience?: () => number;
+  craftSkills?: () => Readonly<Partial<Record<PlayerCraftSkill, bigint>>>;
   ores?: () => Ores;
   gold?: () => bigint;
 };
@@ -172,6 +174,8 @@ export function toolDepsFor(coop: () => ToolCoop | null | undefined, showMessage
       const session = coop(), crafts = session?.craftSkills?.() ?? {};
       return {
         mining: session?.mining?.() ?? 0, woodcutting: session?.woodcutting?.() ?? 0,
+        fishing: fishingLevel(session?.fishingExperience?.() ?? 0),
+        cooking: craftLevel(crafts.cooking ?? 0n),
         smithing: craftLevel(crafts.smithing ?? 0n), fletching: craftLevel(crafts.fletching ?? 0n), enchanting: craftLevel(crafts.enchanting ?? 0n),
       };
     },
