@@ -16,19 +16,19 @@
     "ota": "node scripts/ota/cli.mjs"
   },
   "dependencies": {
-    "@capacitor-community/admob": "8.1.0",
+    "@capacitor-community/admob": "8.4.2",
     "@capacitor-community/keep-awake": "8.0.1",
-    "@capacitor/android": "8.5.1",
-    "@capacitor/app": "8.1.1",
-    "@capacitor/browser": "8.0.4",
-    "@capacitor/core": "8.5.1",
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.6.2",
     "@capacitor/haptics": "8.0.2",
-    "@capacitor/ios": "8.5.1",
+    "@capacitor/ios": "8.6.2",
     "@capacitor/local-notifications": "8.3.1",
-    "@capawesome/capacitor-live-update": "8.4.2",
-    "@revenuecat/purchases-capacitor": "13.5.0"
+    "@capawesome/capacitor-live-update": "8.8.2",
+    "@revenuecat/purchases-capacitor": "14.1.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "8.5.1"
+    "@capacitor/cli": "8.6.2"
   }
 }
