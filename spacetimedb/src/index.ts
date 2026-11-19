@@ -1,6 +1,7 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
 import { standsAtResearch } from "./research-station";
-import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild, refreshQuestBonus, guildQuestBonusFor } from "./daily-quests";
+import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild, refreshQuestBonus, guildQuestBonusFor, creditGuildCrossingPoints } from "./daily-quests";
+import { guildCrossingSummaryFor, guildCrossingTables, pruneOldGuildCrossingWeeks, registerGuildCrossing } from "./guild-crossing";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { compactNumberChanged } from "../../shared/compact-number";
@@ -1414,6 +1415,7 @@ const spacetimedb = schema({
   ...patreonTables, ...serverBoostTables, ...chatAnnouncementTables, ...exchangeTables,
   homeReturnLocation,
   ...guildTables,
+  ...guildCrossingTables,
   ...socialTables,
   pausedResearch,
   patreonSweepSchedule,
@@ -2159,6 +2161,7 @@ export const runMaintenanceSweep = spacetimedb.reducer(
     // reads every player's, online or not. Once an hour: the sweep in its first five minutes.
     if ((ctx.timestamp.microsSinceUnixEpoch / 60_000_000n) % 60n >= 5n) return;
     pruneOldGuildQuestWeeks(ctx);
+    pruneOldGuildCrossingWeeks(ctx);
     clearExpiredMail(ctx);   // a letter leaves a week after it was sent
     for (const active of [...ctx.db.activeResearch.iter()] as any[]) reconcileActiveResearch(ctx, active);
     for (const active of [...ctx.db.activeItemUpgrade.iter()] as any[]) {
@@ -3800,7 +3803,7 @@ const guildService = createGuildService({
   // Guild rows show online and last seen, never the map.
   presenceFor: (ctx, identity) => { const { online, lastSeenAtMs } = playerPresence(ctx, identity); return { online, lastSeenAtMs }; },
   profileFor: (ctx, identity) => ctx.db.playerProfile.identity.find(identity) ?? undefined,
-  questFor: memberQuestStanding, questCollect: questCollectStanding, onJoin: moveSoloQuestsToGuild,
+  questFor: memberQuestStanding, questCollect: questCollectStanding, crossingFor: guildCrossingSummaryFor, onJoin: moveSoloQuestsToGuild,
   battleShared: (ctx, replayKey) => !ctx.db.chatMessage.byGuildReplay.filter(replayKey)[Symbol.iterator]().next().done,
   announceBattle: (ctx, report) => {
     const result = report.result;
@@ -3855,6 +3858,11 @@ const { savedWorldLocation, clearOrphanPresence, applyMovementState } = createPr
 export const { createGuild, joinGuild, leaveGuild, transferGuildLeadership, setGuildVicePresident,
   setGuildEmblem, kickGuildMember, challengeGuild, guildAdmission, shareGuildBattle, getGuildBattleBadges } = registerGuildReducers(spacetimedb,
   { guildService, requireGuildPlayer, requireGuildConnection, effectivePowerForProgress, isPublicDisplayNameAllowed });
+export const { getGuildCrossing, stepGuildCrossing } = registerGuildCrossing(spacetimedb, {
+  requireGuildPlayer, requireGuildConnection,
+  profileFor: (ctx, identity) => ctx.db.playerProfile.identity.find(identity) ?? null,
+  creditCrossingPoints: creditGuildCrossingPoints,
+});
 // Refining (item-refine.ts, shared/refine.ts).
 export const { refineItem, destroyOre, myItemRefines, myCopyRefines, myOres, myRefineResult, myRefinePity } = registerItemRefine(spacetimedb, { requireControllingPlayer, activeDuelFor, inventoryForProgress, writeProgressAndPresentation });
 export const { myCosmeticRefines } = registerCosmeticRefine(spacetimedb);

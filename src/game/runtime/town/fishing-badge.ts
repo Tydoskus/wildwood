@@ -115,17 +115,17 @@ function badgeSpec(kind: OverheadSkillKind): BadgeSpec {
     };
   }
   if (kind === "mining") {
-    const level = Math.max(0, Math.floor(miningScene.level));
-    const { progress, share } = statMilestone(level, MINING_GATES);
+    const stat = Math.max(0, Math.floor(miningScene.level));
+    const { progress, share } = statMilestone(stat, MINING_GATES);
     return {
-      mark: pickaxeMark, label: `Lv ${formatCompactNumber(level)}`, progress, share,
+      mark: pickaxeMark, label: formatCompactNumber(stat), progress, share,
       gain: miningScene.gain, gainLeft: miningScene.gainLeft, gainUnit: "",
     };
   }
-  const level = Math.max(0, Math.floor(woodcuttingScene.level));
-  const { progress, share } = statMilestone(level, WOOD_GATES);
+  const stat = Math.max(0, Math.floor(woodcuttingScene.level));
+  const { progress, share } = statMilestone(stat, WOOD_GATES);
   return {
-    mark: axeMark, label: `Lv ${formatCompactNumber(level)}`, progress, share,
+    mark: axeMark, label: formatCompactNumber(stat), progress, share,
     gain: woodcuttingScene.gain, gainLeft: woodcuttingScene.gainLeft, gainUnit: "",
   };
 }

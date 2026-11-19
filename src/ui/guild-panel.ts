@@ -2,6 +2,7 @@ import { renderGuildMemberName } from "./guild-member-name";
 import { formatCompactNumber, formatPercentMultiplier } from "./number-format";
 import { guildMemberPresence } from './guild-presence';
 import { createGuildBattleReplay, type GuildReplayAssets } from "./guild-battle-replay";
+import { createGuildCrossingView } from "./guild-crossing";
 import { createGuildEmblem } from '../game/guild-emblems';
 import { GUILD_CREATION_MIN_POWER, GUILD_EMBLEMS, GUILD_MEMBER_LIMIT, type GuildSnapshot, type GuildReport } from "../../shared/guilds";
 import type { GuildAction, GuildApi } from "../coop/services/guild-service";
@@ -49,7 +50,9 @@ export function createGuildPanel(options: Options) {
     openPlayer: (identity, name) => options.onOpenPlayer?.(identity, name),
   });
   let replay: ReturnType<typeof createGuildBattleReplay> | undefined;
+  let crossingView: ReturnType<typeof createGuildCrossingView> | undefined;
   let activeReplay: GuildReport | null = null;
+  let crossingOpen = false;
   let replayFromChat = false;
   let section: Section = "guild";
   let snapshot: GuildSnapshot | null = null;
@@ -398,6 +401,30 @@ export function createGuildPanel(options: Options) {
   /** Weekly quest points: what this guild has this week, what it pays, and how every guild stands. */
   function hint(parent: HTMLElement, text: string) { parent.append(element("p", text, "guild-quest-hint")); }
   function renderQuests(body: HTMLElement) {
+    const own = snapshot?.guild;
+    if (own) {
+      const c = own.crossing;
+      const card = element("section", undefined, "guild-crossing-card");
+      const top = element("div", undefined, "guild-crossing-card-top");
+      const copy = element("div", undefined, "guild-row-copy");
+      const stepLabel = c ? (c.completed ? `Cleared · +${c.pointsAwarded} pts` : `Step ${Math.min(c.revealed, c.steps)} / ${c.steps} · +${c.pointsAwarded} / ${c.maxPoints} pts`) : "Weekly 50/50 Glass Bridge · +50 Bonus pts";
+      const subLabel = c
+        ? (c.completed ? `${c.winnerName ?? "Your guild"} crossed the Victory Portal!`
+          : `${c.remainingToday} of ${c.dailyLimit} ${c.dailyLimit === 1 ? "try" : "tries"} left today${c.fallsCount ? ` · 💀 ${c.fallsCount} fallen` : ""}`)
+        : "Team up with your guild across 16 glass pairs to earn bonus quest points & Hall Fund.";
+      copy.append(element("strong", "Glass Crossing"), element("span", stepLabel, "guild-crossing-card-step"), element("small", subLabel, "guild-crossing-card-sub"));
+      const enter = button(c?.completed ? "View Bridge" : "Enter Crossing", () => { crossingOpen = true; render(); }, c?.completed ? "secondary" : "primary", busy, "open-crossing");
+      top.append(copy, enter);
+      card.append(top);
+      if (c) {
+        const track = element("div", undefined, "guild-crossing-track");
+        const fill = element("span", undefined, "guild-crossing-fill");
+        fill.style.width = `${Math.round((c.completed ? 1 : c.revealed / Math.max(1, c.steps)) * 100)}%`;
+        track.append(fill);
+        card.append(track);
+      }
+      body.append(card);
+    }
     const standing = options.questStanding?.();
     if (standing?.solo) heading(body, "Your quest bonus", `Each weekly quest you finish on your own is +${Math.round(SOLO_QUEST_BONUS_PER_QUEST * 100)}% stat gains next week.`);
     else heading(body, "Quest points", `Each weekly quest a member finishes is a point. Next week, the whole guild gets +${GUILD_QUEST_BONUS_PER_POINT * 100}% stat gains per point.`);
@@ -493,9 +520,20 @@ export function createGuildPanel(options: Options) {
       item.append(portrait, copy, score);
       list.append(item);
     }
+    // Glass Crossing bonus points appear on their own row so the member breakdown adds up cleanly.
+    const crossingPts = own.crossing?.pointsAwarded ?? 0;
+    if (crossingPts > 0) {
+      const item = element("li", undefined, "guild-quest-member guild-quest-crossing");
+      const copy = element("div", undefined, "guild-row-copy");
+      copy.append(element("strong", "Glass Crossing"), element("span", own.crossing?.completed ? "Weekly bridge cleared · pure bonus above the 300-quest pool." : "Weekly bridge milestones · pure bonus above the 300-quest pool."));
+      const score = element("div", undefined, "guild-score");
+      score.append(element("strong", number(crossingPts)), element("span", "pts"));
+      item.append(copy, score);
+      list.append(item);
+    }
     // Points the guild earned that no current member's row shows: members who have left, and quests
     // from before members' counts began. Shown so the column adds up to the guild's total.
-    const shown = members.reduce((sum, member) => sum + (member.questPoints ?? 0), 0);
+    const shown = members.reduce((sum, member) => sum + (member.questPoints ?? 0), 0) + crossingPts;
     const earlier = (options.questStanding?.()?.guild?.points ?? 0) - shown;
     if (earlier > 0) {
       const item = element("li", undefined, "guild-quest-member guild-quest-earlier");
@@ -532,6 +570,7 @@ export function createGuildPanel(options: Options) {
   }
   function render() {
     replay?.dispose(); replay = undefined;
+    crossingView?.dispose(); crossingView = undefined;
     dialog.classList.toggle("guild-window--replay", Boolean(activeReplay));
     root.classList.toggle("guild-overlay--replay", Boolean(activeReplay));
     const active = doc.activeElement as HTMLElement | null;
@@ -539,6 +578,20 @@ export function createGuildPanel(options: Options) {
     const wasInside = dialog.contains(active);
     const scroll = dialog.querySelector(".guild-content")?.scrollTop ?? 0;
     dialog.replaceChildren();
+    if (crossingOpen) {
+      crossingView = createGuildCrossingView(dialog, {
+        doc,
+        api: options.api,
+        applyPortrait: applyProfileIcon,
+        now,
+        onBack: (didChange) => {
+          crossingOpen = false;
+          if (didChange) void load();
+          else render();
+        },
+      });
+      return;
+    }
     if ((activeReplay?.result.version === 2 || activeReplay?.result.version === 3 || activeReplay?.result.version === 4)) {
       const battle = activeReplay;
       replay = createGuildBattleReplay(dialog, activeReplay.result, [battle.attacker, battle.defender], options.replayAssets, backFromReplay, options.lowPerformanceMode);
@@ -585,6 +638,7 @@ export function createGuildPanel(options: Options) {
     otherGuild.close();
     if (root.hidden) return;
     replay?.dispose(); replay = undefined; activeReplay = null;
+    crossingView?.dispose(); crossingView = undefined; crossingOpen = false;
     serial++; root.hidden = true; busy = false; options.api()?.cancel(); clearInterval(timer); timer = undefined;
     confirmation = null; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "false");
     syncGuildOverlayOpen(doc);
@@ -593,7 +647,7 @@ export function createGuildPanel(options: Options) {
   function open(next: Section = "guild") {
     if (!root.hidden) close();
     previousFocus = doc.activeElement as HTMLElement | null; options.beforeOpen();
-    section = next; battleView = null; session = options.sessionKey(); page = "0"; busy = false; snapshot = null;
+    section = next; battleView = null; crossingOpen = false; session = options.sessionKey(); page = "0"; busy = false; snapshot = null;
     error = ""; notice = ""; creating = false; choosingEmblem = false; draftName = ""; managedMember = null;
     root.hidden = false; doc.getElementById("guildBtn")?.setAttribute("aria-expanded", "true");
     syncGuildOverlayOpen(doc);
@@ -604,7 +658,7 @@ export function createGuildPanel(options: Options) {
   function onKey(event: KeyboardEvent) {
     if (root.hidden || doc.querySelector("#playerProfile:not([hidden])")) return;
     event.stopImmediatePropagation();
-    if (event.key === "Escape") { event.preventDefault(); if (activeReplay) backFromReplay(); else backFromWindow(); return; }
+    if (event.key === "Escape") { event.preventDefault(); if (crossingOpen) crossingView?.back(); else if (activeReplay) backFromReplay(); else backFromWindow(); return; }
     if (event.key !== "Tab") return;
     const focusable = [...dialog.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), summary")]
       .filter(node => !node.closest("details:not([open])") || node.tagName === "SUMMARY");

@@ -22,6 +22,7 @@ import * as GetDevReviewQueueProcedure from "../get_dev_review_queue_procedure";
 import * as GetDeveloperTravelTargetProcedure from "../get_developer_travel_target_procedure";
 import * as GetGuildBattleBadgesProcedure from "../get_guild_battle_badges_procedure";
 import * as GetGuildBattleHubProcedure from "../get_guild_battle_hub_procedure";
+import * as GetGuildCrossingProcedure from "../get_guild_crossing_procedure";
 import * as GetGuildHubProcedure from "../get_guild_hub_procedure";
 import * as GetGuildPreviewProcedure from "../get_guild_preview_procedure";
 import * as GetGuildReplayProcedure from "../get_guild_replay_procedure";
@@ -77,6 +78,8 @@ export type GetGuildBattleBadgesArgs = __Infer<typeof GetGuildBattleBadgesProced
 export type GetGuildBattleBadgesResult = __Infer<typeof GetGuildBattleBadgesProcedure.returnType>;
 export type GetGuildBattleHubArgs = __Infer<typeof GetGuildBattleHubProcedure.params>;
 export type GetGuildBattleHubResult = __Infer<typeof GetGuildBattleHubProcedure.returnType>;
+export type GetGuildCrossingArgs = __Infer<typeof GetGuildCrossingProcedure.params>;
+export type GetGuildCrossingResult = __Infer<typeof GetGuildCrossingProcedure.returnType>;
 export type GetGuildHubArgs = __Infer<typeof GetGuildHubProcedure.params>;
 export type GetGuildHubResult = __Infer<typeof GetGuildHubProcedure.returnType>;
 export type GetGuildPreviewArgs = __Infer<typeof GetGuildPreviewProcedure.params>;

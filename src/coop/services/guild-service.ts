@@ -1,5 +1,6 @@
 import { Identity } from "spacetimedb";
 import type { GuildSnapshot, GuildReport, GuildPreview } from "../../../shared/guilds";
+import type { CrossingChoice, GuildCrossingSnapshot } from "../../../shared/guild-crossing";
 import type { ReducerPort } from "../ports";
 
 export type GuildAction =
@@ -75,6 +76,19 @@ export function createGuildService(deps: Dependencies) {
       const result = await (byPower ? current.connection.procedures.getGuildBattleHub({ afterId: BigInt(afterId) }) : current.connection.procedures.getGuildHub({ afterId: BigInt(afterId) }));
       current.check();
       return JSON.parse(result) as GuildSnapshot;
+    },
+    async loadCrossing(): Promise<GuildCrossingSnapshot | null> {
+      const current = request();
+      const result = await current.connection.procedures.getGuildCrossing({});
+      current.check();
+      return JSON.parse(result) as GuildCrossingSnapshot | null;
+    },
+    async stepCrossing(expectedStep: number, side: CrossingChoice): Promise<GuildCrossingSnapshot | null> {
+      await mutate(connection => connection.reducers.stepGuildCrossing({ expectedStep, side }));
+      const current = request();
+      const result = await current.connection.procedures.getGuildCrossing({});
+      current.check();
+      return JSON.parse(result) as GuildCrossingSnapshot | null;
     },
     async guildAction(action: GuildAction) {
       return mutate(async (connection) => {

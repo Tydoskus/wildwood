@@ -241,7 +241,7 @@ describe("Cooking at a Town fire", () => {
     await ann.tab.play(500);
     const dialog = ann.tab.document.querySelector<HTMLDialogElement>("dialog.cooking-fire[open]")!;
     expect(dialog).toBeTruthy();
-    dialog.querySelector("input")!.checked = true;
+    press(ann.tab, dialog.querySelector('[data-mode="all"]'));
     press(ann.tab, dialog.querySelector(".cook-recipe"));
     await ann.tab.play(1500);
     expect(ann.ores().minnow).toBe(3);

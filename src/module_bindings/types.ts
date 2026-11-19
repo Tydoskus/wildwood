@@ -717,6 +717,33 @@ export const GuildBattleReport = __t.object("GuildBattleReport", {
 });
 export type GuildBattleReport = __Infer<typeof GuildBattleReport>;
 
+export const GuildCrossingAttempt = __t.object("GuildCrossingAttempt", {
+  identity: __t.identity(),
+  day: __t.u32(),
+  used: __t.u32(),
+  streak: __t.u32(),
+  bestStreak: __t.u32(),
+  guildId: __t.u64(),
+});
+export type GuildCrossingAttempt = __Infer<typeof GuildCrossingAttempt>;
+
+export const GuildCrossingWeek = __t.object("GuildCrossingWeek", {
+  key: __t.string(),
+  week: __t.u32(),
+  guildId: __t.u64(),
+  secretMask: __t.u32(),
+  revealed: __t.u8(),
+  completed: __t.bool(),
+  completedBy: __t.string(),
+  completedByIdentity: __t.string(),
+  completedByIcon: __t.u32(),
+  completedAt: __t.u64(),
+  pointsAwarded: __t.u32(),
+  fallsJson: __t.string(),
+  pioneersJson: __t.string(),
+});
+export type GuildCrossingWeek = __Infer<typeof GuildCrossingWeek>;
+
 export const GuildHall = __t.object("GuildHall", {
   guildId: __t.u64(),
   fund: __t.u32(),

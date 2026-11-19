@@ -75,6 +75,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "gemTransaction", columns: ["identity"], pk: "id", mode: "index", index: "byIdentity" },
   { table: "guild", columns: ["leader"], pk: "id", mode: "scan" },
   { table: "guildAccount", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "guildCrossingAttempt", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildJoinRequest", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildMember", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "guildReportParticipant", columns: ["identity"], pk: "key", mode: "index", index: "identity" },

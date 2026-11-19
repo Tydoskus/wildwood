@@ -225,6 +225,7 @@ import StartLoginMoveReducer from "./start_login_move_reducer";
 import StartPrestigeChallengeReducer from "./start_prestige_challenge_reducer";
 import StartResearchReducer from "./start_research_reducer";
 import StartServerBoostReducer from "./start_server_boost_reducer";
+import StepGuildCrossingReducer from "./step_guild_crossing_reducer";
 import TakeOverSessionReducer from "./take_over_session_reducer";
 import TeleportToResearchReducer from "./teleport_to_research_reducer";
 import TeleportToTownSquareReducer from "./teleport_to_town_square_reducer";
@@ -257,6 +258,7 @@ import * as GetDevReviewQueueProcedure from "./get_dev_review_queue_procedure";
 import * as GetDeveloperTravelTargetProcedure from "./get_developer_travel_target_procedure";
 import * as GetGuildBattleBadgesProcedure from "./get_guild_battle_badges_procedure";
 import * as GetGuildBattleHubProcedure from "./get_guild_battle_hub_procedure";
+import * as GetGuildCrossingProcedure from "./get_guild_crossing_procedure";
 import * as GetGuildHubProcedure from "./get_guild_hub_procedure";
 import * as GetGuildPreviewProcedure from "./get_guild_preview_procedure";
 import * as GetGuildReplayProcedure from "./get_guild_replay_procedure";
@@ -2126,6 +2128,7 @@ const reducersSchema = __reducers(
   __reducerSchema("start_prestige_challenge", StartPrestigeChallengeReducer),
   __reducerSchema("start_research", StartResearchReducer),
   __reducerSchema("start_server_boost", StartServerBoostReducer),
+  __reducerSchema("step_guild_crossing", StepGuildCrossingReducer),
   __reducerSchema("take_over_session", TakeOverSessionReducer),
   __reducerSchema("teleport_to_research", TeleportToResearchReducer),
   __reducerSchema("teleport_to_town_square", TeleportToTownSquareReducer),
@@ -2160,6 +2163,7 @@ const proceduresSchema = __procedures(
   __procedureSchema("get_developer_travel_target", GetDeveloperTravelTargetProcedure.params, GetDeveloperTravelTargetProcedure.returnType),
   __procedureSchema("get_guild_battle_badges", GetGuildBattleBadgesProcedure.params, GetGuildBattleBadgesProcedure.returnType),
   __procedureSchema("get_guild_battle_hub", GetGuildBattleHubProcedure.params, GetGuildBattleHubProcedure.returnType),
+  __procedureSchema("get_guild_crossing", GetGuildCrossingProcedure.params, GetGuildCrossingProcedure.returnType),
   __procedureSchema("get_guild_hub", GetGuildHubProcedure.params, GetGuildHubProcedure.returnType),
   __procedureSchema("get_guild_preview", GetGuildPreviewProcedure.params, GetGuildPreviewProcedure.returnType),
   __procedureSchema("get_guild_replay", GetGuildReplayProcedure.params, GetGuildReplayProcedure.returnType),

@@ -5231,12 +5231,124 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
   }
   .exchange-filter.is-active { border-color: var(--sand-line); background: #2c281c; color: var(--sand); }
   .exchange-filter-held { margin-left: auto; }
-  .cook-skill-meter { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(14,14,14,.55); }
+  .cooking-fire .cook-body { display: flex; flex-direction: column; gap: 10px; }
+  .cook-skill-meter { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 10px 12px; border: 1.5px solid rgba(255,198,96,.24); border-radius: 10px; background: linear-gradient(180deg, rgba(38,24,14,.72), rgba(14,14,16,.78)); }
   .cook-skill-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
-  .cook-skill-xp { color: #bdbdbd; font-size: 12px; }
-  .cook-skill-track { height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; }
-  .cook-skill-fill { display: block; height: 100%; border-radius: 3px; background: #ffd34d; transition: width .2s ease; }
-  .cook-skill-next { color: #b7c2bf; font-size: 11.5px; }
+  .cook-skill-xp { color: #d6ccc0; font-size: 12px; font-weight: 700; }
+  .cook-skill-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.14); overflow: hidden; }
+  .cook-skill-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f59e0b, #ffd34d); transition: width .2s ease; }
+  .cook-skill-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+  .cook-skill-next { color: #c9bfb3; font-size: 11.5px; }
+  .cook-skillet-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,211,77,.35); background: rgba(255,211,77,.12); color: #ffd34d; font-size: 11px; font-weight: 800; }
+  .cook-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .cook-mode-seg { display: inline-flex; padding: 3px; border-radius: 9px; border: 1px solid rgba(255,255,255,.14); background: rgba(10,12,16,.72); gap: 3px; }
+  .cook-mode-btn { padding: 6px 12px; border: 0; border-radius: 6px; background: transparent; color: #b8c0c8; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+  .cook-mode-btn.is-active { background: #2d7a46; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
+  .cook-bag-btn { padding: 7px 12px; border: 1.5px solid rgba(255,211,77,.42); border-radius: 9px; background: linear-gradient(180deg, #8a4b12, #5a2f0b); color: #fff7e0; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
+  .cook-bag-btn:disabled { opacity: .45; cursor: default; }
+  .cook-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 12px; font-weight: 800; color: #f0e6d6; text-transform: uppercase; letter-spacing: .04em; }
+  .cook-section-head small { font-size: 11px; font-weight: 600; color: #a8b0b8; text-transform: none; letter-spacing: 0; }
+  .cook-fish-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 7px; max-height: 220px; overflow-y: auto; padding-right: 2px; }
+  .cook-fish-card { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border: 1.5px solid rgba(255,255,255,.16); border-radius: 10px; background: linear-gradient(180deg, rgba(31,37,46,.92), rgba(18,22,28,.96)); color: #fff; text-align: left; font: inherit; cursor: pointer; transition: border-color .14s ease, transform .1s ease; }
+  .cook-fish-card:hover:not(:disabled) { border-color: rgba(255,211,77,.6); }
+  .cook-fish-card:active:not(:disabled) { transform: scale(.98); }
+  .cook-fish-card:disabled { opacity: .48; cursor: default; }
+  .cook-fish-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 13.5px; }
+  .cook-fish-qty { padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.11); color: #e2e8f0; font-size: 11.5px; font-weight: 800; }
+  .cook-fish-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; color: #aeb6be; }
+  .cook-gold { color: #ffd34d; font-weight: 800; }
+  .cook-xp { color: #8be0ff; font-weight: 800; }
+  .cook-batch-tag { margin-left: auto; padding: 1px 6px; border-radius: 6px; background: rgba(52,199,89,.18); color: #7ef09c; font-size: 10.5px; font-weight: 800; }
+  .cook-empty { grid-column: 1 / -1; margin: 4px 0; padding: 14px; border-radius: 10px; background: rgba(255,255,255,.05); color: #b7c2bf; font-size: 13px; text-align: center; }
+  .cook-dish-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+  .cook-dish-pill { display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; border: 1.5px solid rgba(255,255,255,.14); border-radius: 9px; background: rgba(15,18,24,.78); color: #dbe2ea; text-align: left; font: inherit; cursor: pointer; }
+  .cook-dish-pill strong { font-size: 12px; }
+  .cook-dish-pill small { font-size: 10.5px; color: #9ea8b3; }
+  .cook-dish-pill.is-active { border-color: #ffd34d; background: linear-gradient(180deg, rgba(120,66,18,.55), rgba(46,26,12,.75)); color: #fff; }
+  .cook-dish-pill.is-active small { color: #ffe08a; }
+  .cook-dish-pill.is-locked { opacity: .45; cursor: default; }
+  .cook-cast { display: flex; flex-direction: column; gap: 10px; padding: 14px 12px; border: 1.5px solid rgba(255,168,54,.45); border-radius: 12px; background: radial-gradient(100% 90% at 50% 0%, rgba(255,136,28,.22), rgba(16,14,16,.92)); }
+  .cook-cast-head { display: flex; align-items: center; gap: 10px; }
+  .cook-flame { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: radial-gradient(circle at 50% 62%, #fff3b0 0%, #ff9f1c 48%, #d9480f 85%, transparent 100%); box-shadow: 0 0 14px rgba(255,149,28,.7); animation: cook-flame-pulse 1.1s ease-in-out infinite alternate; }
+  @keyframes cook-flame-pulse { from { transform: scale(.94); opacity: .9; } to { transform: scale(1.07); opacity: 1; } }
+  .cook-cast-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .cook-cast-title { font-size: 14px; color: #fff; }
+  .cook-clock { font-size: 12px; color: #ffd38a; font-weight: 800; }
+  .cook-cast-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,.14); overflow: hidden; border: 1px solid rgba(255,255,255,.12); }
+  .cook-cast-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ff7b00, #ffd34d); transition: width .08s linear; }
+  .cook-cast-totals { padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.32); color: #ffe7b3; font-size: 12px; font-weight: 800; text-align: center; }
+  .cook-stop { width: 100%; }
+  .cook-status { margin: 0; min-height: 18px; font-size: 12.5px; color: #b9f5c8; font-weight: 700; text-align: center; }
+
+  /* Guild Glass Crossing: featured quest card & interactive 50/50 glass bridge arena */
+  .guild-crossing-card { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; padding: 12px; border: 1.5px solid rgba(95,227,214,.38); border-radius: 12px; background: linear-gradient(160deg, rgba(18,38,52,.85), rgba(14,18,26,.94)); box-shadow: inset 0 1px 0 rgba(160,240,255,.16); }
+  .guild-crossing-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .guild-crossing-card-step { color: #ffd34d; font-size: 12.5px; font-weight: 800; }
+  .guild-crossing-card-sub { color: #b7c8d4; font-size: 11.5px; }
+  .guild-crossing-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; }
+  .guild-crossing-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #34c759, #5fe3d6, #ffd34d); transition: width .25s ease; }
+
+  .crossing-content { display: flex; flex-direction: column; gap: 8px; }
+  .crossing-topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .crossing-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .crossing-pill { padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: rgba(16,22,30,.88); color: #eaf2f8; font-size: 12px; font-weight: 800; }
+  .crossing-pill--gold { border-color: rgba(255,211,77,.42); color: #ffd34d; background: rgba(255,211,77,.1); }
+  .crossing-pill--streak { border-color: rgba(95,227,214,.55); color: #7ff5e8; background: rgba(95,227,214,.14); }
+  .crossing-pill--win { border-color: rgba(71,209,108,.6); color: #8af5a4; background: rgba(71,209,108,.16); }
+  .crossing-tries { font-size: 12.5px; color: #c7d4df; font-weight: 700; }
+  .crossing-milestones { display: flex; flex-wrap: wrap; gap: 6px; }
+  .crossing-milestone { padding: 3px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,.12); background: rgba(12,16,22,.72); color: #95a4b3; font-size: 11px; font-weight: 800; }
+  .crossing-milestone.is-done { border-color: rgba(255,211,77,.5); background: rgba(255,211,77,.14); color: #ffe17a; }
+  .crossing-toast { margin: 0; padding: 8px 10px; border-radius: 9px; font-size: 12.5px; font-weight: 800; text-align: center; }
+  .crossing-toast--safe { background: rgba(40,180,99,.2); border: 1px solid rgba(71,209,108,.55); color: #9cf8b3; }
+  .crossing-toast--fell { background: rgba(220,68,68,.2); border: 1px solid rgba(255,112,112,.5); color: #ffb3b3; }
+  .crossing-toast--win { background: rgba(255,211,77,.2); border: 1px solid rgba(255,211,77,.65); color: #ffe999; }
+  .crossing-toast--error { background: rgba(220,68,68,.18); border: 1px solid rgba(255,120,120,.45); color: #ffc2c2; }
+
+  .crossing-bridge-scroll { max-height: 360px; overflow-y: auto; padding: 12px 10px; border: 1.5px solid rgba(120,175,210,.22); border-radius: 12px; background: radial-gradient(80% 30% at 50% 0%, rgba(255,211,77,.14), transparent 65%), linear-gradient(180deg, #09121e 0%, #0b1019 55%, #111520 100%); }
+  .crossing-bridge { display: flex; flex-direction: column; gap: 8px; max-width: 360px; margin: 0 auto; }
+  .crossing-portal { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; border: 2px solid rgba(255,211,77,.42); border-radius: 14px; background: radial-gradient(100% 100% at 50% 50%, rgba(255,211,77,.22), rgba(16,28,42,.88)); color: #fff7d6; text-align: center; }
+  .crossing-portal small { color: #d8cfa8; font-size: 11.5px; }
+  .crossing-portal.is-ready { border-color: #ffd34d; box-shadow: 0 0 18px rgba(255,211,77,.35); }
+  .crossing-portal.is-cleared { border-color: #47d16c; background: radial-gradient(100% 100% at 50% 50%, rgba(71,209,108,.24), rgba(16,28,24,.9)); }
+  .crossing-winner { display: flex; align-items: center; gap: 8px; }
+  .crossing-finish-btn { width: 100%; }
+  .crossing-checkpoint { text-align: center; font-size: 11px; font-weight: 900; letter-spacing: .04em; color: #c7b57a; padding: 3px 8px; border-radius: 999px; border: 1px dashed rgba(255,211,77,.3); background: rgba(255,211,77,.06); }
+  .crossing-checkpoint.is-done { color: #ffd34d; border-style: solid; border-color: rgba(255,211,77,.55); background: rgba(255,211,77,.14); }
+  .crossing-row { display: grid; grid-template-columns: 1fr 28px 1fr; align-items: center; gap: 8px; padding: 4px; border-radius: 12px; }
+  .crossing-row.is-frontier { background: rgba(95,227,214,.09); box-shadow: 0 0 0 1.5px rgba(95,227,214,.42); }
+  .crossing-step-num { text-align: center; font-size: 11px; font-weight: 900; color: #7c8ea0; font-variant-numeric: tabular-nums; }
+  .crossing-row.is-frontier .crossing-step-num { color: #7ff5e8; }
+  .crossing-tile { min-height: 58px; padding: 7px 8px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; box-sizing: border-box; font: inherit; position: relative; overflow: hidden; }
+  .crossing-tile-label { font-size: 13px; font-weight: 900; }
+  .crossing-tile-sub { font-size: 11px; color: #9eb0c2; font-weight: 700; }
+  .crossing-tile--frontier { border: 2px solid #5fe3d6; background: linear-gradient(155deg, rgba(110,235,230,.24), rgba(24,52,72,.88) 55%, rgba(16,32,48,.94)); color: #f2fffe; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 4px 12px rgba(0,0,0,.35); transition: transform .1s ease, border-color .14s ease, box-shadow .14s ease; }
+  .crossing-tile--frontier:hover:not(:disabled) { border-color: #a8fff5; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 14px rgba(95,227,214,.45); }
+  .crossing-tile--frontier:active:not(:disabled) { transform: scale(.97); }
+  .crossing-tile--frontier:disabled { opacity: .52; cursor: default; }
+  .crossing-tile--frontier.is-stepping { border-color: #ffd34d; animation: crossing-pulse .24s ease-in-out infinite alternate; }
+  .crossing-tile--safe { border: 2px solid #2fb85c; background: linear-gradient(160deg, rgba(52,199,89,.26), rgba(16,44,28,.88)); color: #b9ffd0; }
+  .crossing-tile--safe .crossing-tile-sub { color: #8fe3a9; }
+  .crossing-tile--safe.is-flash-safe { animation: crossing-safe-pop .4s ease-out; }
+  .crossing-tile--broken { border: 1.5px dashed rgba(255,105,105,.38); background: radial-gradient(circle at 50% 50%, #05070b, #170d14); color: #8e7b84; }
+  .crossing-tile--broken.has-fallen { border-color: rgba(255,115,115,.62); }
+  .crossing-tile--broken.is-flash-shatter { animation: crossing-shatter .38s ease-out; }
+  .crossing-tile--future { border: 1.5px solid rgba(165,205,235,.15); background: rgba(20,30,44,.42); color: #64788c; }
+  .crossing-fallen-badge { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+  .crossing-fallen-portrait { position: relative; display: inline-flex; }
+  .crossing-fallen-avatar { width: 28px; height: 28px; filter: grayscale(.35) brightness(.88); border-color: rgba(255,120,120,.7); }
+  .crossing-skull { position: absolute; right: -5px; bottom: -3px; font-size: 12px; line-height: 1; text-shadow: 0 1px 3px #000; }
+  .crossing-fallen-name { font-size: 11px; color: #ffcccc; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crossing-start { text-align: center; padding: 10px; border: 1.5px solid rgba(255,255,255,.16); border-radius: 10px; background: rgba(24,30,40,.85); color: #dbe6f0; display: flex; flex-direction: column; gap: 2px; }
+  .crossing-start small { color: #95a7b8; font-size: 11px; }
+  .crossing-fallen-wall { padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(255,115,115,.25); background: rgba(34,14,20,.6); color: #e2c7cd; font-size: 11.5px; line-height: 1.4; }
+  .crossing-fallen-wall strong { color: #ffadad; }
+  @keyframes crossing-pulse { from { transform: scale(.98); } to { transform: scale(1.03); } }
+  @keyframes crossing-safe-pop { 0% { transform: scale(1.08); box-shadow: 0 0 18px rgba(71,209,108,.85); } 100% { transform: scale(1); } }
+  @keyframes crossing-shatter { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .crossing-tile--frontier.is-stepping, .crossing-tile--safe.is-flash-safe, .crossing-tile--broken.is-flash-shatter, .cook-flame { animation: none; }
+  }
   .offline-progress-later { margin-top: 6px; width: 100%; }
   /* Label, step down, field, step up, extra: the same columns in every row, each cell the same height. */
   .exchange-stepper { display: grid; grid-template-columns: 82px 52px minmax(0, 1fr) 52px 52px; align-items: center; gap: 6px; margin-bottom: 10px; }

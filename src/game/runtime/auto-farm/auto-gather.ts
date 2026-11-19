@@ -32,8 +32,10 @@ export type GatherRules<Node> = {
   /** "the Copper Hills": it starts only there, and leaving it stops it. */
   area: string;
   resumeKey: string;
-  /** Whether the player (not their feet) is in the area. */
+  /** Whether the player (not their feet) is in the area to start (and show the button when off). */
   inArea: (x: number, y: number) => boolean;
+  /** Optional wider area allowed while already running (e.g. walking across Town between fishing spots). */
+  stayInArea?: (x: number, y: number) => boolean;
   /** What else it needs to work (the tool, a pick), or null. */
   needs: () => string | null;
   choose: (feet: TownPoint) => GatherTarget<Node> | null;
@@ -97,7 +99,8 @@ export function createAutoGather<Node>(options: AutoGatherOptions, rules: Gather
 
   const feet = (): TownPoint => ({ x: player.x, y: player.y + TOWN_FEET_OFFSET });
   const inTown = () => isTownMap(options.mapId());
-  const here = () => inTown() && rules.inArea(player.x, player.y);
+  const inStayArea = () => (rules.stayInArea ?? rules.inArea)(player.x, player.y);
+  const here = () => inTown() && (active || pending ? inStayArea() : rules.inArea(player.x, player.y));
 
   /** Why it cannot work now, or null. */
   function problem() {
@@ -160,7 +163,7 @@ export function createAutoGather<Node>(options: AutoGatherOptions, rules: Gather
     if (!active) resumeWhenReady();
     if (!active) return null;
     if (!inTown()) { stop(`${name} Stopped: Left the Town`); return null; }
-    if (!rules.inArea(player.x, player.y)) { stop(`${name} Stopped: Left ${area}`); return null; }
+    if (!inStayArea()) { stop(`${name} Stopped: Left ${area}`); return null; }
     const connection = options.connection?.() ?? 'ready';
     if (connection === 'ended') { stop(`${name} Stopped for Sign-In`, true); return null; }
     if (manual.x || manual.y) { status = 'Manual Control'; route = []; goal = null; return manual; }

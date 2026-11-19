@@ -12,6 +12,7 @@ import {
   GUILD_RANKING_LIMIT, guildDay, guildWeek, normalizeGuildName, resolveGuildBattle,
   type GuildFighter, type GuildSnapshot, type GuildStanding,
 } from "../../shared/guilds";
+import type { GuildCrossingSummary } from "../../shared/guild-crossing";
 
 type Ctx = ModuleReducerCtx;
 type Guild = NonNullable<ReturnType<Ctx["db"]["guild"]["id"]["find"]>>;
@@ -149,6 +150,8 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
   onJoin?: (ctx: Ctx, identity: Identity) => void;
   /** Whether the viewer may collect members' quests this week and how many more. */
   questCollect?: (ctx: Ctx, identity: Identity) => { ready: boolean; left: number; pool: number; poolSize: number };
+  /** This week's Glass Crossing cooperative challenge summary. */
+  crossingFor?: (ctx: Ctx, identity: Identity, guildId: bigint, memberCount: number) => GuildCrossingSummary;
   announceBattle?: (ctx: Ctx, report: GuildSnapshot["battles"][number]) => void;
   /** Whether a battle has been posted to chat, by its replay key ("attackerId:battleId"). */
   battleShared?: (ctx: Ctx, replayKey: string) => boolean;
@@ -384,7 +387,8 @@ export function createGuildService(deps: { fighterFor(ctx: Ctx, identity: Identi
               power: memberPower(row.identity), prestige: deps.prestigeFor?.(ctx, row.identity) ?? 0, profileIcon: profile?.profileIcon ?? 0, eligibleAt: String(row.eligibleAt),
               ...deps.presenceFor?.(ctx, row.identity), ...deps.questFor?.(ctx, row.identity, guild.id) };
           }),
-          questCollect: deps.questCollect?.(ctx, ctx.sender) ?? null } : null,
+          questCollect: deps.questCollect?.(ctx, ctx.sender) ?? null,
+          crossing: deps.crossingFor?.(ctx, ctx.sender, guild.id, roster.length) ?? null } : null,
         directory, nextPage, standings: cache?.week === week ? JSON.parse(cache.entries) : [],
         battles: guild ? [...ctx.db.guildBattleReport.guildId.filter(guild.id)]
           .sort((a, b) => a.sequence > b.sequence ? -1 : 1).map(row => {

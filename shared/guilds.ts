@@ -1,5 +1,6 @@
 import { simulateDuelBattle } from "./duel-combat";
 import { simulateGuildBattle, type GuildBattleResult } from "./guild-combat";
+import type { GuildCrossingSummary } from "./guild-crossing";
 export type { GuildFighter } from "./guild-combat";
 
 /** Guild badges, in sheet order: guild-emblems-v3 holds the first 16, guild-emblems-v4 the next 16. */
@@ -44,7 +45,9 @@ export type GuildSnapshot = {
       /** Joined this week: quests done on or before their joining day count toward their own bonus, not the guild's. */
       joinedThisWeek?: boolean }[];
     /** Whether the viewer may collect members' quests this week (their own fifteen done), and how many more. */
-    questCollect?: { ready: boolean; left: number; pool?: number; poolSize?: number } | null };
+    questCollect?: { ready: boolean; left: number; pool?: number; poolSize?: number } | null;
+    /** This week's Glass Crossing cooperative challenge summary. */
+    crossing?: GuildCrossingSummary | null };
   directory: { id: string; name: string; emblem?: number; members: number; totalPower?: number; requestOnly?: boolean; challengedToday: boolean }[]; nextPage: string | null;
   standings: GuildStanding[];
   battles: GuildReport[];

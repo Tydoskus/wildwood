@@ -23,9 +23,14 @@ const ALL_SITES = FISHING_SPOTS.flatMap(spot => spot.sites);
 /** How close to a river/pond fishing site the player stands for Auto Fish's button to show. */
 const FISHING_AREA_RADIUS = 260;
 
+/** Anywhere outdoors in Town outside the Copper Hills, Timberwood, and interiors: valid while walking between spots. */
+export function inFishingTownGround(x: number, y: number) {
+  return !townRoomAt(x, y) && !inTownHills(x, y, MINING_REACH * 2) && !inTownGrove(x, y, WOODCUTTING_REACH * 2);
+}
+
 /** Anywhere along the Town's river and pond outside the Hills, Timberwood and interiors. */
 export function inFishingArea(x: number, y: number) {
-  if (townRoomAt(x, y) || inTownHills(x, y, MINING_REACH * 2) || inTownGrove(x, y, WOODCUTTING_REACH * 2)) return false;
+  if (!inFishingTownGround(x, y)) return false;
   if (fishingScene.rodOut) return true;
   return ALL_SITES.some(site => Math.hypot(site.x - x, site.y - y) <= FISHING_AREA_RADIUS);
 }
@@ -88,7 +93,7 @@ export function createAutoFish(options: AutoGatherOptions & {
   }
 
   const gather = createAutoGather<FishTarget>(options, {
-    name: 'Auto Fish', area: 'the Town River', resumeKey: AUTO_FISH_RESUME_KEY, inArea: inFishingArea,
+    name: 'Auto Fish', area: 'the Town River', resumeKey: AUTO_FISH_RESUME_KEY, inArea: inFishingArea, stayInArea: inFishingTownGround,
     needs() {
       if (!picked.size) return 'Pick a Fishing Spot';
       return null;

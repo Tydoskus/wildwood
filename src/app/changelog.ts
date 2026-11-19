@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.921": [
+    "New weekly whole-guild challenge — Glass Crossing: team up with your guild across 16 pairs of 50/50 glass tiles toward the Victory Portal. Safe steps keep your daily try for a streak; shattered tiles mark where fallen guildmates perished and reveal the safe path for everyone else. Awards +50 bonus Guild Quest Points & Hall Fund across milestones (steps 6, 12, and clear), with daily tries scaling for smaller guilds so any guild can finish in a week.",
+    "Cooking Fire remake: cook individual fish directly from tap-friendly fish cards with Cook 1 / Cook All / Cook All Fish controls, live session gold & XP totals, Skillet bonus display, and optional Special Recipes for multi-fish bonus dishes.",
+    "Fixed Auto Fish turning off and hiding its button when walking across Town to a moving fishing spot.",
+    "Fixed Mining and Woodcutting overhead badges showing 'Lv' before uncapped skill stats.",
+  ],
   "0.920": [
     "Fishing Rod and Cooking Skillet tools added at the Smith: faster bites and extra fish while fishing, more gold, Cooking XP, and a chance to save a fish while cooking.",
     "Auto Fish along the Town river and Offline Fishing in While You Were Away; Guild Hall Lanterns and Courtyard bonuses now apply to Fishing too.",
@@ -4162,6 +4168,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.921": "2026-11-18",
   "0.920": "2026-11-18",
   "0.919.2": "2026-11-17",
   "0.919.1": "2026-11-17",
