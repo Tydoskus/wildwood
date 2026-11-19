@@ -1,13 +1,12 @@
 import {
   CROSSING_STEPS,
-  GUILD_CROSSING_BRIDGE_X,
+  GUILD_CROSSING_ARRIVAL,
+  GUILD_CROSSING_CENTER_X,
+  GUILD_CROSSING_EXIT_PAD,
   GUILD_CROSSING_FEET_OFFSET,
   GUILD_CROSSING_FINISH_PORTAL,
-  GUILD_CROSSING_FINISH_RECT,
-  GUILD_CROSSING_START_RECT,
   GUILD_HALL_CROSSING_PORTAL,
   crossingFrontierSpawn,
-  crossingStepY,
   crossingTileAt,
   crossingTileRect,
   guildCrossingMapId,
@@ -17,8 +16,10 @@ import {
   type GuildCrossingSnapshot,
 } from "../../../../shared/guild-crossing";
 import { guildHallGuildId, isGuildHallMap } from "../../../../shared/guild-hall";
+import { TOWN_MAP_ID } from "../../../../shared/town";
 import { guildHallShown } from "../../guild-hall";
 import type { MapId } from "../../world";
+import type { Camera } from "../render/camera";
 import type { PlayerState } from "../types";
 import {
   guildCrossingScene,
@@ -27,12 +28,13 @@ import {
   spawnCrossingPop,
   spawnCrossingShards,
   spawnCrossingShockwave,
+  startCrossingLeap,
   stepCrossingEffects,
-  triggerCrossingHop,
   triggerCrossingShake,
 } from "./guild-crossing-scene";
 
 export type GuildCrossingSource = {
+  correctMovementPosition?: (x: number, y: number, force?: boolean) => void;
   guild?: {
     loadCrossing: () => Promise<GuildCrossingSnapshot | null>;
     stepCrossing: (expectedStep: number, side: CrossingChoice) => Promise<GuildCrossingSnapshot | null>;
@@ -46,18 +48,19 @@ const HALL_PORTAL_REACH = 48;
 
 /**
  * Runs the playable in-world Glass Crossing map (`guild_crossing_<guildId>`):
- * - Polls the guild's crossing state every 2.5s ONLY while inside the map so online
- *   guildmates see newly shattered panes, memorials, and shard bursts live.
- * - Clamps player feet onto the Start Platform, the bridge corridor, and Finish Sanctuary,
- *   gently keeping feet out of already-shattered holes and blocking past the active frontier.
- * - Stepping onto Left or Right of the active frontier pane runs a 0.42s suspenseful crackle,
- *   resolves on the server, and either locks glowing emerald (keeping your try!) or shatters
- *   into shards with a 0.72s chasm plunge and clean respawn right behind the new frontier!
- * - Also triggers entry when walking onto the Glass Crossing portal in the Guild Hall courtyard.
+ * - Free-roam walking is disabled so players never drift glitchily into empty space.
+ * - Click / tap any solved emerald slab, active 50/50 frontier slab, Start Island, Return Portal,
+ *   or unlocked Victory Island / Victory Portal to launch a smooth parabolic 2.5D leap right onto it.
+ * - Landing on a 50/50 frontier slab with tries left triggers the 0.42s suspense crackle + server step;
+ *   with 0 tries left, visitors can still leap onto solved and frontier tiles to hang out and cheer
+ *   without progressing the bridge.
+ * - Polls the guild's crossing state every 2.5s ONLY while inside the map so online guildmates see
+ *   shattered panes, fallen bodies, and shard bursts live.
  */
 export function createGuildCrossingRuntime(deps: {
   source: () => GuildCrossingSource | null | undefined;
   player: PlayerState;
+  camera?: Camera;
   currentMapId: () => MapId;
   travel: (mapId: MapId) => Promise<boolean>;
   clearInput?: () => void;
@@ -68,13 +71,32 @@ export function createGuildCrossingRuntime(deps: {
   let stepping = false;
   let hallPortalEntered = false;
   let noTryCooldown = 0;
-  let lastTileKey = "";
   let fallDoneAt: { x: number; y: number } | null = null;
-  let finishTriggered = false;
+  let onLeapLand: (() => void) | null = null;
 
   function showBanner(text: string, color: string) {
     guildCrossingScene.banner = { text, color, left: 2.8 };
     deps.showMessage?.(text, color);
+  }
+
+  function syncServerPosition() {
+    deps.source()?.correctMovementPosition?.(deps.player.x, deps.player.y, true);
+  }
+
+  function beginLeap(toX: number, toY: number, onLand?: () => void) {
+    const dx = toX - deps.player.x;
+    const dy = toY - deps.player.y;
+    if (Math.hypot(dx, dy) < 6) {
+      deps.player.x = toX;
+      deps.player.y = toY;
+      deps.player.moving = false;
+      onLand?.();
+      return;
+    }
+    deps.player.facing = Math.atan2(dy, dx);
+    deps.player.moving = false;
+    onLeapLand = onLand ?? null;
+    startCrossingLeap(deps.player.x, deps.player.y, toX, toY);
   }
 
   async function refresh() {
@@ -85,7 +107,6 @@ export function createGuildCrossingRuntime(deps: {
       if (deps.currentMapId() !== map || !next) return;
       const prev = guildCrossingScene.snapshot;
       if (prev) {
-        // Trigger live glass shards whenever a guildmate shatters a new pane while we watch!
         const known = new Set(prev.falls.map(f => f.step));
         for (const fall of next.falls) {
           if (!known.has(fall.step)) {
@@ -173,47 +194,79 @@ export function createGuildCrossingRuntime(deps: {
     });
   }
 
-  function clampWalkable(snap: GuildCrossingSnapshot | null) {
-    const { player } = deps;
-    let fx = player.x;
-    let fy = player.y + GUILD_CROSSING_FEET_OFFSET;
-    const revealed = snap?.revealed ?? 0;
+  /** Handles click / tap on a floating glass slab, island, or portal inside Glass Crossing. */
+  function tap(clientX: number, clientY: number): boolean {
+    if (!isGuildCrossingMap(deps.currentMapId())) return false;
+    if (stepping || guildCrossingScene.fall.active || guildCrossingScene.leap.active) return true;
+    const snap = guildCrossingScene.snapshot;
+    const cam = deps.camera;
+    if (!snap || !cam || cam.zoom <= 0) return true;
 
-    // Northmost allowed Y:
-    // - If revealed >= 16 (all tiles solved or completed): open all the way into the Victory Island!
-    // - Otherwise: allow walking & jumping freely across all solved slabs AND onto the active frontier row
-    //   (even with 0 tries left today so players can visit, hop on tiles, and cheer/point for guildmates
-    //   without progressing it), blocked gently at the frontier's north rim!
-    const minY = revealed >= CROSSING_STEPS
-      ? GUILD_CROSSING_FINISH_RECT.top + 22
-      : crossingStepY(revealed) - 44;
-    const maxY = GUILD_CROSSING_START_RECT.bottom - 20;
+    const wx = cam.x + clientX / cam.zoom;
+    const wy = cam.y + clientY / cam.zoom;
 
-    if (fy < minY) fy = minY;
-    if (fy > maxY) fy = maxY;
+    // 1. South Return Portal -> leap into portal and return to Town
+    if (Math.hypot(wx - GUILD_CROSSING_EXIT_PAD.x, wy - (GUILD_CROSSING_EXIT_PAD.y - 50)) <= 84) {
+      beginLeap(GUILD_CROSSING_EXIT_PAD.x, GUILD_CROSSING_EXIT_PAD.y - GUILD_CROSSING_FEET_OFFSET, () => {
+        void deps.travel(TOWN_MAP_ID as MapId);
+      });
+      return true;
+    }
 
-    // Horizontal bounds widen on the Start Platform and Finish Sanctuary, narrow to the bridge rails between them.
-    const onPlatform = fy >= GUILD_CROSSING_START_RECT.top - 10 || (revealed >= CROSSING_STEPS && fy <= GUILD_CROSSING_FINISH_RECT.bottom + 10);
-    const minX = onPlatform ? GUILD_CROSSING_START_RECT.left + 22 : GUILD_CROSSING_BRIDGE_X.left + 16;
-    const maxX = onPlatform ? GUILD_CROSSING_START_RECT.right - 22 : GUILD_CROSSING_BRIDGE_X.right - 16;
-    fx = Math.max(minX, Math.min(maxX, fx));
+    // 2. South Start Island stone deck -> leap onto Start Island bridgehead
+    if (Math.hypot(wx - GUILD_CROSSING_CENTER_X, wy - 3_150) <= 220) {
+      beginLeap(GUILD_CROSSING_ARRIVAL.x, GUILD_CROSSING_ARRIVAL.y);
+      return true;
+    }
 
-    // Gently deflect feet away from already-shattered broken glass holes (steps 0..revealed-1).
-    if (snap) {
-      for (let i = 0; i < Math.min(revealed, CROSSING_STEPS); i++) {
-        const safe = snap.revealedSides[i];
-        if (!safe) continue;
-        const broken = crossingTileRect(i, oppositeCrossingSide(safe));
-        const pad = 8;
-        if (fx > broken.left - pad && fx < broken.right + pad && fy > broken.top - pad && fy < broken.bottom + pad) {
-          // Push smoothly toward the central spine / safe pane side!
-          fx = safe === "left" ? Math.min(fx, broken.left - pad) : Math.max(fx, broken.right + pad);
-        }
+    // 3. North Victory Portal & Victory Island (unlocked once all 16 steps are revealed)
+    if (snap.revealed >= CROSSING_STEPS) {
+      if (Math.hypot(wx - GUILD_CROSSING_FINISH_PORTAL.x, wy - (GUILD_CROSSING_FINISH_PORTAL.y + 10)) <= 105) {
+        beginLeap(GUILD_CROSSING_FINISH_PORTAL.x, GUILD_CROSSING_FINISH_PORTAL.y + 20 - GUILD_CROSSING_FEET_OFFSET, () => {
+          if (snap.completed) return;
+          if (snap.remainingToday > 0) {
+            triggerStep(CROSSING_STEPS, "finish");
+          } else if (noTryCooldown <= 0) {
+            noTryCooldown = 5;
+            showBanner("0 tries left today · A guildmate with a try can claim Victory!", "#ffd38a");
+          }
+        });
+        return true;
+      }
+      if (Math.hypot(wx - GUILD_CROSSING_CENTER_X, wy - 505) <= 220) {
+        beginLeap(GUILD_CROSSING_CENTER_X, 580 - GUILD_CROSSING_FEET_OFFSET);
+        return true;
       }
     }
 
-    player.x = fx;
-    player.y = fy - GUILD_CROSSING_FEET_OFFSET;
+    // 4. Floating glass slabs (solved emerald tiles + active 50/50 frontier pair)
+    const hit = crossingTileAt(wx, wy, 14);
+    if (!hit) return true;
+
+    const rect = crossingTileRect(hit.step, hit.side);
+    const targetX = rect.cx;
+    const targetY = rect.cy - GUILD_CROSSING_FEET_OFFSET;
+
+    // Solved safe emerald slab: anyone (even with 0 tries) can freely leap here!
+    if (hit.step < snap.revealed && snap.revealedSides[hit.step] === hit.side) {
+      beginLeap(targetX, targetY);
+      return true;
+    }
+
+    // Active 50/50 frontier slab: leap onto it, then resolve if tries left (or hang out safely at 0 tries!)
+    if (hit.step === snap.revealed && !snap.completed) {
+      beginLeap(targetX, targetY, () => {
+        if (snap.remainingToday > 0) {
+          triggerStep(hit.step, hit.side);
+        } else if (noTryCooldown <= 0) {
+          noTryCooldown = 5;
+          showBanner("0 tries left today · Hang out or cheer on your guild!", "#ffd38a");
+        }
+      });
+      return true;
+    }
+
+    return true;
   }
 
   function checkHallPortal(mapId: MapId) {
@@ -234,6 +287,8 @@ export function createGuildCrossingRuntime(deps: {
   }
 
   return {
+    tap,
+    blocksFreeMove: () => isGuildCrossingMap(deps.currentMapId()),
     update(dt: number) {
       const mapId = deps.currentMapId();
       checkHallPortal(mapId);
@@ -243,8 +298,7 @@ export function createGuildCrossingRuntime(deps: {
           activeMap = "";
           stepping = false;
           fallDoneAt = null;
-          finishTriggered = false;
-          lastTileKey = "";
+          onLeapLand = null;
           resetGuildCrossingScene();
         }
         return;
@@ -255,9 +309,8 @@ export function createGuildCrossingRuntime(deps: {
         pollClock = 0;
         stepping = false;
         fallDoneAt = null;
-        finishTriggered = false;
+        onLeapLand = null;
         noTryCooldown = 0;
-        lastTileKey = "";
         resetGuildCrossingScene();
         void refresh();
       }
@@ -272,6 +325,27 @@ export function createGuildCrossingRuntime(deps: {
         if (!stepping) void refresh();
       }
 
+      // Smooth parabolic 2.5D tile-to-tile leap
+      const leap = guildCrossingScene.leap;
+      if (leap.active) {
+        leap.elapsed += dt;
+        const t = Math.min(1, leap.elapsed / Math.max(0.01, leap.duration));
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        deps.player.x = leap.fromX + (leap.toX - leap.fromX) * ease;
+        deps.player.y = leap.fromY + (leap.toY - leap.fromY) * ease;
+        deps.player.moving = false;
+        if (t >= 1) {
+          leap.active = false;
+          deps.player.x = leap.toX;
+          deps.player.y = leap.toY;
+          syncServerPosition();
+          const cb = onLeapLand;
+          onLeapLand = null;
+          cb?.();
+        }
+        return;
+      }
+
       // Chasm fall animation
       if (guildCrossingScene.fall.active) {
         guildCrossingScene.fall.elapsed += dt;
@@ -282,6 +356,7 @@ export function createGuildCrossingRuntime(deps: {
             deps.player.x = fallDoneAt.x;
             deps.player.y = fallDoneAt.y;
             fallDoneAt = null;
+            syncServerPosition();
           }
           stepping = false;
         }
@@ -290,49 +365,8 @@ export function createGuildCrossingRuntime(deps: {
 
       if (guildCrossingScene.stepping) {
         guildCrossingScene.stepping.progress = Math.min(1, guildCrossingScene.stepping.progress + dt / SUSPENSE_SECONDS);
-        return;
-      }
-
-      const snap = guildCrossingScene.snapshot;
-      clampWalkable(snap);
-      if (!snap || stepping) return;
-
-      const fx = deps.player.x;
-      const fy = deps.player.y + GUILD_CROSSING_FEET_OFFSET;
-
-      // Tactile hop arc whenever stepping onto a floating glass slab (works even with 0 tries left!)
-      const tileHit = crossingTileAt(fx, fy, 16);
-      const tileKey = tileHit ? `${tileHit.step}:${tileHit.side}` : "";
-      if (tileKey && tileKey !== lastTileKey) {
-        triggerCrossingHop();
-      }
-      lastTileKey = tileKey;
-
-      if (snap.completed) return;
-
-      // Visitors with 0 tries left can hop on all solved & frontier tiles without progressing the bridge.
-      if (snap.remainingToday <= 0) {
-        if (tileHit && tileHit.step === snap.revealed && noTryCooldown <= 0) {
-          noTryCooldown = 6;
-          showBanner("0 tries left today · Hang out or cheer on your guild!", "#ffd38a");
-        }
-        return;
-      }
-
-      // Finish Portal claim (when step 16 was shattered earlier and all 16 steps are revealed)
-      if (snap.revealed >= CROSSING_STEPS) {
-        if (!finishTriggered && Math.hypot(fx - GUILD_CROSSING_FINISH_PORTAL.x, fy - GUILD_CROSSING_FINISH_PORTAL.y) <= GUILD_CROSSING_FINISH_PORTAL.r) {
-          finishTriggered = true;
-          triggerStep(CROSSING_STEPS, "finish");
-        }
-        return;
-      }
-
-      // Active 50/50 frontier glass step detection
-      if (tileHit && tileHit.step === snap.revealed) {
-        triggerStep(tileHit.step, tileHit.side);
       }
     },
-    isBusy: () => stepping || guildCrossingScene.fall.active,
+    isBusy: () => stepping || guildCrossingScene.fall.active || guildCrossingScene.leap.active,
   };
 }

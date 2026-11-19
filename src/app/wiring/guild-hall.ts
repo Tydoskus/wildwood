@@ -12,6 +12,7 @@ import { createGuildCrossingRuntime } from "../../game/runtime/guild-crossing/gu
 export type GuildHallCoop = GuildHallSource & {
   localIdentity?: () => string | undefined;
   upgradeGuildHall?: (part: GuildHallPart) => Promise<boolean>;
+  correctMovementPosition?: (x: number, y: number, force?: boolean) => void;
   guild?: {
     loadGuild: () => Promise<GuildSnapshot>;
     loadCrossing: () => Promise<GuildCrossingSnapshot | null>;
@@ -64,6 +65,7 @@ export function createGuildHall(deps: Omit<Parameters<typeof createGuildHallRunt
   const crossingRuntime = createGuildCrossingRuntime({
     source: deps.source,
     player: deps.player,
+    camera: deps.camera,
     currentMapId: deps.currentMapId,
     travel: deps.travel,
     clearInput: deps.clearInput,
@@ -81,6 +83,8 @@ export function createGuildHall(deps: Omit<Parameters<typeof createGuildHallRunt
   return {
     ...runtime,
     guildId: () => runtime.guildId() ?? guildCrossingGuildId(deps.currentMapId()),
+    tapCrossing: crossingRuntime.tap,
+    blocksFreeMove: crossingRuntime.blocksFreeMove,
     update(dt: number) { runtime.update(dt); crossingRuntime.update(dt); },
     hallMap,
     enterCrossing,

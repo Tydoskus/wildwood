@@ -316,11 +316,11 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     joystick: joystickEl,
     stick: stickEl,
     running: () => session.isRunning(),
-    onTapPlayer: (x, y) => !inTutorial() ? openPlayerAtScreenPoint(x, y) || soulDimension.tapTown(x, y) : false,
+    onTapPlayer: (x, y) => !inTutorial() ? openPlayerAtScreenPoint(x, y) || guildHall.tapCrossing(x, y) || soulDimension.tapTown(x, y) : false,
     onEscape: () => inTutorial() && playerProfileEl.hidden ? true : handleInputEscape(),
     desktop: {
       canMove: () => Boolean(session?.isRunning()) && !session.isPaused() && player.hp > 0 && !isArenaScene()
-        && !mapController.isMapTransitioning() && !mapController.isCutsceneActive() && !onboarding?.blocksInput(),
+        && !mapController.isMapTransitioning() && !mapController.isCutsceneActive() && !onboarding?.blocksInput() && !guildHall.blocksFreeMove(),
       player: () => player, speed: () => playerStats.moveSpeed(),
       view: () => ({ ...camera, ...canvasRuntime.viewport() }),
       bounds: () => ({ width: WORLD.w, height: WORLD.h, inset: player.r }),
@@ -561,7 +561,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
       runtimeHud.clearTransientUi();
       updateHud(true);
     },
-    inputBlocked: () => Boolean(onboarding?.blocksInput()),
+    inputBlocked: () => Boolean(onboarding?.blocksInput()) || guildHall.blocksFreeMove(),
   });
 
   function saveProgress(immediate = false) {

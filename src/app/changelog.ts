@@ -1,4 +1,7 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.922.1": [
+    "Glass Crossing movement is now click/tap-to-leap: click or tap any solved crystal tile, active 50/50 frontier tile, island, or portal to arc cleanly onto it instead of free-roam running into empty space.",
+  ],
   "0.922": [
     "Glass Crossing is now a playable 2.5D cosmic bridge map: hop across 16 pairs of floating crystal slabs suspended in space between two floating stone islands toward the golden Victory Portal. Enter straight from Guilds → Quests or through the portal on the Guild Hall west lawn.",
     "Real fallen guildmate bodies drift in open space where fragile glass shattered, wearing the gear they fell in with comic last words — and you can visit and hop on tiles anytime even after spending your daily tries.",
@@ -4174,6 +4177,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.922.1": "2026-11-19",
   "0.922": "2026-11-18",
   "0.921": "2026-11-18",
   "0.920": "2026-11-18",

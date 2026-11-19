@@ -2,6 +2,7 @@ import {
   CROSSING_STEPS,
   GUILD_CROSSING_CENTER_X,
   GUILD_CROSSING_EXIT_PAD,
+  GUILD_CROSSING_FEET_OFFSET,
   GUILD_CROSSING_FINISH_PORTAL,
   GUILD_HALL_CROSSING_PORTAL,
   crossingStepY,
@@ -71,13 +72,13 @@ export function crossingShakeOffset(time: number): { x: number; y: number } {
   return { x: 0, y: 0 };
 }
 
-/** Wraps `drawPlayer` for the crisp tile-jump hop arc and the shattered-glass chasm plummet. */
+/** Wraps `drawPlayer` for the smooth parabolic 2.5D tile-leap arc and the shattered-glass chasm plummet. */
 export function drawCrossingFall(ctx: CanvasRenderingContext2D, screenX: number, screenY: number, drawPlayer: () => void) {
-  const { fall, hop } = guildCrossingScene;
+  const { fall, leap } = guildCrossingScene;
   if (!fall.active) {
-    if (hop.left > 0 && hop.duration > 0) {
-      const t = 1 - hop.left / hop.duration;
-      const lift = Math.sin(t * Math.PI) * 14;
+    if (leap.active && leap.duration > 0) {
+      const t = Math.max(0, Math.min(1, leap.elapsed / leap.duration));
+      const lift = Math.sin(t * Math.PI) * leap.arc;
       ctx.save();
       ctx.translate(0, -lift);
       drawPlayer();
@@ -737,7 +738,20 @@ export function createGuildCrossingGroundRenderer(options: {
       }
     }
 
-    // 5. Expanding glowing shockwaves on safe holds / clears
+    // 5. Subtle target landing ring while leaping between floating crystal slabs
+    if (guildCrossingScene.leap.active) {
+      const lx = guildCrossingScene.leap.toX - camX;
+      const ly = guildCrossingScene.leap.toY + GUILD_CROSSING_FEET_OFFSET - camY;
+      const t = Math.min(1, guildCrossingScene.leap.elapsed / Math.max(0.01, guildCrossingScene.leap.duration));
+      ctx.save();
+      ctx.globalAlpha = 0.55 * (1 - t * 0.45);
+      ctx.strokeStyle = "#9efbf2";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(lx, ly, 24 - t * 8, 12 - t * 4, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // 6. Expanding glowing shockwaves on safe holds / clears
     for (const w of guildCrossingScene.shockwaves) {
       const alpha = Math.max(0, w.life / w.maxLife);
       ctx.save();
@@ -828,8 +842,8 @@ export function createGuildCrossingOverlayRenderer(options: {
       ctx.scale(1 / zoom, 1 / zoom);
       ctx.font = FONT_SMALL;
       const line = snap.completed
-        ? `Glass Crossing · Cleared · +${snap.pointsAwarded} pts · ${snap.fallsCount} fallen`
-        : `Step ${Math.min(snap.revealed, snap.steps)}/${snap.steps} · +${snap.pointsAwarded}/${snap.maxPoints} pts · ${snap.remainingToday}/${snap.dailyLimit} ${snap.dailyLimit === 1 ? "try" : "tries"}${snap.currentStreak > 1 ? ` · 🔥×${snap.currentStreak}` : ""}`;
+        ? `Glass Crossing · Cleared · +${snap.pointsAwarded} pts · Tap tiles to hop`
+        : `Step ${Math.min(snap.revealed, snap.steps)}/${snap.steps} · +${snap.pointsAwarded}/${snap.maxPoints} pts · ${snap.remainingToday}/${snap.dailyLimit} ${snap.dailyLimit === 1 ? "try" : "tries"}${snap.currentStreak > 1 ? ` · 🔥×${snap.currentStreak}` : ""} · Tap tile to jump`;
       const pillW = Math.min(width - 24, Math.max(220, ctx.measureText(line).width + 28));
       const pillX = (width - pillW) / 2;
       const pillY = options.topInset ?? 14;

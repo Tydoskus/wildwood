@@ -43,6 +43,17 @@ export type CrossingFallAnim = {
   cry: string;
 };
 
+export type CrossingLeap = {
+  active: boolean;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  elapsed: number;
+  duration: number;
+  arc: number;
+};
+
 const FALL_CRIES = [
   "NOOOOO!!",
   "IT WAS THE OTHER ONE!!",
@@ -60,7 +71,7 @@ export const guildCrossingScene: {
   snapshot: GuildCrossingSnapshot | null;
   stepping: { step: number; side: CrossingSide; progress: number } | null;
   fall: CrossingFallAnim;
-  hop: { left: number; duration: number };
+  leap: CrossingLeap;
   safeFlash: { step: number; side: CrossingSide; left: number } | null;
   banner: { text: string; color: string; left: number } | null;
   shake: { intensity: number; left: number; duration: number };
@@ -71,7 +82,7 @@ export const guildCrossingScene: {
   snapshot: null,
   stepping: null,
   fall: { active: false, progress: 0, elapsed: 0, direction: 1, cry: "NOOOOO!!" },
-  hop: { left: 0, duration: 0.22 },
+  leap: { active: false, fromX: 0, fromY: 0, toX: 0, toY: 0, elapsed: 0, duration: 0.32, arc: 42 },
   safeFlash: null,
   banner: null,
   shake: { intensity: 0, left: 0, duration: 0.3 },
@@ -90,7 +101,7 @@ export function resetGuildCrossingScene() {
   guildCrossingScene.snapshot = null;
   guildCrossingScene.stepping = null;
   guildCrossingScene.fall = { active: false, progress: 0, elapsed: 0, direction: 1, cry: "NOOOOO!!" };
-  guildCrossingScene.hop = { left: 0, duration: 0.22 };
+  guildCrossingScene.leap = { active: false, fromX: 0, fromY: 0, toX: 0, toY: 0, elapsed: 0, duration: 0.32, arc: 42 };
   guildCrossingScene.safeFlash = null;
   guildCrossingScene.banner = null;
   guildCrossingScene.shake = { intensity: 0, left: 0, duration: 0.3 };
@@ -99,9 +110,12 @@ export function resetGuildCrossingScene() {
   guildCrossingScene.shockwaves = [];
 }
 
-/** Triggers a crisp tactile hop arc when jumping onto a floating glass slab. */
-export function triggerCrossingHop(duration = 0.22) {
-  guildCrossingScene.hop = { left: duration, duration };
+/** Starts a smooth parabolic 2.5D leap from `(fromX, fromY)` to `(toX, toY)`. */
+export function startCrossingLeap(fromX: number, fromY: number, toX: number, toY: number) {
+  const dist = Math.hypot(toX - fromX, toY - fromY);
+  const duration = Math.max(0.24, Math.min(0.42, 0.22 + dist / 1_400));
+  const arc = Math.max(30, Math.min(58, 28 + dist * 0.08));
+  guildCrossingScene.leap = { active: true, fromX, fromY, toX, toY, elapsed: 0, duration, arc };
 }
 
 /** Triggers a punchy camera shake for glass crackle tension or explosive shatters. */
@@ -183,9 +197,6 @@ export function stepCrossingEffects(dt: number) {
     if (w.life <= 0) { guildCrossingScene.shockwaves.splice(i, 1); continue; }
     const progress = 1 - w.life / w.maxLife;
     w.radius = 16 + (w.maxRadius - 16) * (1 - (1 - progress) * (1 - progress));
-  }
-  if (guildCrossingScene.hop.left > 0) {
-    guildCrossingScene.hop.left = Math.max(0, guildCrossingScene.hop.left - dt);
   }
   if (guildCrossingScene.shake.left > 0) {
     guildCrossingScene.shake.left = Math.max(0, guildCrossingScene.shake.left - dt);
