@@ -68,8 +68,13 @@ export function movementUpdateReason(options: {
   if (!velocity.moving) return null;
 
   const elapsed = Math.max(0, now - lastSent.sentAt);
+  const speedSquared = velocity.vx * velocity.vx + velocity.vy * velocity.vy;
+  const lastSpeedSquared = lastSent.vx * lastSent.vx + lastSent.vy * lastSent.vy;
+  const directionDot = velocity.vx * lastSent.vx + velocity.vy * lastSent.vy;
+  const directionChanged = directionDot <= 0 || directionDot * directionDot <= speedSquared * lastSpeedSquared * TOUCH_DIRECTION_COSINE_SQUARED;
   if (inputKind === "steer" && options.position && lastSent.x !== undefined && lastSent.y !== undefined) {
     if (elapsed < STEER_MOVEMENT_MIN_INTERVAL_MS) return null;
+    if (directionChanged) return "direction";
     const predictedX = lastSent.x + lastSent.vx * elapsed / 1_000, predictedY = lastSent.y + lastSent.vy * elapsed / 1_000;
     if (Math.hypot(options.position.x - predictedX, options.position.y - predictedY) > STEER_MOVEMENT_DRIFT_PX) return "direction";
     return elapsed >= STEER_MOVEMENT_HEARTBEAT_MS ? "heartbeat" : null;
@@ -77,10 +82,6 @@ export function movementUpdateReason(options: {
   const deltaX = velocity.vx - lastSent.vx;
   const deltaY = velocity.vy - lastSent.vy;
   if (inputKind === "keyboard" && (Math.abs(deltaX) > VECTOR_EPSILON || Math.abs(deltaY) > VECTOR_EPSILON)) return "direction";
-  const speedSquared = velocity.vx * velocity.vx + velocity.vy * velocity.vy;
-  const lastSpeedSquared = lastSent.vx * lastSent.vx + lastSent.vy * lastSent.vy;
-  const directionDot = velocity.vx * lastSent.vx + velocity.vy * lastSent.vy;
-  const directionChanged = directionDot <= 0 || directionDot * directionDot <= speedSquared * lastSpeedSquared * TOUCH_DIRECTION_COSINE_SQUARED;
   const minimumSpeedSquared = Math.min(speedSquared, lastSpeedSquared);
   const maximumSpeedSquared = Math.max(1, speedSquared, lastSpeedSquared);
   const magnitudeChanged = minimumSpeedSquared <= maximumSpeedSquared * TOUCH_MAGNITUDE_RETAINED_SQUARED;

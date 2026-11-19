@@ -24,11 +24,11 @@
   margin: auto;
   padding: 0;
   overflow: hidden;
-  border: 3px solid rgba(255,255,255,.20);
+  border: 0;
   border-radius: 14px;
   background: var(--window-surface);
   color: var(--text);
-  box-shadow: 0 16px 48px #0008;
+  box-shadow: 0 20px 56px rgba(0,0,0,.72);
   font: 900 var(--font-readable-body)/1.35 var(--font-rounded);
   -webkit-text-stroke: var(--text-outline-width) #000;
   paint-order: stroke fill;

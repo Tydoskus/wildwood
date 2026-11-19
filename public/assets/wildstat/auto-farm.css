@@ -10,11 +10,11 @@
   margin: auto;
   padding: 0;
   overflow: hidden;
-  border: 3px solid rgba(255,255,255,.20);
+  border: 0;
   border-radius: 14px;
   background: var(--window-surface);
   color: var(--text);
-  box-shadow: 0 16px 48px #0008;
+  box-shadow: 0 20px 56px rgba(0,0,0,.72);
   font: 900 var(--font-readable-body)/1.35 var(--font-rounded);
   -webkit-text-stroke: var(--text-outline-width) #000;
   paint-order: stroke fill;
@@ -47,9 +47,9 @@
   width: 100%;
   min-height: 58px;
   padding: 8px 10px;
-  border: 2px solid rgba(255,255,255,.14);
+  border: 2px solid transparent;
   border-radius: 10px;
-  background: #ffffff06;
+  background: #1b1c1d;
   box-shadow: none;
   color: #fff;
   text-align: left;
@@ -201,7 +201,7 @@
 /* Move On: the boss, then the next map; what it will do next under the name. */
 .farm-sheet .farm-switch {
   display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 50px; padding: 6px 12px;
-  border: 2px solid var(--farm-line); border-radius: 10px; background: var(--farm-fill); box-shadow: none;
+  border: 2px solid transparent; border-radius: 10px; background: var(--farm-fill); box-shadow: none;
   color: #fff; font: inherit; font-size: 14px; line-height: 1.15; text-align: left; cursor: pointer;
 }
 .farm-switch-copy { display: grid; flex: 1; gap: 2px; min-width: 0; }
@@ -223,7 +223,7 @@
 .farm-more { display: grid; gap: 8px; padding: 0 2px; }
 .farm-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .farm-setting-label { flex: 1 0 auto; color: var(--muted); font-size: 13px; white-space: nowrap; }
-.farm-segment { display: flex; flex: 0 1 auto; margin-left: auto; overflow: hidden; border: 2px solid var(--farm-line); border-radius: 8px; background: #000; }
+.farm-segment { display: flex; flex: 0 1 auto; margin-left: auto; overflow: hidden; border: 0; border-radius: 8px; background: #0a0b0c; }
 :is(.farm-sheet, .aggro-pick-window) .farm-segment button {
   min-width: 52px; height: 34px; padding: 0 10px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
   color: var(--muted); font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer;
@@ -439,11 +439,11 @@
   padding: 12px 12px 10px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border: 3px solid rgba(255,255,255,.20);
+  border: 0;
   border-radius: 14px;
   background: var(--window-surface);
   color: var(--text);
-  box-shadow: 0 16px 48px #0008;
+  box-shadow: 0 20px 56px rgba(0,0,0,.72);
   font: 900 var(--font-readable-body)/1.35 var(--font-rounded);
   -webkit-text-stroke: var(--text-outline-width) #000;
   paint-order: stroke fill;
@@ -584,14 +584,14 @@
 .quest-sheet .quest-list { margin: 0 14px 10px; }
 .quest-sheet .quest-guild-hint { margin: 0 14px 10px; color: var(--muted); text-align: center; font-size: 12px; }
 .quest-sheet .quest-list { display: grid; gap: 8px; }
-.quest-sheet .quest-row { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 10px; border: 2px solid rgba(255,255,255,.14); border-radius: 10px; background: #ffffff06; }
+.quest-sheet .quest-row { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 10px; border: 2px solid transparent; border-radius: 10px; background: #1b1c1d; }
 .quest-sheet .quest-row.is-done { border-color: var(--green); background: rgba(105,229,111,.08); }
 /* The week's fifteen under the reset line, as tally marks: white until done, then green. */
 .quest-sheet .quest-week { display: flex; justify-content: center; gap: 6px; margin: -2px 0 12px; }
 .quest-sheet .quest-week-step { flex: none; width: 5px; height: 18px; border-radius: 3px; background: rgba(255,255,255,.85); }
 .quest-sheet .quest-week-step.is-done { background: var(--green); }
 /* The HUD tracker's switch, at the foot of the board. */
-.quest-sheet .quest-tracker-setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 0; padding: 8px 10px; border: 2px solid rgba(255,255,255,.14); border-radius: 10px; background: #ffffff06; font-weight: 800; }
+.quest-sheet .quest-tracker-setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 0; padding: 8px 10px; border: 2px solid transparent; border-radius: 10px; background: #1b1c1d; font-weight: 800; }
 .quest-sheet .quest-tracker-setting[hidden] { display: none; }
 .quest-sheet .quest-tracker-switch { flex: none; margin: 0; }
 /* A quest a guildmate collected: no longer this player's to finish. */
@@ -661,7 +661,7 @@
 .smith-sheet .smith-shop-rows { display: grid; gap: 8px; }
 /* A row: art beside the name (on its own line, never cut), grade and kind, stat and needs; under them, the one way
    its tab gets it (Buy for gold, Craft from materials), its terms on the left and a short button on the right. */
-.smith-sheet .smith-shop-row { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 12px; align-items: center; padding: 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: #141414; }
+.smith-sheet .smith-shop-row { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 12px; align-items: center; padding: 12px; border: 0; border-radius: 12px; background: #1b1c1d; }
 .smith-sheet .smith-shop-art { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 10px; background: #0d0d0d; }
 .smith-sheet .smith-shop-art .inventory-item-art { width: 48px; height: 44px; }
 .smith-sheet .smith-shop-copy { display: grid; justify-items: start; gap: 2px; min-width: 0; }
@@ -690,7 +690,7 @@
 /* The Smith's crafting card (craft-section.ts): Smithing, Fletching and Enchanting side by side, each its level and a
    thin bar, at the top of the Craft tab. */
 .smith-sheet .smith-shop .craft-section { margin: 4px 0 0; }
-.smith-sheet .craft-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: #141414; }
+.smith-sheet .craft-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 0; border-radius: 12px; background: #1b1c1d; }
 .smith-sheet .craft-skills { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
 .smith-sheet .craft-skill { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .smith-sheet .craft-name { overflow: hidden; color: #fff; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
@@ -723,7 +723,7 @@
 /* The Smith's tabs as a pill toggle, as the Cards tab's: Buy, Craft, Refine, Upgrade. */
 .smith-sheet .smith-views-bar { display: flex; justify-content: center; margin: 0 14px 12px; }
 .smith-sheet .smith-views-bar[hidden], .smith-sheet .smith-view[hidden] { display: none; }
-.smith-sheet .smith-views { display: inline-flex; gap: 0; padding: 3px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; background: #0d0d0d; overflow: visible; }
+.smith-sheet .smith-views { display: inline-flex; gap: 0; padding: 3px; border: 0; border-radius: 999px; background: #0c0d0e; overflow: visible; }
 .smith-sheet .smith-views .inventory-filter { position: relative; min-width: 86px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; color: #b3b3b3; font: 900 14px/1 var(--font-rounded); letter-spacing: .02em; }
 .smith-sheet .smith-views .inventory-filter[aria-pressed="true"] { background: #fff; color: #111; border-bottom: 0; text-shadow: none; -webkit-text-stroke: 0; }
 /* Four tabs share the bar at phone width. */
@@ -750,7 +750,7 @@
 .smith-sheet .slot-upgrades-picker-heading { font-size: 15px; letter-spacing: 0; }
 .smith-sheet .slot-upgrades-picker-item { height: auto; min-height: 72px; border-color: rgba(255,255,255,.12); background: #141414; }
 /* A section's heading in a view: its name, and a count on the right. */
-.smith-sheet .smith-focus { border: 1px solid rgba(255,255,255,.12); background: #141414; }
+.smith-sheet .smith-focus { border: 0; background: #1b1c1d; }
 /* A station (the Smith and the gear sellers): the tabs and the picked piece stay put; only the grid under them scrolls. */
 .farm-sheet.quest-sheet.station-sheet { height: min(640px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)); }
 .station-sheet .quest-body { display: flex; flex-direction: column; overflow: hidden; }
@@ -804,7 +804,7 @@
 /* The Card Seller's window (card-seller-window.ts), in the Smith's sheet: the countdown, then a row per card for sale. */
 .card-seller-sheet .card-seller-timer { margin: 0 14px 10px; color: #fff; text-align: center; font-size: 15px; font-weight: 900; }
 .card-seller-sheet .card-seller-offers { display: grid; gap: 10px; margin: 0 14px 10px; }
-.card-seller-sheet .card-seller-offer { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px; border: 2px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.05); }
+.card-seller-sheet .card-seller-offer { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px; border: 0; border-radius: 12px; background: #1c1d1e; }
 .card-seller-sheet .card-seller-offer.is-elite { border-color: rgba(180,140,255,.35); }
 .card-seller-sheet .card-seller-offer.is-boss { border-color: rgba(242,193,78,.45); }
 .card-seller-sheet .card-seller-art { display: block; width: 76px; }
@@ -847,7 +847,7 @@
 .builds-tab[hidden] { display: none; }
 .builds-tab-list { display: flex; flex-direction: column; gap: 4px; }
 /* One compact row a build: name and gear on the left, its buttons on the right. */
-.builds-tab-card { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(255,255,255,.04); }
+.builds-tab-card { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: 6px; background: #1c1d1e; }
 .builds-tab-text { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .builds-tab-card strong { font-size: 14px; color: #fff; }
 .builds-tab-head { display: flex; align-items: center; min-width: 0; }

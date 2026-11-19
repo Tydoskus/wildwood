@@ -2,16 +2,18 @@ export const FULLSCREEN_MOVEMENT_DELAY_MS = 700;
 const FULLSCREEN_IDS = ["inventoryPanel", "settingsPanel", "leaderboard", "guildOverlay", "gemShop", "mapGuide", "techTreeOverlay", "slotUpgradesPanel", "duelReplay"];
 
 /** Temporary subscription suspension, independent of the saved eye preference. */
-export function createFullscreenMovementGate(setVisible: (visible: boolean) => void) {
-  let wanted = false, suspended = false, open = false, applied: boolean | undefined;
+export function createFullscreenMovementGate(setVisible: (visible: boolean, idleKeepStatic?: boolean) => void) {
+  let wanted = false, idle = false, suspended = false, open = false;
+  let applied: string | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let observer: MutationObserver | undefined;
   let watchedDocument: Document | undefined;
   function apply() {
-    const visible = wanted && !suspended;
-    if (visible === applied) return;
-    applied = visible;
-    setVisible(visible);
+    const active = wanted && !suspended;
+    const mode = !active ? "off" : idle ? "idle" : "full";
+    if (mode === applied) return;
+    applied = mode;
+    setVisible(mode === "full", mode === "idle");
   }
   function setFullscreen(value: boolean) {
     open = value;
@@ -27,7 +29,8 @@ export function createFullscreenMovementGate(setVisible: (visible: boolean) => v
     }
   }
   return {
-    setWanted(value: boolean) { wanted = value; setFullscreen(open); apply(); },
+    setWanted(value: boolean) { wanted = value; if (!value) idle = false; setFullscreen(open); apply(); },
+    setIdle(value: boolean) { idle = value; apply(); },
     setFullscreen,
     // Call after the shell, guild panel, and shop have mounted. Observe only
     // window attributes, never chat rows or the game's animation loop.

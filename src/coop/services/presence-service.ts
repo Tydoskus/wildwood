@@ -193,6 +193,8 @@ function sameProfilePresentation(left: PlayerPresentationRow | undefined, right:
 const REMOTE_SAMPLE_LIMIT = 8;
 /** A figure closes a gap at its own walking speed: it walks there, never runs or jumps. */
 const PUPPET_CATCH_UP = 1;
+/** A single-frame jump past this distance is a teleport or respawn, not a walk; snap instead of crossing walls. */
+const TELEPORT_SNAP_DISTANCE = 650;
 /** A figure not drawn for this long (gone, or past the nearest few dozen) is forgotten. */
 const FIGURE_FORGET_MS = 2_000;
 /** Off the farm this long, our puppet ends; shorter pauses keep it, so it never flickers. */
@@ -274,6 +276,8 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   let motionInterestNeedsSync = true;
   let motionInterestChangedAt = Number.NEGATIVE_INFINITY;
   let remotePlayersVisible = false;
+  /** False while the local player is idle: pauses live motion frames while keeping standing/autofarm players visible. */
+  let motionFramesActive = false;
   let missingMotionDetailSince: number | null = null;
   let lastMotionDetailRecoveryAt = Number.NEGATIVE_INFINITY;
   /** Each recovery that brings nothing waits twice as long for the next: every one resubscribes. */
@@ -496,7 +500,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
     const position = localState;
     // A farmer playing as a puppet needs no movement stream: the slots go to players who steer.
     const available = new Set([...motionIdentities].filter(([, identity]) => !puppets.has(identity)).map(([networkId]) => networkId));
-    const next = remotePlayersVisible && position
+    const next = remotePlayersVisible && motionFramesActive && position
       ? selectPlayerMotionInterest({
         samples: latestMapSamples,
         originX: position.x,
@@ -709,7 +713,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   }
 
   function upsertPlayerMotionFrame(row: { emittedAt: { microsSinceUnixEpoch: bigint }; playerCount: number; payload: Uint8Array }) {
-    if (!remotePlayersVisible) return;
+    if (!remotePlayersVisible || !motionFramesActive) return;
     let samples;
     try {
       samples = decodePlayerMotionFrame(row.payload, row.playerCount);
@@ -760,7 +764,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   }
 
   function upsertPlayerMapFrame(row: { mapId: string; emittedAt: { microsSinceUnixEpoch: bigint }; playerCount: number; payload: Uint8Array }) {
-    if (!remotePlayersVisible || row.mapId !== currentMapId) return;
+    if (!remotePlayersVisible || !motionFramesActive || row.mapId !== currentMapId) return;
     let samples;
     try {
       samples = decodePlayerMapFrame(row.payload, row.playerCount);
@@ -920,8 +924,11 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
         figures.set(identity, shown = { figure, drawnAt: now, presentation });
       } else {
         if (shown.presentation !== presentation) { applyPresentation(shown.figure, presentation); shown.presentation = presentation; }
-        // Through a door: in at one and out of the other, not a walk across the dark between (shared/world-bounds.ts).
-        if (indoors(currentMapId, shown.figure.x, shown.figure.y) !== indoors(currentMapId, target.pose.x, target.pose.y)) {
+        // Through a door or a same-map teleport/respawn: snap rather than walking across buildings or rivers.
+        if (
+          indoors(currentMapId, shown.figure.x, shown.figure.y) !== indoors(currentMapId, target.pose.x, target.pose.y) ||
+          Math.hypot(target.pose.x - shown.figure.x, target.pose.y - shown.figure.y) > TELEPORT_SNAP_DISTANCE
+        ) {
           Object.assign(shown.figure, { x: target.pose.x, y: target.pose.y, facing: target.pose.facing, moving: target.pose.moving });
         } else walkFigure(shown.figure, target.pose, Math.min(.25, Math.max(0, (now - shown.drawnAt) / 1_000)));
         shown.drawnAt = now;
@@ -972,7 +979,7 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
   }
 
   function refreshMapMarkerSubscription(force = false) {
-    if (!remotePlayersVisible) return;
+    if (!remotePlayersVisible || !motionFramesActive) return;
     const connection = dependencies.reducers.connection();
     const selfIdentity = dependencies.localDbIdentity();
     if (!connection?.isActive || !dependencies.hydrationReady() || !selfIdentity) return;
@@ -1276,12 +1283,28 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
       observeServerTime,
     },
     api: {
-      setRemotePlayersVisible(visible: boolean) {
-        if (remotePlayersVisible === visible) return;
-        remotePlayersVisible = visible;
-        if (visible) {
-          refreshMapPlayerSubscription(true);
+      setRemotePlayersVisible(visible: boolean, idleKeepStatic = false) {
+        const nextVisible = visible || idleKeepStatic;
+        const nextFrames = visible;
+        if (remotePlayersVisible === nextVisible && motionFramesActive === nextFrames) return;
+        remotePlayersVisible = nextVisible;
+        motionFramesActive = nextFrames;
+        if (nextFrames) {
+          refreshMapPlayerSubscription();
           refreshMapMarkerSubscription(true);
+          motionInterestNeedsSync = true;
+          refreshMotionInterest();
+        } else if (nextVisible) {
+          // Local player is idle: stop high-frequency motion frames & interest (zero tick load),
+          // while keeping standing players and autofarm puppets visible on screen.
+          refreshMapPlayerSubscription();
+          releaseMapMarkerSubscription();
+          detailedMotionIdentities.clear();
+          detailedMotionReadyNetworkIds.clear();
+          desiredMotionNetworkIds = [];
+          motionInterestNeedsSync = true;
+          refreshMotionInterest();
+          for (const shown of figures.values()) shown.figure.moving = false;
         } else {
           releaseMapPlayerSubscription();
           releaseMapMarkerSubscription();
@@ -1375,12 +1398,26 @@ export function createPresenceService(dependencies: PresenceServiceDependencies)
           const presentation = presentations.get(identity);
           if (presentation) targets.set(identity, puppetTarget(identity, puppet, presentation, serverNow));
         }
-        // Everyone else on the map, standing or walking, from the once-a-second map frame.
+        // Everyone else on the map, standing or walking, from the once-a-second map frame (or kept in place while idle).
         for (const sample of latestMapSamples) {
           const identity = motionIdentities.get(sample.networkId);
           if (!identity || identity === dependencies.localIdentity() || targets.has(identity) || !presentations.has(identity)) continue;
-          const facing = figures.get(identity)?.figure.facing ?? 0;
-          targets.set(identity, { pose: { x: sample.x, y: sample.y, facing, moving: false }, simulationX: sample.x, simulationY: sample.y });
+          const shown = figures.get(identity)?.figure;
+          const x = motionFramesActive ? sample.x : (shown?.x ?? sample.x);
+          const y = motionFramesActive ? sample.y : (shown?.y ?? sample.y);
+          const facing = shown?.facing ?? 0;
+          targets.set(identity, { pose: { x, y, facing, moving: false }, simulationX: x, simulationY: y });
+        }
+        if (!motionFramesActive) {
+          // Keep players who were already visible on screen standing where they are while motion frames are paused.
+          for (const [identity, shown] of figures) {
+            if (identity === dependencies.localIdentity() || targets.has(identity) || !presentations.has(identity)) continue;
+            targets.set(identity, {
+              pose: { x: shown.figure.x, y: shown.figure.y, facing: shown.figure.facing, moving: false },
+              simulationX: shown.figure.x,
+              simulationY: shown.figure.y,
+            });
+          }
         }
         drawFigures(targets, now, serverNow, result);
         return result;

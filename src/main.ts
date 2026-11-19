@@ -326,11 +326,11 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
       bounds: () => ({ width: WORLD.w, height: WORLD.h, inset: player.r }),
     },
   });
-  const fullscreenMovement = createFullscreenMovementGate(visible => coop?.setRemotePlayersVisible(visible));
+  const fullscreenMovement = createFullscreenMovementGate((visible, idle) => coop?.setRemotePlayersVisible(visible, idle));
   const playerVisibility = createPlayerVisibilityToggle({
     button: gameElements.playerVisibilityToggle,
     setVisible: visible => { coop?.setMultiplayerEnabled(visible); fullscreenMovement.setWanted(visible); },
-    setReceiving: on => fullscreenMovement.setWanted(on), setShown: shown => coop?.setPresenceShown?.(shown), storage: localStorage,
+    setReceiving: on => fullscreenMovement.setIdle(!on), setShown: shown => coop?.setPresenceShown?.(shown), storage: localStorage,
   });
   let farmConnection: FarmConnection = "recovering";
   const { autoFarm, farmUnlocked, farmUnavailable } = createAutoFarm({

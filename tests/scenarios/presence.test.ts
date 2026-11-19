@@ -105,12 +105,14 @@ describe("seeing other players", () => {
     tab.tap("chatBackBtn");
     expect(await seesMoss()).toBe(true);
 
-    // A minute idle: Ann stops seeing others but is still seen; walking brings them back.
+    // A minute idle: Ann stops live motion-frame interest (zero tick load) while still seeing standing players and staying seen; walking resumes live motion.
     await tab.play(70_000, 1_000);
-    expect(await seesMoss()).toBe(false);
+    expect(world.db.playerMotionInterest.identity.find(ann.identity)?.networkIds ?? []).toEqual([]);
+    expect(await seesMoss()).toBe(true);
     expect(visible()).toBe(true);
     await tab.hold("KeyD", 500);
     expect(await seesMoss()).toBe(true);
+    expect(world.db.playerMotionInterest.identity.find(ann.identity)?.networkIds.length ?? 0).toBeGreaterThan(0);
 
     // Eye off: hidden while walking, seen again after half a minute standing still, hidden when she walks on.
     await tab.play(5_000, 500);

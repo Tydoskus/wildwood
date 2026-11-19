@@ -52,12 +52,12 @@ describe("analyticalPlayerMotionAt", () => {
     }, PLAYER_MOTION_ANCHOR_TIMEOUT_MICROS + 1n);
 
     expect(sampled).toMatchObject({
-      x: 250,
+      x: 700,
       y: 100,
       vx: 0,
       vy: 0,
       moving: false,
-      simulationTick: 100,
+      simulationTick: 370,
     });
   });
 

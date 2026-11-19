@@ -2,8 +2,8 @@ import { FISH, fishById, type Fish, type FishId } from "./fishing";
 import { skilletBonus } from "./tools";
 import { TOWN_CENTER } from "./town";
 
-// Feet of the animated open campfires in the baked village scene.
-export const COOK_FIRES = [[672, 349], [-1021, 71], [-1510, -1039], [-1706, -913], [-1970, -844], [-93, 644]]
+// Feet of the three open campfires (stone-ring firepits, not torches) in the baked village scene.
+export const COOK_FIRES = [[672, 349], [-1021, 71], [-1706, -913]]
   .map(([dx, dy]) => ({ x: TOWN_CENTER.x + dx, y: TOWN_CENTER.y + dy }));
 export const FIRE_REACH = 72;
 export const COOKING_RECIPES = [

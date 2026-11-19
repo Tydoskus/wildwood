@@ -603,17 +603,20 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
       const elapsedSeconds = Math.max(0,
         Number(ctx.timestamp.microsSinceUnixEpoch - motion.lastInputAt.microsSinceUnixEpoch) / 1_000_000);
       const expected = analyticalMotionAt(motion, ctx.timestamp.microsSinceUnixEpoch);
-      const distance = Math.hypot(clampedX - expected.x, clampedY - expected.y);
-      // Pull an unreachable position back onto the edge of what was reachable
-      // instead of refusing it. The client keeps moving and the server keeps a
-      // position it can defend. Float rounding is monotonic, so a distance the
-      // row's speed could cover is one the owned speed could cover too.
+      // Measure reachability from both the extrapolated path and the previous anchor itself:
+      // a player who reversed direction right after their last packet can physically travel up
+      // to speed * elapsedSeconds in ANY direction from (motion.x, motion.y), not just along the old velocity.
+      const distanceFromExpected = Math.hypot(clampedX - expected.x, clampedY - expected.y);
+      const distanceFromAnchor = Math.hypot(clampedX - motion.x, clampedY - motion.y);
+      const distance = Math.min(distanceFromExpected, distanceFromAnchor);
       if (distance > compatibilitySpeed * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE) {
         const maxDistance = ownedSpeed() * elapsedSeconds + MOVEMENT_POSITION_PACKET_TOLERANCE;
         if (distance > maxDistance && distance > 0) {
+          const originX = distanceFromAnchor < distanceFromExpected ? motion.x : expected.x;
+          const originY = distanceFromAnchor < distanceFromExpected ? motion.y : expected.y;
           const reachable = maxDistance / distance;
-          acceptedX = expected.x + (clampedX - expected.x) * reachable;
-          acceptedY = expected.y + (clampedY - expected.y) * reachable;
+          acceptedX = originX + (clampedX - originX) * reachable;
+          acceptedY = originY + (clampedY - originY) * reachable;
         }
       }
     }

@@ -5,7 +5,9 @@ import {
 } from "./rules";
 
 export const PLAYER_SIMULATION_HZ = 60;
-export const PLAYER_MOTION_ANCHOR_TIMEOUT_MICROS = 1_500_000n;
+// Must exceed the client's longest straight-line movement heartbeat (STEER_MOVEMENT_HEARTBEAT_MS = 5s)
+// so players walking straight never freeze and teleport mid-walk, while still bounding disconnected drift.
+export const PLAYER_MOTION_ANCHOR_TIMEOUT_MICROS = 6_000_000n;
 
 export type PlayerMotionAnchor = {
   x: number;

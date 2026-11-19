@@ -863,7 +863,7 @@
   .slot-upgrades-back[hidden] { display: none; }
   .slot-upgrades-picker { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; padding: 16px; background: rgba(4,8,6,.76); }
   .slot-upgrades-picker[hidden] { display: none; }
-  .slot-upgrades-picker-sheet { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-height: 0; gap: 10px; width: min(100%, 360px); height: min(calc(100dvh - var(--window-bottom-inset) - 32px), 520px); max-height: min(calc(100dvh - var(--window-bottom-inset) - 32px), 520px); padding: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.22); border-radius: 10px; background: var(--window-surface-brown); box-shadow: 0 10px 30px rgba(0,0,0,.55); }
+  .slot-upgrades-picker-sheet { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-height: 0; gap: 10px; width: min(100%, 360px); height: min(calc(100dvh - var(--window-bottom-inset) - 32px), 520px); max-height: min(calc(100dvh - var(--window-bottom-inset) - 32px), 520px); padding: 12px; overflow: hidden; border: 0; border-radius: 10px; background: var(--window-surface-brown); box-shadow: 0 20px 56px rgba(0,0,0,.72); }
   .slot-upgrades-picker-heading { color: #f4f3e8; font-size: var(--font-readable-label); font-weight: 900; letter-spacing: .05em; text-align: center; }
   .slot-upgrades-picker-items { display: grid; align-content: start; gap: 7px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
   .slot-upgrades-picker-items::-webkit-scrollbar { display: none; }
@@ -888,7 +888,7 @@
 
   .item-inspection-panel { position: fixed; inset: 0 0 var(--window-bottom-inset); z-index: 15; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); overflow: hidden; background: rgba(0,0,0,.4); color: #f4f3e8; pointer-events: auto; }
   .item-inspection-panel[hidden] { display: none; }
-  .item-inspection-window { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto auto; width: min(320px, 100%); max-height: 100%; min-height: 0; overflow: hidden; border: 2px solid rgba(255,255,255,.25); border-radius: 12px; background: var(--window-surface-brown); box-shadow: 0 16px 48px rgba(0,0,0,.55); }
+  .item-inspection-window { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto auto; width: min(320px, 100%); max-height: 100%; min-height: 0; overflow: hidden; border: 0; border-radius: 12px; background: var(--window-surface-brown); box-shadow: 0 20px 56px rgba(0,0,0,.72); }
   .item-inspection-summary { display: grid; justify-items: center; gap: 8px; width: 100%; min-width: 0; }
   .item-inspection-preview { display: grid; justify-items: center; align-content: center; gap: 6px; min-width: 0; width: 100%; }
   .item-inspection-tools { position: absolute; top: 8px; left: 8px; z-index: 1; display: flex; align-items: center; }
@@ -1491,10 +1491,10 @@
     justify-items: center;
     gap: 12px;
     padding: 22px;
-    border: 2px solid rgba(255,255,255,.26);
+    border: 0;
     border-radius: 12px;
     background: var(--window-surface-green);
-    box-shadow: 0 10px 26px rgba(0,0,0,.48);
+    box-shadow: 0 20px 56px rgba(0,0,0,.72);
     color: #fff;
     text-align: center;
   }
@@ -3934,7 +3934,7 @@
   .setting-support[hidden] { display: none; }
   .player-safety-dialog button, #blockedPlayersList button { min-height: 44px; font-size: 12px; }
   /* Another player's ⋯ menu: their name, then one action per row. */
-  .profile-actions-menu { width: min(320px, calc(100vw - 32px)); box-sizing: border-box; padding: 0 0 4px; border: 1px solid #ffffff30; border-radius: 10px; color: #fff; background: var(--window-surface-neutral); overflow: hidden; }
+  .profile-actions-menu { width: min(320px, calc(100vw - 32px)); box-sizing: border-box; padding: 0 0 4px; border: 0; border-radius: 10px; color: #fff; background: var(--window-surface-neutral); box-shadow: 0 20px 56px rgba(0,0,0,.72); overflow: hidden; }
   .profile-actions-menu::backdrop { background: rgba(0,0,0,.55); }
   .profile-actions-menu h2 { margin: 0; padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,.09); font-family: var(--player-name-font); font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; text-transform: none; }
   .profile-actions-menu .chat-message-action-button { padding-inline: 14px; }
@@ -3962,7 +3962,7 @@
   .community-links .community-link:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   #blockedPlayersList > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   #blockedPlayersList span { overflow-wrap: anywhere; min-width: 0; }
-  .player-safety-dialog { width: min(420px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); box-sizing: border-box; padding: 18px; border: 1px solid #627466; border-radius: 10px; color: #fff; background: var(--window-surface-neutral); font-size: 14px; }
+  .player-safety-dialog { width: min(420px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); box-sizing: border-box; padding: 18px; border: 0; border-radius: 10px; color: #fff; background: var(--window-surface-neutral); box-shadow: 0 20px 56px rgba(0,0,0,.72); font-size: 14px; }
   .player-safety-dialog::backdrop { background: rgba(0,0,0,.65); }
   .player-safety-dialog form { display: grid; gap: 12px; }
   .player-safety-dialog h2, .player-safety-dialog p { margin: 0; overflow-wrap: anywhere; }
@@ -4082,8 +4082,9 @@
   .modal {
     width: min(620px, calc(100vw - 26px));
     background: var(--panel2);
-    border: 3px solid rgba(255,255,255,.20);
+    border: 0;
     border-radius: 14px;
+    box-shadow: 0 20px 56px rgba(0,0,0,.72);
     padding: 20px;
     text-align: center;
   }
@@ -4372,7 +4373,7 @@
 .player-search-input::-webkit-search-cancel-button { display: none; }
 .player-search-input::placeholder { color: #a99fb2; }
 .player-search-input:focus { outline: none; border-color: #fff; }
-.player-search-results { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; max-height: min(300px, 46vh); margin: 0; padding: 4px; overflow-y: auto; overscroll-behavior: contain; list-style: none; border: 2px solid rgba(255,255,255,.2); border-radius: 10px; background: rgba(29,26,32,.97); box-shadow: 0 10px 22px rgba(0,0,0,.55); }
+.player-search-results { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; max-height: min(300px, 46vh); margin: 0; padding: 4px; overflow-y: auto; overscroll-behavior: contain; list-style: none; border: 0; border-radius: 10px; background: rgba(29,26,32,.98); box-shadow: 0 14px 30px rgba(0,0,0,.68); }
 .player-search-results[hidden] { display: none; }
 .player-search-option { display: flex; align-items: center; min-height: 40px; padding: 0 11px; border-radius: 7px; color: #fff; font: 800 14px var(--font-rounded); cursor: pointer; }
 .player-search-option + .player-search-option { margin-top: 2px; }
@@ -5135,8 +5136,8 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
     --cell: #1c1d1b; --cell-line: #3a3b37; --muted: #b3b4ae;
     box-sizing: border-box; width: var(--game-window-width); max-width: calc(100vw - 24px);
     height: min(620px, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px));
-    margin: auto; padding: 0; overflow: hidden; border: 3px solid rgba(255,255,255,.20); border-radius: 14px;
-    background: var(--window-surface); color: var(--text); box-shadow: 0 16px 48px #0008;
+    margin: auto; padding: 0; overflow: hidden; border: 0; border-radius: 14px;
+    background: var(--window-surface); color: var(--text); box-shadow: 0 20px 56px rgba(0,0,0,.72);
     font: 900 var(--font-readable-body)/1.35 var(--font-rounded);
   }
   .exchange-sheet[open] { display: flex; flex-direction: column; }
@@ -5237,79 +5238,79 @@ html.text-outline-shadow .death-countdown { text-shadow: var(--text-outline-ring
   .exchange-filter.is-active { border-color: var(--sand-line); background: #2c281c; color: var(--sand); }
   .exchange-filter-held { margin-left: auto; }
   .cooking-fire .cook-top-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 14px 0; flex-shrink: 0; }
-  .cook-nav-pill { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 8px 10px; border: 1.5px solid rgba(255,255,255,.16); border-radius: 10px; background: linear-gradient(180deg, rgba(30,36,44,.92), rgba(16,20,26,.96)); color: #fff; text-align: left; font: inherit; cursor: pointer; transition: border-color .14s ease, transform .1s ease; }
-  .cook-nav-pill:hover:not(:disabled) { border-color: rgba(255,211,77,.6); }
+  .cook-nav-pill { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 9px 11px; border: 0; border-radius: 10px; background: #1c2026; color: #fff; text-align: left; font: inherit; cursor: pointer; transition: background .14s ease, transform .1s ease; }
+  .cook-nav-pill:hover:not(:disabled) { background: #242a33; }
   .cook-nav-pill:active:not(:disabled) { transform: scale(.98); }
   .cook-nav-pill:disabled { opacity: .5; cursor: default; }
   .cook-nav-kicker { font-size: 10px; font-weight: 800; color: #9ea8b3; text-transform: uppercase; letter-spacing: .05em; }
   .cook-nav-value { font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cook-nav-sub { font-size: 11px; font-weight: 700; color: #ffd38a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cook-mini-track { display: block; height: 5px; margin-top: 3px; border-radius: 999px; background: rgba(255,255,255,.14); overflow: hidden; }
+  .cook-mini-track { display: block; height: 5px; margin-top: 3px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; }
   .cook-mini-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f59e0b, #ffd34d); transition: width .2s ease; }
   .cook-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 14px 4px; flex-shrink: 0; }
-  .cook-mode-seg { display: inline-flex; padding: 3px; border-radius: 9px; border: 1px solid rgba(255,255,255,.14); background: rgba(10,12,16,.72); gap: 3px; }
+  .cook-mode-seg { display: inline-flex; padding: 3px; border-radius: 9px; border: 0; background: #0c0e11; gap: 3px; }
   .cook-mode-btn { padding: 6px 12px; border: 0; border-radius: 6px; background: transparent; color: #b8c0c8; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
-  .cook-mode-btn.is-active { background: #2d7a46; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
-  .cook-bag-btn { padding: 7px 12px; border: 1.5px solid rgba(255,211,77,.42); border-radius: 9px; background: linear-gradient(180deg, #8a4b12, #5a2f0b); color: #fff7e0; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
+  .cook-mode-btn.is-active { background: #2d7a46; color: #fff; }
+  .cook-bag-btn { padding: 7px 12px; border: 0; border-radius: 9px; background: linear-gradient(180deg, #9a5415, #66350c); color: #fff7e0; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
   .cook-bag-btn:disabled { opacity: .45; cursor: default; }
   .cooking-fire .cook-body { display: flex; flex-direction: column; gap: 8px; padding: 6px 14px 10px; scrollbar-width: none; }
   .cooking-fire .cook-body::-webkit-scrollbar { display: none; }
   .cook-fish-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   @media (max-width: 360px) { .cook-fish-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .cook-fish-tile { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 6px 7px; border: 1.5px solid rgba(255,255,255,.16); border-radius: 11px; background: linear-gradient(180deg, rgba(31,37,46,.92), rgba(18,22,28,.96)); color: #fff; text-align: center; font: inherit; cursor: pointer; transition: border-color .14s ease, transform .1s ease; }
-  .cook-fish-tile:hover:not(:disabled) { border-color: rgba(255,211,77,.65); }
+  .cook-fish-tile { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 6px 7px; border: 0; border-radius: 11px; background: #1c2129; color: #fff; text-align: center; font: inherit; cursor: pointer; transition: background .14s ease, transform .1s ease; }
+  .cook-fish-tile:hover:not(:disabled) { background: #252c37; }
   .cook-fish-tile:active:not(:disabled) { transform: scale(.97); }
   .cook-fish-tile:disabled { opacity: .52; cursor: default; }
   .cook-fish-tile.is-locked .cook-fish-img { filter: grayscale(.8) brightness(.65); }
   .cook-fish-art { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 56px; border-radius: 8px; background: radial-gradient(circle at 50% 55%, rgba(255,211,77,.12), rgba(8,12,18,.55)); }
   .cook-fish-img { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 3px 5px rgba(0,0,0,.55)); pointer-events: none; }
-  .cook-fish-qty { position: absolute; top: 3px; right: 4px; padding: 1px 5px; border-radius: 999px; background: rgba(10,12,16,.84); border: 1px solid rgba(255,255,255,.16); color: #f0f4f8; font-size: 10.5px; font-weight: 800; line-height: 1.25; }
-  .cook-risk-tag { position: absolute; bottom: 3px; left: 4px; padding: 1px 5px; border-radius: 999px; background: rgba(164,78,12,.9); border: 1px solid rgba(255,196,77,.55); color: #ffe8a8; font-size: 9.5px; font-weight: 900; line-height: 1.2; }
+  .cook-fish-qty { position: absolute; top: 3px; right: 4px; padding: 1px 5px; border-radius: 999px; background: rgba(10,12,16,.84); border: 0; color: #f0f4f8; font-size: 10.5px; font-weight: 800; line-height: 1.25; }
+  .cook-risk-tag { position: absolute; bottom: 3px; left: 4px; padding: 1px 5px; border-radius: 999px; background: rgba(164,78,12,.92); border: 0; color: #ffe8a8; font-size: 9.5px; font-weight: 900; line-height: 1.2; }
   .cook-lock-tag { padding: 1px 6px; border-radius: 6px; background: rgba(255,107,107,.16); color: #ffb3b3; font-size: 10.5px; font-weight: 800; }
   .cook-fish-name { font-size: 12.5px; line-height: 1.15; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cook-fish-meta { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; font-size: 10.5px; color: #aeb6be; }
   .cook-xp { color: #8be0ff; font-weight: 800; }
   .cook-batch-tag { padding: 1px 6px; border-radius: 6px; background: rgba(52,199,89,.2); color: #7ef09c; font-size: 10.5px; font-weight: 800; }
-  .cook-empty { grid-column: 1 / -1; margin: 12px 0; padding: 18px 14px; border-radius: 10px; background: rgba(255,255,255,.05); color: #b7c2bf; font-size: 13px; text-align: center; }
-  .cook-cast { display: flex; flex-direction: column; gap: 10px; padding: 14px 12px; border: 1.5px solid rgba(255,168,54,.45); border-radius: 12px; background: radial-gradient(100% 90% at 50% 0%, rgba(255,136,28,.22), rgba(16,14,16,.92)); }
+  .cook-empty { grid-column: 1 / -1; margin: 12px 0; padding: 18px 14px; border-radius: 10px; background: #1c2026; color: #b7c2bf; font-size: 13px; text-align: center; }
+  .cook-cast { display: flex; flex-direction: column; gap: 10px; padding: 14px 12px; border: 0; border-radius: 12px; background: radial-gradient(100% 90% at 50% 0%, rgba(255,136,28,.22), #191614); }
   .cook-cast-head { display: flex; align-items: center; gap: 12px; }
-  .cook-cast-visual { position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 10px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,180,70,.35); }
+  .cook-cast-visual { position: relative; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 10px; background: rgba(0,0,0,.38); border: 0; }
   .cook-cast-img { width: 38px; height: 38px; object-fit: contain; position: relative; z-index: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
   .cook-flame { position: absolute; inset: auto 6px 2px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 50% 65%, #fff3b0 0%, #ff9f1c 50%, #d9480f 85%, transparent 100%); opacity: .75; animation: cook-flame-pulse 1.1s ease-in-out infinite alternate; }
   @keyframes cook-flame-pulse { from { transform: scale(.92); opacity: .65; } to { transform: scale(1.08); opacity: .9; } }
   .cook-cast-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
   .cook-cast-title { font-size: 14px; color: #fff; }
   .cook-clock { font-size: 12px; color: #ffd38a; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .cook-cast-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,.14); overflow: hidden; border: 1px solid rgba(255,255,255,.12); }
+  .cook-cast-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; border: 0; }
   .cook-cast-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ff7b00, #ffd34d); transition: width .08s linear; }
-  .cook-cast-totals { padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.32); color: #ffe7b3; font-size: 12px; font-weight: 800; text-align: center; }
+  .cook-cast-totals { padding: 7px 10px; border-radius: 8px; background: rgba(0,0,0,.34); color: #ffe7b3; font-size: 12px; font-weight: 800; text-align: center; }
   .cook-stop { width: 100%; }
   .cook-status { margin: 0; min-height: 18px; font-size: 12.5px; color: #b9f5c8; font-weight: 700; text-align: center; }
   .cook-status.is-burn { color: #ffb38a; }
   .cook-sub-body { display: flex; flex-direction: column; gap: 10px; padding: 6px 14px 12px; scrollbar-width: none; }
   .cook-sub-body::-webkit-scrollbar { display: none; }
   .cook-dish-list { display: flex; flex-direction: column; gap: 7px; }
-  .cook-dish-row { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1.5px solid rgba(255,255,255,.15); border-radius: 10px; background: rgba(15,18,24,.82); color: #dbe2ea; text-align: left; font: inherit; cursor: pointer; }
-  .cook-dish-row:hover:not(:disabled) { border-color: rgba(255,211,77,.55); }
+  .cook-dish-row { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 0; border-radius: 10px; background: #1b1f26; color: #dbe2ea; text-align: left; font: inherit; cursor: pointer; transition: background .14s ease; }
+  .cook-dish-row:hover:not(:disabled) { background: #242a34; }
   .cook-dish-row-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .cook-dish-row strong { font-size: 13.5px; }
   .cook-dish-row small { font-size: 11.5px; color: #9ea8b3; }
-  .cook-dish-row-tag { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.1); color: #cfd8e3; font-size: 11px; font-weight: 800; }
-  .cook-dish-row.is-active { border-color: #ffd34d; background: linear-gradient(180deg, rgba(120,66,18,.55), rgba(46,26,12,.78)); color: #fff; }
+  .cook-dish-row-tag { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.09); color: #cfd8e3; font-size: 11px; font-weight: 800; }
+  .cook-dish-row.is-active { background: linear-gradient(180deg, rgba(132,74,20,.65), rgba(56,32,14,.85)); box-shadow: inset 0 0 0 2px rgba(255,211,77,.82); color: #fff; }
   .cook-dish-row.is-active small { color: #ffe08a; }
   .cook-dish-row.is-active .cook-dish-row-tag { background: rgba(255,211,77,.24); color: #ffd34d; }
   .cook-dish-row.is-locked { opacity: .48; cursor: default; }
-  .cook-skill-meter { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 12px; border: 1.5px solid rgba(255,198,96,.28); border-radius: 10px; background: linear-gradient(180deg, rgba(38,24,14,.74), rgba(14,14,16,.8)); }
+  .cook-skill-meter { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 12px; border: 0; border-radius: 10px; background: linear-gradient(180deg, rgba(46,29,16,.85), #191716); }
   .cook-skill-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; }
   .cook-skill-xp { color: #d6ccc0; font-size: 12px; font-weight: 700; }
-  .cook-skill-track { height: 7px; border-radius: 999px; background: rgba(255,255,255,.14); overflow: hidden; }
+  .cook-skill-track { height: 7px; border-radius: 999px; background: rgba(255,255,255,.12); overflow: hidden; }
   .cook-skill-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f59e0b, #ffd34d); transition: width .2s ease; }
   .cook-skill-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
   .cook-skill-next { color: #c9bfb3; font-size: 12px; }
-  .cook-skillet-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,211,77,.35); background: rgba(255,211,77,.12); color: #ffd34d; font-size: 11px; font-weight: 800; }
+  .cook-skillet-pill { padding: 2px 8px; border-radius: 999px; border: 0; background: rgba(255,211,77,.16); color: #ffd34d; font-size: 11px; font-weight: 800; }
   .cook-unlock-list { display: flex; flex-direction: column; gap: 6px; }
-  .cook-unlock-row { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 9px; background: rgba(16,20,26,.7); opacity: .58; }
-  .cook-unlock-row.is-unlocked { opacity: 1; border-color: rgba(255,211,77,.28); }
+  .cook-unlock-row { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 9px; background: #1a1e25; opacity: .58; }
+  .cook-unlock-row.is-unlocked { opacity: 1; background: #21252d; }
   .cook-unlock-img { width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
   .cook-unlock-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .cook-unlock-row strong { font-size: 12.5px; color: #fff; }

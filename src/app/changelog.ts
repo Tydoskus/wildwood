@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.922.3": [
+    "Removed the light-grey outer outlines on game windows and cleaned up noisy inner card borders across Cooking Fire and shared sheets.",
+    "Town torches and braziers are no longer treated as Cooking Fires — only the 3 real stone-ring campfires open the Cooking Fire.",
+    "Going idle no longer makes standing players and autofarmers vanish from your screen — live movement frames still pause to save server work while everyone stays visible until you move again.",
+    "Smoother multiplayer movement with zero extra server load: fixed the 1.5s straight-walk freeze/teleport bug, false lag-spike rubberbanding on direction reversals, click-to-move turn overshoot, remote running-in-place after stalls, and same-map teleports walking through walls.",
+  ],
   "0.922.2": [
     "Cooking Fire redesigned with fish pictures, clean modal fit, and separate Recipes and Cooking Skill windows instead of cramming everything into one panel.",
     "Cooking is now level-locked per fish (Minnow Lv 1 through Golden Koi Lv 90) with an early-level burn chance that drops to 0% as you level Cooking and upgrade your Skillet.",
@@ -4183,6 +4189,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.922.3": "2026-11-19",
   "0.922.2": "2026-11-19",
   "0.922.1": "2026-11-19",
   "0.922": "2026-11-18",

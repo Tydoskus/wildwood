@@ -59,12 +59,16 @@ export function remoteMotionTransition(
 }
 
 export function duplicateRemoteMotionSample(
-  previous: Pick<RemoteMotionSample, "simulationTick" | "motionEpoch" | "moving">,
-  next: Pick<RemoteMotionSample, "simulationTick" | "motionEpoch" | "moving">,
+  previous: Pick<RemoteMotionSample, "simulationTick" | "motionEpoch" | "moving" | "x" | "y" | "vx" | "vy">,
+  next: Pick<RemoteMotionSample, "simulationTick" | "motionEpoch" | "moving" | "x" | "y" | "vx" | "vy">,
 ) {
   return previous.motionEpoch === next.motionEpoch &&
     previous.simulationTick === next.simulationTick &&
-    previous.moving === next.moving;
+    previous.moving === next.moving &&
+    Math.abs(previous.x - next.x) < .5 &&
+    Math.abs(previous.y - next.y) < .5 &&
+    Math.abs(previous.vx - next.vx) < .5 &&
+    Math.abs(previous.vy - next.vy) < .5;
 }
 
 export function createRemoteInterpolationClock(now: number): RemoteInterpolationClock {
@@ -269,16 +273,18 @@ export function remoteMotionAt(
     if (!latest.moving) {
       return { x: latest.x, y: latest.y, vx: 0, vy: 0, simulationTick: latest.simulationTick, motionEpoch: latest.motionEpoch, facing: latest.facing, moving: false };
     }
-    const aheadSeconds = Math.min(MAX_EXTRAPOLATION_MS, renderAt - latest.timelineAt) / 1_000;
+    const elapsedMs = renderAt - latest.timelineAt;
+    const stillMoving = elapsedMs <= MAX_EXTRAPOLATION_MS;
+    const aheadSeconds = Math.min(MAX_EXTRAPOLATION_MS, elapsedMs) / 1_000;
     return {
       x: latest.x + latest.vx * aheadSeconds,
       y: latest.y + latest.vy * aheadSeconds,
-      vx: latest.vx,
-      vy: latest.vy,
+      vx: stillMoving ? latest.vx : 0,
+      vy: stillMoving ? latest.vy : 0,
       simulationTick: latest.simulationTick,
       motionEpoch: latest.motionEpoch,
       facing: latest.facing,
-      moving: true,
+      moving: stillMoving,
     };
   }
 
