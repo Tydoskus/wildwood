@@ -1,4 +1,14 @@
 import { isPresenceChatMessage } from "../../shared/presence-chat";
+import { GUILD_CHAT_RETENTION_DAYS } from "../../shared/social";
+
+export const PUBLIC_CHAT_DISPLAY_TTL_MS = 86_400_000;
+export const GUILD_CHAT_DISPLAY_TTL_MS = GUILD_CHAT_RETENTION_DAYS * 86_400_000;
+
+/** How long a message stays visible in chat: 1 day in public chat, 1 week in guild chat, unlimited in DMs. */
+export function chatMessageDisplayTtlMs(channel: "public" | "guild" | "private") {
+  if (channel === "private") return Number.POSITIVE_INFINITY;
+  return channel === "guild" ? GUILD_CHAT_DISPLAY_TTL_MS : PUBLIC_CHAT_DISPLAY_TTL_MS;
+}
 
 export function duelReplayIsInteractive(replayId: bigint, large: boolean) {
   return replayId > 0n && large;

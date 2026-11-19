@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.922": [
+    "Glass Crossing is now a playable 2.5D cosmic bridge map: hop across 16 pairs of floating crystal slabs suspended in space between two floating stone islands toward the golden Victory Portal. Enter straight from Guilds → Quests or through the portal on the Guild Hall west lawn.",
+    "Real fallen guildmate bodies drift in open space where fragile glass shattered, wearing the gear they fell in with comic last words — and you can visit and hop on tiles anytime even after spending your daily tries.",
+    "Glass Crossing now awards Guild Quest Points and Hall Fund right away (+2 pts per step, +20 on Victory Portal clear, 50 bonus pts total) and applies the guild stat bonus immediately this week.",
+    "Guild chat now keeps messages for a full week instead of one day when a guild has fewer than 100 messages.",
+  ],
   "0.921": [
     "New weekly whole-guild challenge — Glass Crossing: team up with your guild across 16 pairs of 50/50 glass tiles toward the Victory Portal. Safe steps keep your daily try for a streak; shattered tiles mark where fallen guildmates perished and reveal the safe path for everyone else. Awards +50 bonus Guild Quest Points & Hall Fund across milestones (steps 6, 12, and clear), with daily tries scaling for smaller guilds so any guild can finish in a week.",
     "Cooking Fire remake: cook individual fish directly from tap-friendly fish cards with Cook 1 / Cook All / Cook All Fish controls, live session gold & XP totals, Skillet bonus display, and optional Special Recipes for multi-fish bonus dishes.",
@@ -4168,6 +4174,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.922": "2026-11-18",
   "0.921": "2026-11-18",
   "0.920": "2026-11-18",
   "0.919.2": "2026-11-17",

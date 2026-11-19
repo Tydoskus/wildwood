@@ -74,6 +74,7 @@
     "visual:capture": "node tools/visual-check/capture.mjs",
     "visual:diff": "node tools/visual-check/diff.mjs",
     "visual:check": "node tools/visual-check/check.mjs",
+    "ui:studio": "vite --config config/vite.ui-studio.config.ts --host 127.0.0.1 --open /ui-studio.html",
     "perf": "node tools/visual-check/perf.mjs"
   },
   "dependencies": {

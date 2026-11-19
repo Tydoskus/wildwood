@@ -639,6 +639,7 @@ import { MAX_PLAYER_STAT, PLAYER_SPAWN } from "../shared/rules";
     showProgressCompletion: (kind, detail, icon, color) => runtimeHud.showProgressCompletion(kind, detail, icon, color),
     profileWindow, closeIconPicker: closeProfileIconPicker, clearInput: playerInput.clear,
     lowPerformanceMode: appShell.lowPerformanceMode, openGuildHall: () => guildHall.openWindow(),
+    enterGuildCrossing: id => { void guildHall.enterCrossing(id); },
     assets, playerAppearanceAssets, leaderboardPodiumPreview,
     paintProfileIconCanvas, previewPrestigeUnlock: prestigeUnlock.preview,
     stopAutoFarm: reason => autoFarm.stop(reason), teleportToMap: mapController.teleportToMap,

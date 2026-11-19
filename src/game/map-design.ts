@@ -1,5 +1,6 @@
 import { generateMap, isProceduralMap } from "../../shared/procedural-maps";
 import { isGuildHallMap } from "../../shared/guild-hall";
+import { isGuildCrossingMap } from "../../shared/guild-crossing";
 import storedMapDesigns from "../../shared/map-designs.json";
 import type { MapId, SpawnCamp, WorldDecor, WorldPath } from "./world";
 
@@ -224,6 +225,8 @@ export function savedMapName(mapId: string) {
 
 /** Every guild hall's: the courtyard's grass round its baked ground. */
 const GUILD_HALL_THEME: MapVisualTheme = { ground: "#54783c", path: "#b89070", pathDetail: "rgba(120,80,50,.15)", decorColors: {} };
+/** Every Glass Crossing's: deep midnight chasm under the glowing crystal bridge. */
+const GUILD_CROSSING_THEME: MapVisualTheme = { ground: "#09121e", path: "#1e3246", pathDetail: "rgba(95,227,214,.2)", decorColors: {} };
 
 /**
  * Maps drawn with ForestVillage's trees and grass (pack-forest.ts) sit on its meadow green and road, as the
@@ -237,6 +240,7 @@ export function mapVisualTheme(mapId: MapId): MapVisualTheme {
   const cached = resolvedThemeCache.get(mapId);
   if (cached) return cached;
   if (isGuildHallMap(mapId)) return GUILD_HALL_THEME;
+  if (isGuildCrossingMap(mapId)) return GUILD_CROSSING_THEME;
   if (isProceduralMap(mapId)) {
     const palette = generateMap(mapId).palette;
     const theme = { ...palette, decorColors: { grass: [palette.accent], rock: [palette.pathDetail, palette.path] } };

@@ -10,6 +10,7 @@
 // arrive through createPresenceRuntime's deps so the moved code reads exactly
 // as it did.
 import { GUILD_HALL_ARRIVAL, guildHallMember, guildHallReturnPointFor, isGuildHallMap } from "./guild-hall";
+import { GUILD_CROSSING_ARRIVAL, guildCrossingMember, guildCrossingSpawnFor, isGuildCrossingMap } from "./guild-crossing";
 import { isTownMap, TOWN_ARRIVAL, TOWN_MAP_ID } from "../../shared/town";
 import { ScheduleAt } from "spacetimedb";
 import { SenderError } from "spacetimedb/server";
@@ -449,8 +450,9 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     mapId = accessibleCampaignMap(mapId, progress);
     if (isSoulMap(mapId) && !soulDimensionOpenFor(ctx, identity)) mapId = TOWN_MAP_ID;
     if (isGuildHallMap(mapId) && !guildHallMember(ctx, identity, mapId)) mapId = TOWN_MAP_ID;
+    if (isGuildCrossingMap(mapId) && !guildCrossingMember(ctx, identity, mapId)) mapId = TOWN_MAP_ID;
     if (isProceduralMap(mapId) && !hasEndlessTravelAccess(ctx, identity) && !generatedMapUnlocked(mapId, ctx.db.proceduralProgress.identity.find(identity)?.completed ?? 0, Boolean(progress.bossRewardClaims & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))) mapId = TUTORIAL_FOREST_MAP_ID;
-    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : isGuildHallMap(mapId) ? GUILD_HALL_ARRIVAL : isTownMap(mapId) ? TOWN_ARRIVAL : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
+    const fallback = isProceduralMap(mapId) ? generateMap(mapId).arrival : isSoulMap(mapId) ? SOUL_ARRIVAL : isGuildHallMap(mapId) ? GUILD_HALL_ARRIVAL : isGuildCrossingMap(mapId) ? GUILD_CROSSING_ARRIVAL : isTownMap(mapId) ? TOWN_ARRIVAL : mapId === TUTORIAL_FOREST_MAP_ID ? PLAYER_SPAWN : MAP_ARRIVALS[mapId as keyof typeof MAP_ARRIVALS];
     const useSavedPosition = mapId === requestedMap && saved?.mapId !== HOME_EXTERIOR_MAP_ID;
     const bounds = worldBoundsFor(mapId);
     const x = useSavedPosition && Number.isFinite(saved?.x)
@@ -459,7 +461,7 @@ export function createPresenceRuntime(deps: PresenceRuntimeDeps) {
     const y = useSavedPosition && Number.isFinite(saved?.y)
       ? Math.max(PLAYER_RADIUS, Math.min(bounds.height - PLAYER_RADIUS, saved.y))
       : fallback.y;
-    const at = useSavedPosition && isGuildHallMap(mapId) ? guildHallReturnPointFor(ctx, mapId, x, y) : { x, y };
+    const at = isGuildCrossingMap(mapId) ? guildCrossingSpawnFor(ctx, mapId) : useSavedPosition && isGuildHallMap(mapId) ? guildHallReturnPointFor(ctx, mapId, x, y) : { x, y };
     return { mapId, x: at.x, y: at.y, facing: useSavedPosition && Number.isFinite(saved?.facing) ? saved.facing : 0 };
   }
 

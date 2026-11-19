@@ -48,6 +48,7 @@ export type GamePanelsDeps = {
   clearInput: () => void;
   lowPerformanceMode: () => boolean;
   openGuildHall: () => void;
+  enterGuildCrossing?: (guildId?: string) => void;
   assets: BootstrapAssets["assets"];
   playerAppearanceAssets: BootstrapAssets["playerAppearanceAssets"];
   leaderboardPodiumPreview: BootstrapAssets["leaderboardPodiumPreview"];
@@ -106,7 +107,7 @@ export function createGamePanels(deps: GamePanelsDeps) {
   const openProfile = (identity: string, name: string) => { void deps.profileWindow.open(identity, name); };
   const guildPanel = createGuildPanel({
     onOpenPlayer: openProfile,
-    lowPerformanceMode: deps.lowPerformanceMode, questStanding: () => guildQuestStandingFrom(client), openHall: deps.openGuildHall,
+    lowPerformanceMode: deps.lowPerformanceMode, questStanding: () => guildQuestStandingFrom(client), openHall: deps.openGuildHall, enterCrossing: deps.enterGuildCrossing,
     replayAssets: {
       player: deps.playerAppearanceAssets, prepare: () => deps.assets.ensureMapAssets("home_exterior"),
       trees: deps.assets.treeSpritesheet, treeBounds: deps.assets.treeSpriteBounds,

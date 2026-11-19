@@ -5,6 +5,7 @@ import { MARKET_SPRITES_SOURCE } from "../town/market-sheet";
 import { SOUL_ATLAS_SOURCE, SOUL_INTERIORS_SOURCE, TOWN_VILLAGE_GROUND_SOURCE, TOWN_VILLAGE_PROPS_SOURCE } from "../soul/soul-prop-renderer";
 import { isProceduralMap } from "../../../../shared/procedural-maps";
 import { isGuildHallMap } from "../../../../shared/guild-hall";
+import { isGuildCrossingMap } from "../../../../shared/guild-crossing";
 import { GUILD_HALL_GROUND_SOURCE, GUILD_HALL_PROPS_SOURCE, GUILD_HALL_ROOMS_SOURCE } from "../../guild-hall";
 import { GUILD_EMBLEM_SHEET_SOURCES } from "../../guild-emblems";
 import { DUEL_PLATFORM_ART_SOURCE, DUEL_SPACE_BACKGROUND_SOURCE } from "../../duel";
@@ -309,8 +310,9 @@ export function createAssetPreprocessor(onWorldAssetReady: () => void) {
     if (editedDecor.has("glowMushroom") || mapId === "moonfen" || mapId === "verdant_catacombs") groups.add("packNature");
     mapAssets[mapId] = [...groups].flatMap((group) => assetGroups[group]);
   }
-  /** A map's art: none for Endless, the one hall set for every guild's hall (their ids are not enumerable). */
-  const assetsOf = (mapId: MapId) => isProceduralMap(mapId) ? [] : isGuildHallMap(mapId) ? guildHallAssets : mapAssets[mapId] ?? [];
+  const guildCrossingAssets = [duelSpaceAsset, duelPlatformAsset, portalArchAsset, portalSwirlAsset, guildHallAssets[0], ...guildHallAssets.slice(3)];
+  /** A map's art: none for Endless, Duel+Portal+Brazier art for Glass Crossing, hall set for every guild's hall. */
+  const assetsOf = (mapId: MapId) => isProceduralMap(mapId) ? [] : isGuildCrossingMap(mapId) ? guildCrossingAssets : isGuildHallMap(mapId) ? guildHallAssets : mapAssets[mapId] ?? [];
   function ensureMapAssets(mapId: MapId) {
     return Promise.all(assetsOf(mapId).map((asset) => asset.load())).then(() => undefined);
   }

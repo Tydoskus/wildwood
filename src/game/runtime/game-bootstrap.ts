@@ -1,6 +1,7 @@
 import { SOUL_ARRIVAL, SOUL_MAP_ID, SOUL_TOWN_PORTAL } from "../../../shared/soul-dimension";
 import { TOWN_ARRIVAL, TOWN_MAP_ID, TOWN_TRAVEL_PORTAL } from "../../../shared/town";
 import { GUILD_HALL_ARRIVAL, GUILD_HALL_HOME_PAD } from "../../../shared/guild-hall";
+import { GUILD_CROSSING_ARRIVAL, GUILD_CROSSING_EXIT_PAD } from "../../../shared/guild-crossing";
 import { CAMPAIGN_MAPS } from "../../../shared/campaign-registry";
 import { HOME_TRAVEL_PORTAL, HOME_EXTERIOR_SPAWN } from "../../../shared/home";
 import { ONBOARDING_MAP_ID, ONBOARDING_WORLD } from "../../../shared/onboarding";
@@ -111,7 +112,9 @@ export function createGameBootstrap() {
     const map = generateMap(id);
     return { name: map.name, arrival: map.arrival, portal: { ...map.portals[0], destination: map.portals[0].destination as MapId }, secondaryPortal: map.portals[1] ? { ...map.portals[1], destination: map.portals[1].destination as MapId } : undefined };
   // Every guild's hall: the yard's portal back to the Town at the foot of the path.
-  }, { name: "Guild Hall", arrival: GUILD_HALL_ARRIVAL, portal: { ...GUILD_HALL_HOME_PAD, destination: TOWN_MAP_ID } }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
+  // Every guild's Glass Crossing: the Start Platform's return portal back to Town.
+  }, { name: "Guild Hall", arrival: GUILD_HALL_ARRIVAL, portal: { ...GUILD_HALL_HOME_PAD, destination: TOWN_MAP_ID } },
+  { name: "Glass Crossing", arrival: GUILD_CROSSING_ARRIVAL, portal: { ...GUILD_CROSSING_EXIT_PAD, destination: TOWN_MAP_ID } }) as typeof authoredMapConfig & Record<MapId, BootstrapMapEntry>;
   mapConfig[PROCEDURAL_ENTRY_MAP as MapId].secondaryPortal = { ...endlessEntryPortal(proceduralMapId(1)), destination: proceduralMapId(1) };
   const player: PlayerState = {
     x: startSpawn.x, y: startSpawn.y, r: 17,
@@ -189,7 +192,7 @@ export function createGameBootstrapAssets(options: {
   ])];
   // Generated IDs are intentionally not enumerable. Preserve their lazy lookup
   // when layering saved map edits over the authored groups.
-  const editedEnemySpriteGroups = withGeneratedMaps<readonly EnemyKind[]>({}, spriteKinds, []);
+  const editedEnemySpriteGroups = withGeneratedMaps<readonly EnemyKind[]>({}, spriteKinds, [], []);
   for (const mapId of Object.keys(MAP_ENEMY_SPRITE_GROUPS) as MapId[]) {
     editedEnemySpriteGroups[mapId] = spriteKinds(mapId);
   }

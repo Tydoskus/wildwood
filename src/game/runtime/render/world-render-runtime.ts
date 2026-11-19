@@ -49,10 +49,14 @@ import { createSoulGroundPropPainter, createTownGroundTilePainter, soulGroundPro
 import { isTownMap } from "../../../../shared/town";
 import { drawOxSprite } from "./ox-sprite";
 import { isGuildHallMap } from "../../../../shared/guild-hall";
+import { isGuildCrossingMap } from "../../../../shared/guild-crossing";
 import { GUILD_HALL_GROUND } from "../../guild-hall";
 import {
   createGuildCrestDrawer, createGuildHallRoomsDrawer, createGuildHallUnderDrawer, drawSeated, GUILD_HALL_SEAT_FACING, seatedAt,
 } from "../guild-hall/guild-hall-render";
+import {
+  createGuildCrossingGroundRenderer, createGuildCrossingOverlayRenderer, createGuildHallCrossingPortalRenderer, drawCrossingFall,
+} from "../guild-crossing/guild-crossing-render";
 import type { TextSegment } from "../../canvas";
 
 type Viewport = { width: number; height: number; dpr: number };
@@ -444,6 +448,30 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       hallProps: () => options.assets.guildHallProps, marketProps: () => options.assets.townMarketSprites,
       drawCrest: createGuildCrestDrawer(() => options.assets.guildEmblemSheets) });
     const drawGuildHallPond = createGuildHallPondRenderer({ ctx: options.ctx, camera: options.camera, time: options.gameTime });
+    const drawHallCrossingPortal = createGuildHallCrossingPortalRenderer({
+      ctx: options.ctx, camera: options.camera, time: options.gameTime,
+      active: () => isGuildHallMap(options.currentMapId()) && !guildHallShown.indoors,
+      arch: () => options.assets.portalArch, swirl: () => options.assets.portalSwirl,
+    });
+    const drawCrossingGround = createGuildCrossingGroundRenderer({
+      ctx: options.ctx, camera: options.camera, viewport: options.viewport, time: options.gameTime,
+      active: () => isGuildCrossingMap(options.currentMapId()),
+      assets: () => ({
+        duelSpaceBackground: options.assets.duelSpaceBackground,
+        duelPlatformArt: options.assets.duelPlatformArt,
+        portalArch: options.assets.portalArch,
+        portalSwirl: options.assets.portalSwirl,
+        guildHallProps: options.assets.guildHallProps,
+        guildEmblemSheets: options.assets.guildEmblemSheets,
+        playerAppearanceAssets: options.playerAppearanceAssets,
+        skinTone: options.skinTone,
+        equipmentForIdentity: options.equipmentForIdentity,
+      }),
+    });
+    const drawCrossingOverlay = createGuildCrossingOverlayRenderer({
+      ctx: options.ctx, camera: options.camera, viewport: options.viewport, time: options.gameTime,
+      active: () => isGuildCrossingMap(options.currentMapId()), topInset: 66,
+    });
     // The fishing spots lie on the water, under everyone on the bank (Town river and Guild Hall Pond).
     const drawFishingSpots = createFishingSpotRenderer({ ctx: options.ctx, camera: options.camera, viewport: options.viewport, time: options.gameTime,
       active: () => isTownMap(options.currentMapId()) || (isGuildHallMap(options.currentMapId()) && !guildHallShown.indoors && guildHallShown.pond > 0) });
@@ -451,7 +479,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       interiors: () => undefined, drawRooms: createGuildHallRoomsDrawer({ ctx: options.ctx, camera: options.camera, rooms: () => options.assets.guildHallRooms,
         devicePixelRatio: options.devicePixelRatio }),
       drawUnder: createGuildHallUnderDrawer({ ctx: options.ctx, camera: options.camera }),
-      drawWater: () => { drawGuildHallPond(); drawFishingSpots(); },
+      drawWater: () => { drawGuildHallPond(); drawHallCrossingPortal(); drawFishingSpots(); },
       decor: options.decor, drawProp: drawSoulProp, viewport: options.viewport, devicePixelRatio: options.devicePixelRatio, active: () => isGuildHallMap(options.currentMapId()) });
     // The Town's ground, rooms, flat props and shadows are baked into the static world's tiles: only its water moves.
     // The WebGL world draws the river with its tiles when it can; the canvas draws it otherwise.
@@ -496,7 +524,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         : 1,
       drawBoss: (kind) => boss.drawBoss[kind](),
       drawBossHitboxes: boss.drawBossHitboxes,
-      drawOverWorld: drawTownParticles,
+      drawOverWorld: () => { drawTownParticles(); drawCrossingOverlay(); },
       drawBootPickup: () => renderer.drawBootPickup(),
       drawPortal: world.drawPortal,
       drawSecondaryPortal: world.drawSecondaryPortal,
@@ -505,12 +533,12 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
         const seat = remote.moving ? null : seatedAt(remote.x, remote.y);
         drawSeated(options.ctx, remote.x, remote.y, remote.y - options.camera.y, seat, () => actor.drawRemotePlayer(seat ? { ...remote, facing: GUILD_HALL_SEAT_FACING[seat.side] } : remote));
       },
-      drawPlayer: () => drawSeated(options.ctx, options.player.x, options.player.y, options.player.y - options.camera.y, options.player.moving ? null : seatedAt(options.player.x, options.player.y), () => drawSoulWellFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, options.player.y,
+      drawPlayer: () => drawSeated(options.ctx, options.player.x, options.player.y, options.player.y - options.camera.y, options.player.moving ? null : seatedAt(options.player.x, options.player.y), () => drawCrossingFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => drawSoulWellFall(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, options.player.y,
         () => drawTownTeleport(options.ctx, options.player.x - options.camera.x, options.player.y - options.camera.y, () => actor.drawPlayer(
           frame.localIdentity(),
           options.publicPlayerName(frame.localIdentity(), frame.localDisplayName()),
           options.playerPower(options.player), soulWellFall.active,
-        )))),
+        ))))),
     });
     invalidateDepthOrder = () => { depth.invalidateDepthOrder(); soulGround.invalidate(); hallGround.invalidate(); };
     renderer = createRenderController({
@@ -548,7 +576,7 @@ export function createWorldRenderRuntime(options: WorldRenderRuntimeOptions) {
       drawStaticWorld: world.drawStaticWorld,
       drawDuelArena: actor.drawDuelArena,
       drawDuelScene: actor.drawDuelScene,
-      drawDecor: () => { world.drawDecor(); soulGround.draw(); drawGroveShadows(); hallGround.draw(); },
+      drawDecor: () => { world.drawDecor(); soulGround.draw(); drawGroveShadows(); hallGround.draw(); drawCrossingGround(); },
       drawBossTelegraphs: () => {
         const mapBoss = bossForMap(options.currentMapId());
         if (mapBoss) boss.drawBossTelegraphs[mapBoss.kind]();

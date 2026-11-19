@@ -197,8 +197,9 @@ function questPoolPoints(ctx: Ctx, week: number, guildId: bigint) {
 }
 
 /**
- * Credits pure-bonus Glass Crossing milestone/clear points to the guild's weekly total,
- * its Hall Fund, and every member's live quest row — without reducing the 300-quest pool.
+ * Credits pure-bonus Glass Crossing points immediately to the guild's weekly total,
+ * its Hall Fund, and every member's live quest row + active stat bonus — without
+ * reducing the 300-quest pool.
  */
 export function creditGuildCrossingPoints(ctx: Ctx, guildId: bigint, guildName: string, points: number) {
   if (!(points > 0)) return 0;
@@ -208,11 +209,12 @@ export function creditGuildCrossingPoints(ctx: Ctx, guildId: bigint, guildName: 
   const next = { key, week, guildId, guildName, points: (current?.points ?? 0) + Math.floor(points) };
   if (current) ctx.db.guildQuestWeek.key.update(next); else ctx.db.guildQuestWeek.insert(next);
   creditGuildHall(ctx, guildId, points);
+  const liveBonus = guildQuestBonus(questPoolPoints(ctx, week - 1, guildId) + guildCrossingBonusPoints(ctx, week, guildId));
   if (ctx.db.guildMember) {
     for (const member of ctx.db.guildMember.guildId.filter(guildId)) {
       const row = ctx.db.playerDailyQuest.identity.find(member.identity);
-      if (row && questWeek(row.day) === week && row.guildPoints !== next.points) {
-        ctx.db.playerDailyQuest.identity.update({ ...row, guildPoints: next.points });
+      if (row && questWeek(row.day) === week && (row.guildPoints !== next.points || row.bonus !== liveBonus)) {
+        ctx.db.playerDailyQuest.identity.update({ ...row, guildPoints: next.points, bonus: liveBonus });
       }
     }
   }
@@ -221,15 +223,15 @@ export function creditGuildCrossingPoints(ctx: Ctx, guildId: bigint, guildName: 
 
 /**
  * This week's multiplier on every stat reward the player earns: 0.1% for
- * each point their guild earned last week, from the moment they join it
- * (joining a guild gives its bonus for the week, period). It is only
- * ever the current guild's, so leaving drops it and nothing stacks. Without a
- * guild it is their own week: 1% for each quest they finished, guild or not, up to 15%.
+ * each regular quest point their guild earned last week PLUS 0.1% for each
+ * Glass Crossing point their guild has already earned THIS week (immediate
+ * reward right away, never double-counted into next week). Without a guild it
+ * is their own week: 1% for each quest they finished, guild or not, up to 15%.
  */
 export function guildQuestBonusFor(ctx: Ctx, identity: any, guild = guildOf(ctx, identity), rows?: SoloRows) {
   const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
   if (!guild) return soloQuestBonus(questsDoneIn(ctx, identity, week - 1, rows ?? soloRowsFor(ctx, identity, ctx.db.playerDailyQuest.identity.find(identity))));
-  return guildQuestBonus(weekPoints(ctx, week - 1, guild.id));
+  return guildQuestBonus(questPoolPoints(ctx, week - 1, guild.id) + guildCrossingBonusPoints(ctx, week, guild.id));
 }
 
 /** guildQuestBonusFor with the rows it read, so a kill report's quest refresh can start from them. */

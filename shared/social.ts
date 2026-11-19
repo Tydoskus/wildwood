@@ -25,6 +25,11 @@ export const SOCIAL_FRIEND_LIMIT = 100;
 export const SOCIAL_REQUEST_LIMIT = 50;
 export const SOCIAL_MESSAGE_LIMIT = 100;
 /**
+ * Guild chat stays visible for a full week when a guild has fewer than
+ * SOCIAL_MESSAGE_LIMIT messages; busier guilds roll off older messages by count.
+ */
+export const GUILD_CHAT_RETENTION_DAYS = 7;
+/**
  * Private messages expire, so the per-recipient view grows with what players
  * still read, not with account age. A year is long enough that no conversation
  * a player returns to is lost.

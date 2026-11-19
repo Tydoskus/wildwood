@@ -2,6 +2,7 @@ import { ONBOARDING_MAP_ID, ONBOARDING_ART_OFFSET } from "../../shared/onboardin
 import { isProceduralMap, type ProceduralMapId } from "../../shared/procedural-maps";
 import { isSoulMap, type SoulMapId } from "../../shared/soul-dimension";
 import { isGuildHallMap, type GuildHallMapId } from "../../shared/guild-hall";
+import { isGuildCrossingMap, type GuildCrossingMapId } from "../../shared/guild-crossing";
 import { townWorldLayout } from "./town-world";
 import { isTownMap, TOWN_BENCH_POSITION, type TownMapId } from "../../shared/town";
 import type { SchoolBuilding } from "../../shared/weapon-mastery";
@@ -101,6 +102,7 @@ export type MapId =
   | SoulMapId
   | ProceduralMapId
   | GuildHallMapId
+  | GuildCrossingMapId
   | TownMapId
   | typeof HOME_EXTERIOR_MAP_ID
   | typeof TUTORIAL_FOREST_MAP_ID
@@ -632,7 +634,7 @@ export function createWorldLayout(playerSpawn: Point, mapId: MapId = TUTORIAL_FO
   // The Soul Dimension is Tutorial Forest's dark mirror: its paths and trees, in the dark (map-design.ts).
   if (isSoulMap(mapId)) return createWorldLayout(playerSpawn, TUTORIAL_FOREST_MAP_ID);
   // A guild hall's decor follows its upgrades (guild-hall-runtime.ts); its ground is baked art.
-  if (isGuildHallMap(mapId)) return { decor: [], paths: [] };
+  if (isGuildHallMap(mapId) || isGuildCrossingMap(mapId)) return { decor: [], paths: [] };
   return clearOfGateways(authoredWorldLayout(playerSpawn, mapId), mapId);
 }
 
@@ -774,7 +776,7 @@ function keepClearFor(mapId: string) {
 
 export function mapSpawnCamps(mapId: MapId = TUTORIAL_FOREST_MAP_ID): readonly SpawnCamp[] {
   // The Soul Dimension fills the forest's camps with each player's own (soul-dimension-runtime.ts).
-  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isTownMap(mapId)) return [];
+  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isGuildCrossingMap(mapId) || isTownMap(mapId)) return [];
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).camps;
   // Every camp's enemies the same distance apart, as far as the map's camps allow (region-scatter.ts).
   const camps = evenCampSpacing(authoredSpawnCamps(mapId));
@@ -793,7 +795,7 @@ function authoredSpawnCamps(mapId: MapId): readonly SpawnCamp[] {
 /** `_boss` is unused: regions are laid out clear of the boss, so nothing is pushed from it. */
 export function createSpawnSites(_boss: Point, mapId: MapId = TUTORIAL_FOREST_MAP_ID): SpawnSite[] {
   if (isProceduralMap(mapId)) return generatedMapContent(mapId).sites;
-  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isTownMap(mapId)) return [];
+  if (mapId === HOME_EXTERIOR_MAP_ID || mapId === ONBOARDING_MAP_ID || isSoulMap(mapId) || isGuildHallMap(mapId) || isGuildCrossingMap(mapId) || isTownMap(mapId)) return [];
   const sites: SpawnSite[] = [];
   const camps = mapSpawnCamps(mapId);
   assertCampContracts(camps);

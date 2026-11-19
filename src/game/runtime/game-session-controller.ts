@@ -1,6 +1,7 @@
 import { isProceduralMap } from "../../../shared/procedural-maps";
 import { markEntered } from "../../app/after-entry";
 import { isGuildHallMap } from "../../../shared/guild-hall";
+import { isGuildCrossingMap } from "../../../shared/guild-crossing";
 import { DUEL_ARENA } from "../duel";
 import { snapCameraToPlayer, updateCamera } from "./render/camera";
 import type { PlayerState } from "./types";
@@ -211,7 +212,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     awaitingServerPosition = false;
     const serverMapId = dependencies.serverMapId();
     if (serverMapId && serverMapId !== dependencies.getMapId()
-      && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId) || isGuildHallMap(serverMapId))) {
+      && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId) || isGuildHallMap(serverMapId) || isGuildCrossingMap(serverMapId))) {
       dependencies.setMapId(serverMapId);
       dependencies.mapMusicSync();
       dependencies.resetPlayer(true);
@@ -336,7 +337,7 @@ export function createGameSessionController(dependencies: SessionDependencies) {
     dependencies.hideGameOver();
     paused = false;
     const serverMapId = dependencies.serverMapId();
-    if (serverMapId && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId) || isGuildHallMap(serverMapId))) dependencies.setMapId(serverMapId);
+    if (serverMapId && (dependencies.validMapIds.includes(serverMapId) || isProceduralMap(serverMapId) || isGuildHallMap(serverMapId) || isGuildCrossingMap(serverMapId))) dependencies.setMapId(serverMapId);
     dependencies.mapMusicSync();
     dependencies.resetPlayer(hasStarted);
     const serverState = dependencies.serverPlayerState();

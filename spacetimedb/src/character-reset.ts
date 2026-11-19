@@ -22,6 +22,7 @@ import { TUTORIAL_FOREST_MAP_ID, PLAYER_SPAWN } from "../../shared/rules";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
 import { isTownMap } from "./town";
 import { isGuildHallMap } from "./guild-hall";
+import { isGuildCrossingMap } from "./guild-crossing";
 import { pinMapBalance } from "./map-balance";
 import { recordAnalyticsMapVisit } from "./analytics";
 import { noteMapDeparture } from "./enemy-defeats";
@@ -171,7 +172,7 @@ export function transitionPlayerMap(
   syncPlayerMapMarker(ctx, nextPlayer, true);
   ensureRealtimeFrameSchedules(ctx);
   // Home, the Town and guild halls have no enemies: nothing reads a pin there, and the old pin still fits on the way back.
-  if (mapId !== HOME_EXTERIOR_MAP_ID && !isTownMap(mapId) && !isGuildHallMap(mapId)) pinMapBalance(ctx, mapId);
+  if (mapId !== HOME_EXTERIOR_MAP_ID && !isTownMap(mapId) && !isGuildHallMap(mapId) && !isGuildCrossingMap(mapId)) pinMapBalance(ctx, mapId);
   recordAnalyticsMapVisit(ctx, mapId);
   return nextPlayer;
 }

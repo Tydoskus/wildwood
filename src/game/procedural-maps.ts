@@ -10,6 +10,7 @@ import {
 } from "../../shared/procedural-maps";
 import { campaignMeleeChaseSpeed } from "../../shared/enemy-definitions";
 import { isGuildHallMap } from "../../shared/guild-hall";
+import { isGuildCrossingMap } from "../../shared/guild-crossing";
 import { ENEMY_TYPES, type EnemyKind } from "./enemies";
 import type { SpawnSite, SpawnCamp, WorldDecor } from "./world";
 import { evenCampSpacing, isNearRegionSpawns, regionSpawnPoints } from "./region-scatter";
@@ -88,11 +89,13 @@ export function withGeneratedMaps<T>(
   authored: object,
   generate: (id: ProceduralMapId) => T,
   hall?: T,
+  crossing?: T,
 ): Record<string, T> {
   const cache = new Map<string, T>();
   return new Proxy(authored as Record<string, T>, {
     get(target, key, receiver) {
       if (hall !== undefined && isGuildHallMap(key)) return hall;
+      if (crossing !== undefined && isGuildCrossingMap(key)) return crossing;
       if (typeof key !== "string" || !isProceduralMap(key))
         return Reflect.get(target, key, receiver);
       const cacheKey = `${key}:${runtimeMapBalance(key)?.revision ?? "authored"}`;
@@ -105,6 +108,7 @@ export function withGeneratedMaps<T>(
     has(target, key) {
       return (
         (typeof key === "string" && isProceduralMap(key)) || (hall !== undefined && isGuildHallMap(key)) ||
+        (crossing !== undefined && isGuildCrossingMap(key)) ||
         Reflect.has(target, key)
       );
     },

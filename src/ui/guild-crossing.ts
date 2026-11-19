@@ -272,13 +272,13 @@ export function createGuildCrossingView(
         portal.append(winRow, el("small", `+${snap.maxPoints} Guild Quest Points & Hall Fund awarded`));
       } else if (finishReady) {
         portal.append(el("strong", "Victory Portal Open!"));
-        const finishBtn = el("button", snap.remainingToday > 0 ? "Cross Finish Portal (+25 pts)" : "Waiting for a guildmate with a try", "guild-button guild-button--primary crossing-finish-btn");
+        const finishBtn = el("button", snap.remainingToday > 0 ? "Cross Finish Portal (+20 pts)" : "Waiting for a guildmate with a try", "guild-button guild-button--primary crossing-finish-btn");
         finishBtn.type = "button";
         finishBtn.disabled = busy || snap.remainingToday <= 0;
         finishBtn.addEventListener("click", () => { void step("finish"); });
         portal.append(finishBtn);
       } else {
-        portal.append(el("strong", "Victory Portal"), el("small", "+25 Bonus Guild Quest Points & Hall Fund"));
+        portal.append(el("strong", "Victory Portal"), el("small", "+20 Bonus Guild Quest Points & Hall Fund"));
       }
       bridge.append(portal);
 
@@ -322,7 +322,7 @@ export function createGuildCrossingView(
         el("summary", "How Glass Crossing works"),
         el("p", "Pick Left or Right on the active glass pair. Safe tiles keep your daily try so you can chain a streak!"),
         el("p", "Fragile glass shatters, spends 1 try, marks your memorial on the tile, and reveals the safe side for your whole guild."),
-        el("p", "Daily tries reset at 00:00 UTC (1/day for 11–20 members, 2/day for 5–10, 3/day for 1–4). All +50 points are pure bonus on top of the 300-quest weekly cap and also fill the Guild Hall Fund."),
+        el("p", "Daily tries reset at 00:00 UTC (1/day for 11–20 members, 2/day for 5–10, 3/day for 1–4). Every step awards +2 pts right away (+20 on clear, 50 total) on top of the 300-quest pool and boosts your guild bonus immediately."),
       );
       body.append(rules);
 

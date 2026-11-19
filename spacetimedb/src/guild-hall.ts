@@ -6,6 +6,7 @@ import {
 } from "../../shared/guild-hall";
 import { withBonusShare } from "./guild-hall-bonus";
 import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { isGuildCrossingMap } from "../../shared/guild-crossing";
 import { questDay, questWeek } from "../../shared/weekly-quests";
 import { isTownMap, TOWN_ARRIVAL, TOWN_MAP_ID } from "../../shared/town";
 import { doorDestinationFor } from "./door-reach";
@@ -137,7 +138,7 @@ export function guildHallReturnPointFor(ctx: any, mapId: string, x: number, y: n
 export function enterGuildHall(ctx: any, current: any, mapId: string, x: number, y: number, deps: Pick<GuildHallDeps, "transitionPlayerMap" | "persistWorldLocation">) {
   if (!guildHallMember(ctx, ctx.sender, mapId)) throw new SenderError("Only the guild's members can enter its hall.");
   if (current.hp <= 0) throw new SenderError("Respawn before travelling.");
-  if (current.mapId !== HOME_EXTERIOR_MAP_ID && !isGuildHallMap(current.mapId) && !isTownMap(current.mapId) && [x, y].every(Number.isFinite)) {
+  if (current.mapId !== HOME_EXTERIOR_MAP_ID && !isGuildHallMap(current.mapId) && !isGuildCrossingMap(current.mapId) && !isTownMap(current.mapId) && [x, y].every(Number.isFinite)) {
     const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
     if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
     else ctx.db.homeReturnLocation.insert(saved);

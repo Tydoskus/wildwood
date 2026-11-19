@@ -76,7 +76,7 @@ export function createWorldPlaces(deps: WorldPlacesDeps) {
   });
   const guildHall = createGuildHall({
     source, player, decor: world.decor, currentMapId, invalidateDepthOrder: later.invalidateDepthOrder, clearInput,
-    fadeToWorld: later.fadeToWorld, camera: deps.camera,
+    fadeToWorld: later.fadeToWorld, camera: deps.camera, showMessage: deps.showMessage,
     travel: mapId => {
       deps.autoFarm.stop("Autofarm stopped for the Guild Hall");
       return mapController.teleportToMap(mapId, async () => Boolean(await coop.client?.changeMap?.(mapId, player.x, player.y)));

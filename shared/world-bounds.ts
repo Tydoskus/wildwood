@@ -2,6 +2,7 @@ import { HOME_EXTERIOR_MAP_ID, HOME_WORLD_HEIGHT, HOME_WORLD_WIDTH } from "./hom
 import { WORLD_HEIGHT, WORLD_WIDTH } from "./rules";
 import { inTownInteriors, TOWN_MAP_ID, TOWN_WORLD } from "./town";
 import { GUILD_HALL_INDOORS_LEFT, GUILD_HALL_WORLD, isGuildHallMap } from "./guild-hall";
+import { GUILD_CROSSING_WORLD, isGuildCrossingMap } from "./guild-crossing";
 
 export type WorldBounds = { width: number; height: number };
 const CAMPAIGN_BOUNDS: WorldBounds = Object.freeze({ width: WORLD_WIDTH, height: WORLD_HEIGHT });
@@ -16,6 +17,7 @@ export function worldBoundsFor(mapId: string | null | undefined): WorldBounds {
   if (mapId === HOME_EXTERIOR_MAP_ID) return HOME_BOUNDS;
   if (mapId === TOWN_MAP_ID) return TOWN_WORLD;
   if (isGuildHallMap(mapId)) return GUILD_HALL_WORLD;
+  if (isGuildCrossingMap(mapId)) return GUILD_CROSSING_WORLD;
   return CAMPAIGN_BOUNDS;
 }
 /** Whether a map's positions need the wide (u32) motion format: only the Town's run past 6,553. */

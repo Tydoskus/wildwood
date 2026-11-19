@@ -3,14 +3,22 @@ import type spacetimedbType from "./index";
 import {
   CROSSING_MAX_POINTS,
   CROSSING_STEPS,
+  GUILD_CROSSING_ARRIVAL,
+  crossingFrontierSpawn,
   crossingPointsForState,
   dailyCrossingAttempts,
+  guildCrossingGuildId,
+  guildCrossingMapId,
+  isGuildCrossingMap,
   type CrossingFall,
   type CrossingPioneer,
   type CrossingSide,
   type GuildCrossingSnapshot,
   type GuildCrossingSummary,
 } from "../../shared/guild-crossing";
+import { isGuildHallMap } from "../../shared/guild-hall";
+import { HOME_EXTERIOR_MAP_ID } from "../../shared/home";
+import { isTownMap, TOWN_ARRIVAL, TOWN_MAP_ID } from "../../shared/town";
 import { questDay, questWeek, questWeekEndsAtMs } from "../../shared/weekly-quests";
 
 const DAY_MS = 86_400_000;
@@ -166,7 +174,7 @@ export function readGuildCrossing(ctx: Ctx, identity: any): GuildCrossingSnapsho
 export type GuildCrossingDeps = {
   requireGuildPlayer: (ctx: Ctx) => void;
   requireGuildConnection: (ctx: Ctx) => void;
-  profileFor: (ctx: Ctx, identity: any) => { displayName: string; profileIcon: number } | null;
+  profileFor: (ctx: Ctx, identity: any) => { displayName: string; profileIcon: number; skinTone?: number } | null;
   creditCrossingPoints: (ctx: Ctx, guildId: bigint, guildName: string, delta: number) => void;
 };
 
@@ -207,6 +215,7 @@ export function stepGuildCrossingFor(ctx: Ctx, expectedStep: number, side: strin
   if (prev.used >= dailyLimit) throw new SenderError("No tries left today. Come back after daily reset.");
 
   const profile = deps.profileFor(ctx, ctx.sender);
+  const playerRow = ctx.db.player?.identity.find(ctx.sender) ?? null;
   const playerName = profile?.displayName || member.name || "Wanderer";
   const playerIcon = profile?.profileIcon ?? 0;
   const playerHex = ctx.sender.toHexString();
@@ -243,6 +252,12 @@ export function stepGuildCrossingFor(ctx: Ctx, expectedStep: number, side: strin
         identity: playerHex,
         profileIcon: playerIcon,
         atMs: Number(nowMicros / 1000n),
+        ...(typeof profile?.skinTone === "number" ? { skinTone: profile.skinTone } : {}),
+        ...(playerRow?.headItem ? { headItem: playerRow.headItem } : {}),
+        ...(playerRow?.chestItem ? { chestItem: playerRow.chestItem } : {}),
+        ...(playerRow?.feetItem ? { feetItem: playerRow.feetItem } : {}),
+        ...(playerRow?.rightHandItem ? { rightHandItem: playerRow.rightHandItem } : {}),
+        ...(playerRow?.leftHandItem ? { leftHandItem: playerRow.leftHandItem } : {}),
       });
       nextRevealed = row.revealed + 1;
       nextUsed += 1;
@@ -298,3 +313,61 @@ export function registerGuildCrossing(spacetimedb: typeof spacetimedbType, deps:
   });
   return { getGuildCrossing, stepGuildCrossing };
 }
+
+/** Whether `identity` belongs to the guild that owns this Glass Crossing map. */
+export function guildCrossingMember(ctx: Ctx, identity: any, mapId: string) {
+  const id = guildCrossingGuildId(mapId);
+  return id !== null && (ctx.db.guildMember.identity.find(identity)?.guildId ?? null) === id;
+}
+
+/** Frontier spawn inside `guild_crossing_<guildId>` so players land right behind the next 50/50 tile. */
+export function guildCrossingSpawnFor(ctx: Ctx, mapId: string) {
+  const guildId = guildCrossingGuildId(mapId);
+  if (guildId === null) return { ...GUILD_CROSSING_ARRIVAL };
+  const week = questWeek(questDay(ctx.timestamp.microsSinceUnixEpoch));
+  const row = ctx.db.guildCrossingWeek?.key.find(crossingKey(week, guildId));
+  if (!row) return { ...GUILD_CROSSING_ARRIVAL };
+  const revealed = Math.max(0, Math.min(CROSSING_STEPS, row.revealed));
+  const sides: CrossingSide[] = [];
+  for (let i = 0; i < revealed; i++) sides.push(bitSide(row.secretMask, i));
+  return crossingFrontierSpawn(revealed, Boolean(row.completed), sides);
+}
+
+/** `change_map` into `guild_crossing_<guildId>`: from anywhere for guild members; preserves Fight return location. */
+export function enterGuildCrossing(
+  ctx: Ctx,
+  current: any,
+  mapId: string,
+  x: number,
+  y: number,
+  deps: { transitionPlayerMap: (ctx: Ctx, current: any, mapId: string, arrival: { x: number; y: number }) => any; persistWorldLocation: (ctx: Ctx, player: any) => void },
+) {
+  if (!guildCrossingMember(ctx, ctx.sender, mapId)) throw new SenderError("Only the guild's members can enter its Glass Crossing.");
+  if (current.hp <= 0) throw new SenderError("Respawn before travelling.");
+  if (current.mapId !== HOME_EXTERIOR_MAP_ID && !isGuildHallMap(current.mapId) && !isGuildCrossingMap(current.mapId) && !isTownMap(current.mapId) && [x, y].every(Number.isFinite)) {
+    const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
+    if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
+    else ctx.db.homeReturnLocation.insert(saved);
+  }
+  const landing = guildCrossingSpawnFor(ctx, mapId);
+  deps.transitionPlayerMap(ctx, current, mapId, landing);
+  deps.persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
+}
+
+/** A member left or was removed from a guild while inside its Glass Crossing: move them to Town. */
+export function guildCrossingMemberLeft(
+  ctx: Ctx,
+  identity: any,
+  guildId: bigint,
+  deps: { transitionPlayerMap: (ctx: Ctx, current: any, mapId: string, arrival: { x: number; y: number }) => any; persistWorldLocation: (ctx: Ctx, player: any) => void },
+) {
+  const mapId = guildCrossingMapId(guildId);
+  const player = ctx.db.player.identity.find(identity);
+  if (player?.mapId === mapId) {
+    deps.transitionPlayerMap({ ...ctx, sender: identity }, player, TOWN_MAP_ID, TOWN_ARRIVAL);
+    deps.persistWorldLocation({ ...ctx, sender: identity }, ctx.db.player.identity.find(identity));
+  }
+  if (ctx.db.homeReturnLocation.identity.find(identity)?.mapId === mapId) ctx.db.homeReturnLocation.identity.delete(identity);
+}
+
+export { GUILD_CROSSING_ARRIVAL, isGuildCrossingMap };

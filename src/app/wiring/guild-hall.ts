@@ -1,4 +1,5 @@
 import { EMPTY_GUILD_HALL_LEVELS, guildHallMapId, isGuildHallMap, type GuildHallPart } from "../../../shared/guild-hall";
+import { guildCrossingGuildId, guildCrossingMapId, type CrossingChoice, type GuildCrossingSnapshot } from "../../../shared/guild-crossing";
 import type { GuildSnapshot } from "../../../shared/guilds";
 import { guildEmblemFor } from "../../game/guild-emblems";
 import { createGuildHallWindow } from "../../ui/guild-hall-window";
@@ -6,11 +7,16 @@ import type { MapId } from "../../game/world";
 import { guildHallCameraRegion } from "../../game/guild-hall";
 import type { Camera } from "../../game/runtime/render/camera";
 import { createGuildHallRuntime, type GuildHallSource } from "../../game/runtime/guild-hall/guild-hall-runtime";
+import { createGuildCrossingRuntime } from "../../game/runtime/guild-crossing/guild-crossing-runtime";
 
 export type GuildHallCoop = GuildHallSource & {
   localIdentity?: () => string | undefined;
   upgradeGuildHall?: (part: GuildHallPart) => Promise<boolean>;
-  guild?: { loadGuild: () => Promise<GuildSnapshot> };
+  guild?: {
+    loadGuild: () => Promise<GuildSnapshot>;
+    loadCrossing: () => Promise<GuildCrossingSnapshot | null>;
+    stepCrossing: (expectedStep: number, side: CrossingChoice) => Promise<GuildCrossingSnapshot | null>;
+  };
 };
 
 /**
@@ -22,6 +28,7 @@ export function createGuildHall(deps: Omit<Parameters<typeof createGuildHallRunt
   source: () => GuildHallCoop | null | undefined;
   travel: (mapId: MapId) => Promise<boolean>;
   camera: Camera;
+  showMessage?: (text: string, color?: string) => void;
 }) {
   // In a hall the camera keeps to the player's side of its door: the wood outdoors, the great hall's dark indoors.
   deps.camera.keepTo = x => isGuildHallMap(deps.currentMapId()) ? guildHallCameraRegion(x) : null;
@@ -54,5 +61,30 @@ export function createGuildHall(deps: Omit<Parameters<typeof createGuildHallRunt
     openBoard: () => window.open(),
     loadEmblem: async () => { const found = await loadGuild(); return found ? guildEmblemFor(found.name, found.emblem) : -1; },
   });
-  return { ...runtime, hallMap, openWindow: () => window.open(), refreshWindow: () => window.refresh() };
+  const crossingRuntime = createGuildCrossingRuntime({
+    source: deps.source,
+    player: deps.player,
+    currentMapId: deps.currentMapId,
+    travel: deps.travel,
+    clearInput: deps.clearInput,
+    showMessage: deps.showMessage,
+  });
+  /** Enters the player's guild's playable Glass Crossing map, resolving the guild ID if needed. */
+  async function enterCrossing(explicitGuildId?: string) {
+    let id = explicitGuildId || deps.source()?.guildHall?.()?.guildId;
+    if (!id) {
+      const snap = await deps.source()?.guild?.loadGuild().catch(() => null);
+      id = snap?.guild?.id;
+    }
+    return id ? deps.travel(guildCrossingMapId(id) as MapId) : false;
+  }
+  return {
+    ...runtime,
+    guildId: () => runtime.guildId() ?? guildCrossingGuildId(deps.currentMapId()),
+    update(dt: number) { runtime.update(dt); crossingRuntime.update(dt); },
+    hallMap,
+    enterCrossing,
+    openWindow: () => window.open(),
+    refreshWindow: () => window.refresh(),
+  };
 }

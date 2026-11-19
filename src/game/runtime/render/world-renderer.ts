@@ -39,6 +39,11 @@ import { createTintedImageCanvas } from "./image-tint";
 import { decorPaletteColor, mapVisualTheme } from "../../map-design";
 import { mapWorldLayout } from "../../map-layout";
 import { isGuildHallMap } from "../../../../shared/guild-hall";
+import {
+  CROSSING_STEPS, GUILD_CROSSING_FINISH_PORTAL, GUILD_CROSSING_FINISH_RECT, GUILD_CROSSING_START_RECT,
+  crossingTileRect, isGuildCrossingMap,
+} from "../../../../shared/guild-crossing";
+import { guildCrossingScene } from "../guild-crossing/guild-crossing-scene";
 import { guildHallCameraRegion } from "../../guild-hall";
 import { portalTravelScene } from "./portal-glimpse";
 import { createShrunkImages, deviceScale } from "./shrunk-image";
@@ -798,7 +803,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
 
   /** Paints a destination's ground and trees around its arrival, exactly as its tiles will paint them. */
   function paintPortalGlimpse(mapId: MapId, arrival: { x: number; y: number }): PortalGlimpse | null {
-    if (isTownMap(mapId) || isGuildHallMap(mapId) || mapId === "home_exterior") return null;
+    if (isTownMap(mapId) || isGuildHallMap(mapId) || isGuildCrossingMap(mapId) || mapId === "home_exterior") return null;
     const custom = options.customStaticTiles?.(mapId);
     if (custom && !custom.ready()) return null;
     const layout = mapWorldLayout(arrival, mapId);
@@ -1218,11 +1223,15 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     // A guild hall's minimap shows only the player's side of its door, the hall in the middle.
     if (isGuildHallMap(options.getMapId())) {
       const area = guildHallCameraRegion(options.player.x), span = Math.max(area.right - area.left, area.bottom - area.top);
-      return { x: (area.left + area.right - span) / 2, y: (area.top + area.bottom - span) / 2, span, rooms: false, hills: false, grove: false };
+      return { x: (area.left + area.right - span) / 2, y: (area.top + area.bottom - span) / 2, span, rooms: false, hills: false, grove: false, crossing: false };
+    }
+    if (isGuildCrossingMap(options.getMapId())) {
+      // Frame the whole south-to-north chasm bridge squarely with the bridge centered.
+      return { x: -700, y: 240, span: 3_200, rooms: false, hills: false, grove: false, crossing: true };
     }
     if (!isTownMap(options.getMapId())) return null;
     if (inTownInteriors(options.player.x, options.player.y, TOWN_INTERIOR_MARGIN)) {
-      return { x: options.player.x - TOWN_ROOMS_MINIMAP_SPAN / 2, y: options.player.y - TOWN_ROOMS_MINIMAP_SPAN / 2, span: TOWN_ROOMS_MINIMAP_SPAN, rooms: true, hills: false, grove: false };
+      return { x: options.player.x - TOWN_ROOMS_MINIMAP_SPAN / 2, y: options.player.y - TOWN_ROOMS_MINIMAP_SPAN / 2, span: TOWN_ROOMS_MINIMAP_SPAN, rooms: true, hills: false, grove: false, crossing: false };
     }
     // The cell of the 3×3 grid the player is in, with a little of the village's side showing.
     const village = TOWN_VILLAGE_WALK_AREA, walls = TOWN_WALK_AREA;
@@ -1235,7 +1244,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       bottom: north ? village.top + 300 : south ? walls.bottom : village.bottom,
     };
     const span = Math.max(area.right - area.left, area.bottom - area.top);
-    return { x: (area.left + area.right - span) / 2, y: (area.top + area.bottom - span) / 2, span, rooms: false, hills, grove };
+    return { x: (area.left + area.right - span) / 2, y: (area.top + area.bottom - span) / 2, span, rooms: false, hills, grove, crossing: false };
   }
 
   /** The hills' ore rocks on the minimap: a dot each in its ore's colour, faded while it is bare. */
@@ -1258,6 +1267,33 @@ export function createWorldRenderer(options: WorldRendererOptions) {
       draw.fillStyle = LOG_COLORS[tree.log].face; draw.fillRect(px - 1, py - 1, 2, 2);
     }
     draw.globalAlpha = 1;
+  }
+
+  /** Glass Crossing bridge silhouette on the minimap: platforms, revealed/shattered panes, frontier, and Victory Portal. */
+  function drawCrossingOnMinimap(draw: CanvasRenderingContext2D, ox: number, oy: number, sx: number, sy: number) {
+    const snap = guildCrossingScene.snapshot;
+    const rect = (r: { left: number; right: number; top: number; bottom: number }, fill: string) => {
+      draw.fillStyle = fill;
+      draw.fillRect((r.left - ox) * sx, (r.top - oy) * sy, (r.right - r.left) * sx, (r.bottom - r.top) * sy);
+    };
+    rect(GUILD_CROSSING_START_RECT, "#42546e");
+    rect(GUILD_CROSSING_FINISH_RECT, "#5c5138");
+    const revealed = snap?.revealed ?? 0;
+    const completed = snap?.completed ?? false;
+    for (let i = 0; i < CROSSING_STEPS; i++) {
+      for (const side of ["left", "right"] as const) {
+        const tile = crossingTileRect(i, side);
+        const isRev = i < revealed;
+        const isFront = i === revealed && !completed;
+        const safe = isRev && snap?.revealedSides[i] === side;
+        draw.fillStyle = isRev ? (safe ? "#3ee2a8" : "#6b2833") : isFront ? "#ffd86b" : "#3a5672";
+        draw.fillRect((tile.left - ox) * sx, (tile.top - oy) * sy, Math.max(2, tile.width * sx), Math.max(2, tile.height * sy));
+      }
+    }
+    draw.fillStyle = "#ffe074";
+    draw.beginPath();
+    draw.arc((GUILD_CROSSING_FINISH_PORTAL.x - ox) * sx, (GUILD_CROSSING_FINISH_PORTAL.y - oy) * sy, 3.5, 0, Math.PI * 2);
+    draw.fill();
   }
 
   /** Inside a village room the map is that room in the dark, as the world is. */
@@ -1306,6 +1342,7 @@ export function createWorldRenderer(options: WorldRendererOptions) {
     if (frame?.hills) drawOreRocksOnMinimap(draw, ox, oy, sx, sy);
     if (frame?.grove) drawWoodTreesOnMinimap(draw, ox, oy, sx, sy);
     if (frame?.rooms) drawSoulRoomsOnMinimap(draw, innerSize, ox, oy, sx, sy);
+    if (frame?.crossing) drawCrossingOnMinimap(draw, ox, oy, sx, sy);
     draw.fillStyle = colors.path; for (const path of options.paths) draw.fillRect(innerX + (path.x - ox) * sx, innerY + (path.y - oy) * sy, path.w * sx, path.h * sy);
     draw.save();
     draw.globalAlpha = options.getMapId() === options.infernalMapId ? .5 : 1;
@@ -1361,7 +1398,8 @@ export function createWorldRenderer(options: WorldRendererOptions) {
   function minimapMoved(remotePlayers: MapPlayerMarker[], view: Viewport) {
     const inputs = minimapInputs.begin();
     const frame = townMinimapFrame();
-    if (frame) inputs.add(frame.x).add(frame.y).add(frame.span).add(Number(frame.rooms)).add(Number(frame.hills)).add(Number(frame.grove));
+    if (frame) inputs.add(frame.x).add(frame.y).add(frame.span).add(Number(frame.rooms)).add(Number(frame.hills)).add(Number(frame.grove)).add(Number(frame.crossing));
+    if (frame?.crossing) inputs.add(guildCrossingScene.snapshot?.revealed ?? -1).add(Number(Boolean(guildCrossingScene.snapshot?.completed)));
     inputs.add(townVillageThumbnail ? 1 : options.minimapVillageGround?.()?.complete ? 2 : 0).add(options.paths.length);
     if (frame?.hills) for (const node of MINING_NODES) inputs.add(Number(miningScene.bare.has(node.id)));
     if (frame?.grove) for (const tree of WOOD_TREE_NODES) inputs.add(Number(woodcuttingScene.felled.has(tree.id)));

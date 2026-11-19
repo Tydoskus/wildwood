@@ -13,6 +13,7 @@ import { appendChatReactions } from "./chat-reactions";
 import type { ChatReaction, ChatReactionState, ChatRole } from "../../shared/chat-reactions";
 import { playerNamePrefix, playerNameTagsRevision } from "../app/player-name-tags";
 import {
+  chatMessageDisplayTtlMs,
   duelReplayIsInteractive,
   formatChatReplyPreview,
   formatChatStamp,
@@ -41,7 +42,6 @@ import type { ChatMuteRecord } from "../../shared/chat-mute";
 import { chatListFingerprint, createChatInputMemo, sameChatRows, setChatAttribute, setChatHidden, setChatText } from "./chat-refresh-cache";
 
 const CHAT_ENABLED_KEY = "wildwood-chat-enabled-v1";
-const CHAT_DISPLAY_TTL_MS = 86_400_000;
 const CHAT_COOLDOWN_MS = 3_000;
 const HISTORY_PREFETCH_ROWS = 20;
 
@@ -557,7 +557,8 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         const eligibleUnread = (rows: ChatMessage[]) => rows.filter(message => !coop?.isPlayerBlocked?.(message.sender));
         // A duel result is a record of a fight the player just saw, with its replay: it does not ask to be read.
         const privateUnread = (rows: ChatMessage[]) => eligibleUnread(rows).filter(message => !(message.replayId > 0n));
-        unreadCounts = unread.refresh(identity, eligibleUnread(guildRows),
+        const guildTtlMs = chatMessageDisplayTtlMs("guild");
+        unreadCounts = unread.refresh(identity, eligibleUnread(guildRows).filter(message => now - message.sentAtMs < guildTtlMs),
           new Map(privateRows.map(([person, rows]) => [person, privateUnread(rows)])),
           readConversation,
           eligibleUnread(worldRows).filter(message => shouldShowGlobalChatMessage(message.senderName)));
@@ -572,12 +573,13 @@ export function createChatController({ elements, getCoop, showMessage, onOpenRep
         channelPicker.refresh(conversations, guildName, counts);
       }
     }
+    const channelTtlMs = chatMessageDisplayTtlMs(channel);
     const channelMessages = history.messages(currentMessages());
     const allMessages = (channelMessages ?? []).filter((message) =>
-      (channel === "private" || now - message.sentAtMs < CHAT_DISPLAY_TTL_MS) && !coop?.isPlayerBlocked?.(message.sender)
+      now - message.sentAtMs < channelTtlMs && !coop?.isPlayerBlocked?.(message.sender)
       && (channel !== "public" || shouldShowGlobalChatMessage(message.senderName))
     );
-    const expiresAt = channel !== "private" && allMessages.length > 0 ? allMessages[0].sentAtMs + CHAT_DISPLAY_TTL_MS : Number.POSITIVE_INFINITY;
+    const expiresAt = Number.isFinite(channelTtlMs) && allMessages.length > 0 ? allMessages[0].sentAtMs + channelTtlMs : Number.POSITIVE_INFINITY;
     // Profile, portrait, hub, other-channel and minute ticks all land here
     // without changing a drawn row. Prove that from data alone: reading scroll
     // metrics forces a page layout, and typing keeps the page dirty.

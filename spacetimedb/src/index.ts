@@ -1,7 +1,7 @@
 import { playerPrestigeChallenge, playerPrestigeChallengeParked, prestigeChallengeBackup, prestigeChallengeRun, restorePrestigeChallenge } from "./prestige-challenge";
 import { standsAtResearch } from "./research-station";
 import { playerDailyQuest, guildQuestWeek, guildMemberQuestWeek, soloQuestWeek, playerQuestWeekTotal, ensureDailyQuests, pruneOldGuildQuestWeeks, recordDailyQuestKills, memberQuestStanding, questCollectStanding, collectMemberQuests, moveSoloQuestsToGuild, refreshQuestBonus, guildQuestBonusFor, creditGuildCrossingPoints } from "./daily-quests";
-import { guildCrossingSummaryFor, guildCrossingTables, pruneOldGuildCrossingWeeks, registerGuildCrossing } from "./guild-crossing";
+import { guildCrossingMember, guildCrossingMemberLeft, guildCrossingSpawnFor, guildCrossingSummaryFor, guildCrossingTables, isGuildCrossingMap, pruneOldGuildCrossingWeeks, registerGuildCrossing } from "./guild-crossing";
 import { duelCombatSnapshot } from "./duel-combat-snapshot";
 import { playerEquipmentLock, setEquipmentLock } from "./equipment-locks";
 import { compactNumberChanged } from "../../shared/compact-number";
@@ -1972,10 +1972,12 @@ function enterWorldPresence(ctx: any, tabId: string, forceTakeover = false, supp
     }
     const normalizedMapId = canonicalMapId(existing.mapId);
     const entryMapId = VALID_MAP_IDS.has(normalizedMapId) && normalizedMapId !== HOME_EXTERIOR_MAP_ID && (!isSoulMap(normalizedMapId) || soulDimensionOpenFor(ctx, ctx.sender))
-      && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId // Home is retired: its players arrive in the Town.
-      : isSoulMap(normalizedMapId) || isGuildHallMap(normalizedMapId) || normalizedMapId === HOME_EXTERIOR_MAP_ID ? TOWN_MAP_ID : TUTORIAL_FOREST_MAP_ID;
+      && (!isGuildHallMap(normalizedMapId) || guildHallMember(ctx, ctx.sender, normalizedMapId))
+      && (!isGuildCrossingMap(normalizedMapId) || guildCrossingMember(ctx, ctx.sender, normalizedMapId)) ? normalizedMapId // Home is retired: its players arrive in the Town.
+      : isSoulMap(normalizedMapId) || isGuildHallMap(normalizedMapId) || isGuildCrossingMap(normalizedMapId) || normalizedMapId === HOME_EXTERIOR_MAP_ID ? TOWN_MAP_ID : TUTORIAL_FOREST_MAP_ID;
     const fallbackPosition = entryMapId === TOWN_MAP_ID ? TOWN_ARRIVAL : MAP_ARRIVALS[entryMapId as keyof typeof MAP_ARRIVALS] ?? PLAYER_SPAWN;
     const entryPosition = entryMapId === normalizedMapId && isGuildHallMap(entryMapId) ? guildHallReturnPointFor(ctx, entryMapId, existing.x, existing.y)
+      : entryMapId === normalizedMapId && isGuildCrossingMap(entryMapId) ? guildCrossingSpawnFor(ctx, entryMapId)
       : entryMapId === normalizedMapId ? {
         x: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).width - PLAYER_RADIUS, existing.x)),
         y: Math.max(PLAYER_RADIUS, Math.min(worldBoundsFor(entryMapId).height - PLAYER_RADIUS, existing.y)),
@@ -2643,7 +2645,7 @@ function joinVirtualPlayer(ctx: ModuleReducerCtx, { owner, ticket, mapId, x, y }
     throw new SenderError("Developer cannot become a virtual player.");
   }
   if (session.enteredWorld) throw new SenderError("Virtual-player identity must be fresh.");
-  if (!VALID_MAP_IDS.has(mapId) || isGuildHallMap(mapId)) throw new SenderError("Unsupported virtual-player map.");
+  if (!VALID_MAP_IDS.has(mapId) || isGuildHallMap(mapId) || isGuildCrossingMap(mapId)) throw new SenderError("Unsupported virtual-player map.");
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new SenderError("Virtual-player position must be finite.");
 
   const run = ctx.db.virtualPlayerRun.owner.find(owner);
@@ -3794,7 +3796,7 @@ function playerPresence(ctx: any, identity: any) {
     lastSeenAtMs: Number(ctx.db.playerLifetime.identity.find(identity)?.sessionStartedAt.microsSinceUnixEpoch ?? 0n) / 1000 };
 }
 const guildService = createGuildService({
-  onMemberRemoved: (ctx, identity, guildId, deleted) => { refreshQuestBonus(ctx, identity); guildHallMemberLeft(ctx, identity, guildId, deleted, { transitionPlayerMap, persistWorldLocation }); },
+  onMemberRemoved: (ctx, identity, guildId, deleted) => { refreshQuestBonus(ctx, identity); guildHallMemberLeft(ctx, identity, guildId, deleted, { transitionPlayerMap, persistWorldLocation }); guildCrossingMemberLeft(ctx, identity, guildId, { transitionPlayerMap, persistWorldLocation }); },
   prestigeFor: (ctx, identity) => ctx.db.playerPrestige.identity.find(identity)?.level ?? 0,
   powerFor: (ctx, identity) => {
     const progress = readPlayerProgress(ctx, identity);

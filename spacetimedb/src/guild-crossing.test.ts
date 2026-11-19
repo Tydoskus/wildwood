@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { CROSSING_STEPS } from "../../shared/guild-crossing";
-import { GUILD_WEEK_QUEST_CAP, questDay, questWeek } from "../../shared/weekly-quests";
-import { creditGuildCrossingPoints, guildQuestPool } from "./daily-quests";
-import { guildCrossingSummaryFor, readGuildCrossing, stepGuildCrossingFor } from "./guild-crossing";
+import { CROSSING_STEPS, guildCrossingMapId } from "../../shared/guild-crossing";
+import { GUILD_WEEK_QUEST_CAP, guildQuestBonus, questDay, questWeek } from "../../shared/weekly-quests";
+import { creditGuildCrossingPoints, guildQuestBonusFor, guildQuestPool } from "./daily-quests";
+import { guildCrossingSpawnFor, guildCrossingSummaryFor, readGuildCrossing, stepGuildCrossingFor } from "./guild-crossing";
 vi.mock("spacetimedb/server", () => import("../../tests/helpers/spacetime-module"));
 
 function makeIdentity(hex: string) {
@@ -46,8 +46,8 @@ function fixture(memberCount = 20, randomBits: number[] = []) {
     playerDailyQuest: makeTable("identity"),
   };
   db.guild.insert({ id: guildId, name: "OAKS", emblem: 3, members: memberCount });
-  db.guildMember.insert({ identity: alice, guildId, name: "Alice" });
-  db.guildMember.insert({ identity: bob, guildId, name: "Bob" });
+  db.guildMember.insert({ identity: alice, guildId, name: "Alice", joinedAt: 0n });
+  db.guildMember.insert({ identity: bob, guildId, name: "Bob", joinedAt: 0n });
 
   let bitIndex = 0;
   let nowDay = 20_500;
@@ -87,22 +87,30 @@ describe("Glass Crossing server logic", () => {
     expect(before.dailyLimit).toBe(1);
     expect(before.remainingToday).toBe(1);
 
-    // Alice guesses safely 5 times in a row: her daily try is preserved and streak reaches 5.
+    // Seed Alice's daily quest row so we can verify her live bonus updates immediately.
+    const week = questWeek(questDay(aliceCtx.timestamp.microsSinceUnixEpoch));
+    f.db.playerDailyQuest.insert({ identity: f.alice, day: 20_500, guildId: 7n, guildPoints: 0, bonus: 1, points: 0 });
+
+    // Alice guesses safely 5 times in a row: her daily try is preserved, streak reaches 5,
+    // and the guild gets +2 points RIGHT AWAY on every single step (10 pts total + live bonus!).
     for (let step = 0; step < 5; step++) {
       const res = stepGuildCrossingFor(aliceCtx, step, "left", f.deps);
       expect(res.outcome).toBe("safe");
+      expect(res.pointsDelta).toBe(2);
     }
     const mid = readGuildCrossing(aliceCtx, f.alice)!;
     expect(mid.revealed).toBe(5);
     expect(mid.revealedSides).toHaveLength(5);
     expect(mid.remainingToday).toBe(1);
     expect(mid.currentStreak).toBe(5);
-    expect(mid.pointsAwarded).toBe(0);
+    expect(mid.pointsAwarded).toBe(10);
+    expect(guildQuestBonusFor(aliceCtx, f.alice)).toBeCloseTo(guildQuestBonus(10), 6);
+    expect(f.db.playerDailyQuest.identity.find(f.alice)?.bonus).toBeCloseTo(guildQuestBonus(10), 6);
 
-    // Alice steps wrong on Step 6 (index 5, "right"): shatters, spends her 1 daily try, leaves memorial, reveals step 6 -> +10 milestone!
+    // Alice steps wrong on Step 6 (index 5, "right"): shatters, spends her 1 daily try, leaves memorial, reveals step 6 -> +2 right away!
     const fall = stepGuildCrossingFor(aliceCtx, 5, "right", f.deps);
     expect(fall.outcome).toBe("fell");
-    expect(fall.pointsDelta).toBe(10);
+    expect(fall.pointsDelta).toBe(2);
     const afterFall = readGuildCrossing(aliceCtx, f.alice)!;
     expect(afterFall.revealed).toBe(6);
     expect(afterFall.falls).toHaveLength(1);
@@ -110,38 +118,43 @@ describe("Glass Crossing server logic", () => {
     expect(afterFall.remainingToday).toBe(0);
     expect(afterFall.currentStreak).toBe(0);
     expect(afterFall.bestStreak).toBe(5);
-    expect(afterFall.pointsAwarded).toBe(10);
+    expect(afterFall.pointsAwarded).toBe(12);
 
-    // Bonus points credited to guildQuestWeek & Hall Fund, AND the 300-quest pool stays completely full!
-    const week = questWeek(questDay(aliceCtx.timestamp.microsSinceUnixEpoch));
-    expect(f.db.guildQuestWeek.key.find(`${week}:7`)?.points).toBe(10);
-    expect(f.db.guildHall.guildId.find(7n)?.fund).toBe(10);
+    // Bonus points credited immediately to guildQuestWeek, Hall Fund, and live bonus — AND the 300-quest pool stays completely full!
+    expect(f.db.guildQuestWeek.key.find(`${week}:7`)?.points).toBe(12);
+    expect(f.db.guildHall.guildId.find(7n)?.fund).toBe(12);
     expect(guildQuestPool(aliceCtx, 7n).left).toBe(GUILD_WEEK_QUEST_CAP);
+    expect(guildQuestBonusFor(aliceCtx, f.alice)).toBeCloseTo(guildQuestBonus(12), 6);
+    // Frontier spawn moves forward with the revealed bridge tiles.
+    expect(guildCrossingSpawnFor(aliceCtx, guildCrossingMapId(7n)).y).toBeLessThan(2_600);
 
     // Alice cannot step again today, and Bob cannot double-step an outdated expectedStep.
     expect(() => stepGuildCrossingFor(aliceCtx, 6, "left", f.deps)).toThrow(/No tries left/i);
     expect(() => stepGuildCrossingFor(bobCtx, 5, "left", f.deps)).toThrow(/guildmate just stepped/i);
 
-    // Bob pushes steps 6..14 safely, then falls on step 16 (index 15) — unlocking the Finish Portal!
+    // Bob pushes steps 6..14 safely (+2 each -> 30 pts), then falls on step 16 (index 15) — unlocking the Finish Portal!
     for (let step = 6; step < 15; step++) stepGuildCrossingFor(bobCtx, step, "left", f.deps);
     const lastFall = stepGuildCrossingFor(bobCtx, 15, "right", f.deps);
     expect(lastFall.outcome).toBe("fell");
+    expect(lastFall.pointsDelta).toBe(0);
     const preFinish = readGuildCrossing(bobCtx, f.bob)!;
     expect(preFinish.revealed).toBe(16);
     expect(preFinish.completed).toBe(false);
-    expect(preFinish.pointsAwarded).toBe(25); // 10 + 15 milestones, final 25 waits for crossing!
+    expect(preFinish.pointsAwarded).toBe(30); // 15 steps * 2 pts, final +20 waits for Victory Portal!
 
-    // Next day: Alice gets a fresh try and steps through the Finish Portal for the final +25 pts!
+    // Next day: Alice gets a fresh try and steps through the Finish Portal for the final +20 pts!
     f.setDay(20_501);
     const aliceDay2 = f.ctxFor(f.alice);
     const win = stepGuildCrossingFor(aliceDay2, 16, "finish", f.deps);
     expect(win.outcome).toBe("cleared");
-    expect(win.pointsDelta).toBe(25);
+    expect(win.pointsDelta).toBe(20);
     const done = readGuildCrossing(aliceDay2, f.alice)!;
     expect(done.completed).toBe(true);
     expect(done.winner?.name).toBe("Alice");
     expect(done.pointsAwarded).toBe(50);
     expect(f.db.guildQuestWeek.key.find(`${week}:7`)?.points).toBe(50);
+    expect(guildQuestBonusFor(aliceDay2, f.alice)).toBeCloseTo(guildQuestBonus(50), 6);
+    expect(f.db.playerDailyQuest.identity.find(f.alice)?.bonus).toBeCloseTo(guildQuestBonus(50), 6);
     expect(guildCrossingSummaryFor(aliceDay2, f.alice, 7n, 20).completed).toBe(true);
   });
 

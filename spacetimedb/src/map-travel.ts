@@ -7,6 +7,7 @@ import { HOME_EXTERIOR_MAP_ID, HOME_TRAVEL_PORTAL } from "../../shared/home";
 import { isProceduralMap, PROCEDURAL_ENTRY_BOSS, generateMap, PROCEDURAL_ENTRY_MAP, proceduralMapId } from "../../shared/procedural-maps";
 import { isSoulMap, soulReturnOpenFor, worldBoundsFor, requireSoulDimensionOpen, SOUL_TOWN_PORTAL, SOUL_ARRIVAL } from "./soul-dimension";
 import { isGuildHallMap, guildHallMember, enterGuildHall, guildHallReturnPointFor } from "./guild-hall";
+import { isGuildCrossingMap, guildCrossingMember, enterGuildCrossing, guildCrossingSpawnFor } from "./guild-crossing";
 import { isTownMap, TOWN_MAP_ID, TOWN_ARRIVAL, townPortalUsePoints } from "./town";
 import { TOWN_DOORS, TOWN_RESEARCH_POSITION } from "../../shared/town";
 import { CAMPAIGN_GATEWAYS, portalUsePoint, campaignLanding, endlessEntryPortal, exitPortalFor, portalArrival } from "../../shared/map-gateways";
@@ -26,7 +27,7 @@ import { Identity } from "spacetimedb";
 
 export const WORLD = { width: WORLD_WIDTH, height: WORLD_HEIGHT };
 
-export const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) || isSoulMap(id) || isGuildHallMap(id) || isTownMap(id) };
+export const VALID_MAP_IDS = { has: (id: string) => MAP_IDS.includes(id) || id === HOME_EXTERIOR_MAP_ID || isProceduralMap(id) || isSoulMap(id) || isGuildHallMap(id) || isGuildCrossingMap(id) || isTownMap(id) };
 
 export const LEGACY_FROSTWIND_EXPANSE_MAP_ID = "frostwind_expanse";
 
@@ -58,14 +59,14 @@ export function changePlayerMap(ctx: ModuleReducerCtx, { mapId, x, y }: { mapId:
       const progress = readPlayerProgress(ctx, ctx.sender);
       const savedMapIndex = saved ? MAP_IDS.indexOf(saved.mapId) : -1;
       // Fight only goes back to a map this run has open: a challenge run (or a reset) must not land on the main run's map 15, or its Soul Dimension.
-      const permitted = (!isSoulMap(saved?.mapId) || soulReturnOpenFor(ctx, ctx.sender)) && (!isGuildHallMap(saved?.mapId) || guildHallMember(ctx, ctx.sender, saved!.mapId)) && Boolean(saved && (isProceduralMap(saved.mapId)
+      const permitted = (!isSoulMap(saved?.mapId) || soulReturnOpenFor(ctx, ctx.sender)) && (!isGuildHallMap(saved?.mapId) || guildHallMember(ctx, ctx.sender, saved!.mapId)) && (!isGuildCrossingMap(saved?.mapId) || guildCrossingMember(ctx, ctx.sender, saved!.mapId)) && Boolean(saved && (isProceduralMap(saved.mapId)
         ? hasEndlessTravelAccess(ctx, ctx.sender) || generatedMapUnlocked(saved.mapId, ctx.db.proceduralProgress.identity.find(ctx.sender)?.completed ?? 0,
           Boolean((progress?.bossRewardClaims ?? 0) & BOSS_REWARD_CLAIM_BITS[PROCEDURAL_ENTRY_BOSS]))
         : savedMapIndex <= 0 || Boolean(progress?.[CAMPAIGN_UNLOCK_FIELDS[savedMapIndex - 1]])));
       const destination = permitted && saved && saved.mapId !== HOME_EXTERIOR_MAP_ID && !isTownMap(saved.mapId) && VALID_MAP_IDS.has(saved.mapId)
         && [saved.x, saved.y, saved.facing].every(Number.isFinite)
         ? saved : { mapId: TUTORIAL_FOREST_MAP_ID, ...PLAYER_SPAWN, facing: 0 };
-      const landing = isGuildHallMap(destination.mapId) ? guildHallReturnPointFor(ctx, destination.mapId, destination.x, destination.y) : destination;
+      const landing = isGuildHallMap(destination.mapId) ? guildHallReturnPointFor(ctx, destination.mapId, destination.x, destination.y) : isGuildCrossingMap(destination.mapId) ? guildCrossingSpawnFor(ctx, destination.mapId) : destination;
       transitionPlayerMap(ctx, current, destination.mapId, landing, destination.facing);
     } else enterTown(ctx, current, x, y, TOWN_ARRIVAL);
     persistWorldLocation(ctx, ctx.db.player.identity.find(ctx.sender));
@@ -80,6 +81,7 @@ export function changePlayerMap(ctx: ModuleReducerCtx, { mapId, x, y }: { mapId:
   }
   if (isSoulMap(mapId)) requireSoulDimensionOpen(ctx);
   if (isGuildHallMap(mapId)) return enterGuildHall(ctx, current, mapId, x, y, { transitionPlayerMap, persistWorldLocation });
+  if (isGuildCrossingMap(mapId)) return enterGuildCrossing(ctx, current, mapId, x, y, { transitionPlayerMap, persistWorldLocation });
   const locked = lockedReason(ctx, mapId);
   if (locked) throw new SenderError(locked);
   // The Town's travel portal (and, for tabs from before the Town, Home's pad) reaches every map the checks above allow.
@@ -106,7 +108,7 @@ export function changePlayerMap(ctx: ModuleReducerCtx, { mapId, x, y }: { mapId:
 function enterTown(ctx: ModuleReducerCtx, current: any, x: number, y: number, arrival: { x: number; y: number }) {
   if (![x, y].every(Number.isFinite) || x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > worldBoundsFor(current.mapId).width - PLAYER_RADIUS || y > worldBoundsFor(current.mapId).height - PLAYER_RADIUS) throw new SenderError("Invalid teleport position.");
   const saved = { identity: ctx.sender, mapId: current.mapId, x, y, facing: current.facing };
-  if (isGuildHallMap(current.mapId) || current.mapId === HOME_EXTERIOR_MAP_ID) { /* "Fight" from the Town still goes back to where the fighting was */ } else if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
+  if (isGuildHallMap(current.mapId) || isGuildCrossingMap(current.mapId) || current.mapId === HOME_EXTERIOR_MAP_ID) { /* "Fight" from the Town still goes back to where the fighting was */ } else if (ctx.db.homeReturnLocation.identity.find(ctx.sender)) ctx.db.homeReturnLocation.identity.update(saved);
   else ctx.db.homeReturnLocation.insert(saved);
   transitionPlayerMap(ctx, current, TOWN_MAP_ID, arrival);
 }

@@ -3,7 +3,7 @@ import { recordModerationAction } from "./moderation-history";
 import { Identity, Timestamp } from "spacetimedb";
 import { Range, SenderError } from "spacetimedb/server";
 import type { ModuleReducerCtx, ModuleViewCtx } from "./index";
-import { SOCIAL_FRIEND_LIMIT, SOCIAL_REQUEST_LIMIT, SOCIAL_MESSAGE_LIMIT, SOCIAL_MESSAGE_RETENTION_DAYS, type SocialConversation, type SocialSnapshot } from "../../shared/social";
+import { GUILD_CHAT_RETENTION_DAYS, SOCIAL_FRIEND_LIMIT, SOCIAL_REQUEST_LIMIT, SOCIAL_MESSAGE_LIMIT, SOCIAL_MESSAGE_RETENTION_DAYS, type SocialConversation, type SocialSnapshot } from "../../shared/social";
 import { moderatePublicChatMessage, chatModerationReason, MODERATION_RULE_VERSION } from "./chat-moderation";
 import { chatPage } from "../../shared/chat-page";
 import { GUILD_MEMBER_LIMIT } from "../../shared/guilds";
@@ -185,11 +185,12 @@ export function createSocialService(deps: { joinInvited(ctx: Ctx, guildId: bigin
         actorType: "automatic", rule: MODERATION_RULE_VERSION, before: text, after: moderated.message,
       });
       if (moderated.moderated) recordChatStrike(ctx, channel, profile.displayName);
-      if (channel === "guild") pruneGuildMessages(ctx, conversation);
+      if (channel === "guild") pruneGuildMessages(ctx, conversation, ctx.timestamp.microsSinceUnixEpoch);
     },
   };
 }
 const SOCIAL_MESSAGE_RETENTION_MICROS = BigInt(SOCIAL_MESSAGE_RETENTION_DAYS) * 86_400_000_000n;
+const GUILD_CHAT_RETENTION_MICROS = BigInt(GUILD_CHAT_RETENTION_DAYS) * 86_400_000_000n;
 const DUEL_MESSAGE_RETENTION_MICROS = 86_400_000_000n;
 
 /**
@@ -235,10 +236,18 @@ export function pruneExpiredSocialMessages(ctx: Ctx, nowMicros: bigint) {
   }
 }
 
-// Guild chat is trimmed by count as it arrives; private messages age out above.
-function pruneGuildMessages(ctx: Ctx, conversation: string) {
+// Guild chat keeps up to SOCIAL_MESSAGE_LIMIT recent messages and ages out rows older than a week as new ones arrive.
+function pruneGuildMessages(ctx: Ctx, conversation: string, nowMicros: bigint) {
+  const cutoff = nowMicros - GUILD_CHAT_RETENTION_MICROS;
   const history = [...ctx.db.socialMessage.conversation.filter(conversation)].sort((a, b) => a.id < b.id ? -1 : 1);
-  for (const row of history.slice(0, Math.max(0, history.length - SOCIAL_MESSAGE_LIMIT))) { removeMessageReactions(ctx, "social", row.id); ctx.db.socialMessage.id.delete(row.id); }
+  const keepFrom = Math.max(0, history.length - SOCIAL_MESSAGE_LIMIT);
+  for (let i = 0; i < history.length; i++) {
+    const row = history[i];
+    if (i < keepFrom || row.sentAt.microsSinceUnixEpoch < cutoff) {
+      removeMessageReactions(ctx, "social", row.id);
+      ctx.db.socialMessage.id.delete(row.id);
+    }
+  }
 }
 /** Account erasure removes private content and relationships through indexed references. */
 export function removeSocialAccount(ctx: Ctx, who: Identity) {

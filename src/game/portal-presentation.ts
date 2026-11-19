@@ -1,5 +1,6 @@
 import { generateMap, isProceduralMap } from "../../shared/procedural-maps";
 import { isGuildHallMap } from "../../shared/guild-hall";
+import { isGuildCrossingMap } from "../../shared/guild-crossing";
 import {
   ADVANCED_LAVA_WASTES_MAP_ID,
   BEGINNER_DESERT_MAP_ID,
@@ -36,6 +37,7 @@ const PORTAL_DESTINATION_COLORS: Record<MapId, string> = {
 
 export function portalDestinationColor(destination: MapId) {
   if (isGuildHallMap(destination)) return "#ffcf6b";
+  if (isGuildCrossingMap(destination)) return "#5fe3d6";
   return isProceduralMap(destination) ? generateMap(destination).palette.path : PORTAL_DESTINATION_COLORS[destination];
 }
 
