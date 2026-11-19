@@ -434,25 +434,30 @@ async function guildPanelScene() {
 
 async function cookingFireScene(empty = false) {
   await loadGameMarkup();
-  const stock: OreCounts = empty ? {} : {
-    minnow: 14,
-    perch: 9,
-    trout: 6,
-    salmon: 12,
-    lobster: 4,
-    shark: 2,
-    golden_koi: 1,
+  const stock: Record<string, number> = empty ? {} : {
+    minnow: 838,
+    perch: 757,
+    bluegill: 629,
+    eel: 495,
+    trout: 483,
+    carp: 385,
+    salmon: 340,
+    tuna: 270,
+    lobster: 42,
+    shark: 12,
   };
   let xp = BigInt(craftExperienceForLevel(28)) + 420n;
   const fire = createCookingFire({
     ores: () => stock,
     xp: () => xp,
-    skillet: () => 5,
+    skillet: () => 2,
     cook: async (fish: FishId, recipe: string, begin: boolean) => {
       if (!begin) {
         const costs: Record<string, number> = { skewer: 1, cakes: 2, chowder: 3, pie: 4, platter: 5, feast: 6 };
+        const portions: Record<string, number> = { skewer: 1, cakes: 3, chowder: 5, pie: 8, platter: 12, feast: 18 };
         const take = costs[recipe] ?? 1;
         stock[fish] = Math.max(0, (stock[fish] ?? 0) - take);
+        stock[`cooked_${fish}`] = (stock[`cooked_${fish}`] ?? 0) + (portions[recipe] ?? 1);
         xp += 65n;
       }
       return { ok: true };

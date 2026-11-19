@@ -4,6 +4,7 @@ import { formatEquipmentAmount } from "./equipment-stat-format";
 import { appendItemTierLabel } from "./item-tier-label";
 import { appendRefineBadge } from "./refine-badge";
 import { itemGradeRank } from "../../shared/item-tier";
+import { isCookedFishId } from "../../shared/cooking";
 import { REFINE_ORES, type OreId } from "../../shared/refine";
 import { oreIconSource } from "./ore-icon";
 import { formatCompactNumber } from "./number-format";
@@ -35,6 +36,8 @@ export function appendBagTileContents(button: HTMLElement, itemId: string,
 
 /** A material stack's insides: its icon, its short name over it as a tier sits over gear, and the count in the corner. */
 export function appendOreTileContents(button: HTMLElement, oreId: OreId, count: number) {
+  const cooked = isCookedFishId(oreId);
+  button.classList.toggle("is-cooked-fish", cooked);
   const art = document.createElement("span");
   art.className = "inventory-item-art-wrap";
   const source = oreIconSource(oreId);
@@ -47,11 +50,19 @@ export function appendOreTileContents(button: HTMLElement, oreId: OreId, count: 
   }
   const label = document.createElement("span");
   label.className = "item-tier-label is-above";
-  label.textContent = REFINE_ORES[oreId].name.replace(/ (Ore|Arrow)$/, "").replace(/^Arcane /, "");
+  label.textContent = cooked
+    ? REFINE_ORES[oreId].name.replace(/^Cooked /, "")
+    : REFINE_ORES[oreId].name.replace(/ (Ore|Arrow)$/, "").replace(/^Arcane /, "");
   const stack = document.createElement("span");
   stack.className = "inventory-stack-count";
   stack.textContent = count < 10_000 ? String(count) : formatCompactNumber(count);
   button.append(art, label, stack);
+  if (cooked) {
+    const tag = document.createElement("span");
+    tag.className = "inventory-cooked-badge";
+    tag.textContent = "COOKED";
+    button.append(tag);
+  }
 }
 
 /** Damage, Max Health and Regen as short coloured multipliers. */

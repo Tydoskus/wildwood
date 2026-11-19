@@ -1,6 +1,7 @@
 import type { OreId } from "../../shared/refine";
 import type { WoodId } from "../../shared/crafting";
 import { isArrowId } from "../../shared/arrows";
+import { fishForCookedId } from "../../shared/cooking";
 import { isFishId } from "../../shared/fishing";
 import { LOG_COLORS } from "../game/runtime/town/wood-tree-renderer";
 import { ORE_COLORS } from "../game/runtime/town/ore-rock-renderer";
@@ -103,6 +104,8 @@ const icons = new Map<OreId, string>();
 export function oreIconSource(oreId: OreId) {
   if (isArrowId(oreId)) return `assets/wildstat/arrows/${oreId}.webp`;
   if (isFishId(oreId)) return `assets/wildstat/fish/${oreId}.webp`;
+  const cooked = fishForCookedId(oreId);
+  if (cooked) return `assets/wildstat/fish/${cooked.id}.webp`;
   const cached = icons.get(oreId);
   if (cached !== undefined) return cached;
   let source = "";

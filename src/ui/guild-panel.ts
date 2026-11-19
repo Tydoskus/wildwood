@@ -412,7 +412,7 @@ export function createGuildPanel(options: Options) {
       const stepLabel = c ? (c.completed ? `Cleared · +${c.pointsAwarded} pts` : `Step ${Math.min(c.revealed, c.steps)} / ${c.steps} · +${c.pointsAwarded} / ${c.maxPoints} pts`) : "Weekly 50/50 Glass Bridge · +50 Bonus pts";
       const subLabel = c
         ? (c.completed ? `${c.winnerName ?? "Your guild"} crossed the Victory Portal! Active now.`
-          : `${c.remainingToday} of ${c.dailyLimit} ${c.dailyLimit === 1 ? "try" : "tries"} left today · +2 pts/step, +20 clear (active now)${c.fallsCount ? ` · 💀 ${c.fallsCount} fallen` : ""}`)
+          : `${c.remainingToday} of ${c.dailyLimit} ${c.dailyLimit === 1 ? "try" : "tries"} left today · +2 pts/step, +20 clear${c.fallsCount ? ` · 💀 ${c.fallsCount} fallen` : ""}`)
         : "Team up with your guild across 16 glass pairs — points & bonus apply right away.";
       copy.append(element("strong", "Glass Crossing"), element("span", stepLabel, "guild-crossing-card-step"), element("small", subLabel, "guild-crossing-card-sub"));
       const enter = button(c?.completed ? "View Bridge" : "Enter Crossing", () => {
@@ -530,7 +530,7 @@ export function createGuildPanel(options: Options) {
     if (crossingPts > 0) {
       const item = element("li", undefined, "guild-quest-member guild-quest-crossing");
       const copy = element("div", undefined, "guild-row-copy");
-      copy.append(element("strong", "Glass Crossing"), element("span", own.crossing?.completed ? "Weekly bridge cleared · live bonus applied immediately above the 300-quest pool." : "Weekly bridge progress (+2/step, +20 clear) · live bonus applied immediately."));
+      copy.append(element("strong", "Glass Crossing"), element("span", own.crossing?.completed ? "Weekly bridge cleared · bonus points credited above the 300-quest pool for next week." : "Weekly bridge progress (+2/step, +20 clear) · credited right away for next week's bonus."));
       const score = element("div", undefined, "guild-score");
       score.append(element("strong", number(crossingPts)), element("span", "pts"));
       item.append(copy, score);

@@ -110,6 +110,7 @@ export const ERASURE_TARGETS: readonly ErasureTarget[] = [
   { table: "playerRunTiming", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerRunHistory", columns: ["identity"], pk: "id", mode: "index", index: "identity" },
   { table: "playerNockedArrow", columns: ["identity"], pk: "identity", mode: "key" },
+  { table: "playerFoodBuff", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerGatherPicks", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerAudioSetting", columns: ["identity"], pk: "identity", mode: "key" },
   { table: "playerBalanceVersion", columns: ["identity"], pk: "identity", mode: "key" },

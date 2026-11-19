@@ -56,6 +56,23 @@ export const REFINE_ORES = {
   shark: { name: "Shark", grade: null },
   anglerfish: { name: "Anglerfish", grade: null },
   golden_koi: { name: "Golden Koi", grade: null },
+  // Cooked fish (cooking.ts): kept in the bag to eat for temporary combat buffs or sell for gold.
+  cooked_minnow: { name: "Cooked Minnow", grade: null },
+  cooked_perch: { name: "Cooked Perch", grade: null },
+  cooked_bluegill: { name: "Cooked Bluegill", grade: null },
+  cooked_eel: { name: "Cooked Eel", grade: null },
+  cooked_trout: { name: "Cooked Trout", grade: null },
+  cooked_carp: { name: "Cooked Carp", grade: null },
+  cooked_salmon: { name: "Cooked Salmon", grade: null },
+  cooked_tuna: { name: "Cooked Tuna", grade: null },
+  cooked_lobster: { name: "Cooked Lobster", grade: null },
+  cooked_catfish: { name: "Cooked Catfish", grade: null },
+  cooked_swordfish: { name: "Cooked Swordfish", grade: null },
+  cooked_pike: { name: "Cooked Pike", grade: null },
+  cooked_jellyfish: { name: "Cooked Jellyfish", grade: null },
+  cooked_shark: { name: "Cooked Shark", grade: null },
+  cooked_anglerfish: { name: "Cooked Anglerfish", grade: null },
+  cooked_golden_koi: { name: "Cooked Golden Koi", grade: null },
 } as const;
 export type OreId = keyof typeof REFINE_ORES;
 /** The four ores a grade refines with. */

@@ -87,12 +87,12 @@ describe("Glass Crossing server logic", () => {
     expect(before.dailyLimit).toBe(1);
     expect(before.remainingToday).toBe(1);
 
-    // Seed Alice's daily quest row so we can verify her live bonus updates immediately.
+    // Seed Alice's daily quest row so we can verify guildPoints updates immediately while this week's bonus stays unchanged.
     const week = questWeek(questDay(aliceCtx.timestamp.microsSinceUnixEpoch));
     f.db.playerDailyQuest.insert({ identity: f.alice, day: 20_500, guildId: 7n, guildPoints: 0, bonus: 1, points: 0 });
 
     // Alice guesses safely 5 times in a row: her daily try is preserved, streak reaches 5,
-    // and the guild gets +2 points RIGHT AWAY on every single step (10 pts total + live bonus!).
+    // and the guild gets +2 points RIGHT AWAY on every single step (10 pts total toward next week's bonus).
     for (let step = 0; step < 5; step++) {
       const res = stepGuildCrossingFor(aliceCtx, step, "left", f.deps);
       expect(res.outcome).toBe("safe");
@@ -104,8 +104,9 @@ describe("Glass Crossing server logic", () => {
     expect(mid.remainingToday).toBe(1);
     expect(mid.currentStreak).toBe(5);
     expect(mid.pointsAwarded).toBe(10);
-    expect(guildQuestBonusFor(aliceCtx, f.alice)).toBeCloseTo(guildQuestBonus(10), 6);
-    expect(f.db.playerDailyQuest.identity.find(f.alice)?.bonus).toBeCloseTo(guildQuestBonus(10), 6);
+    expect(f.db.playerDailyQuest.identity.find(f.alice)?.guildPoints).toBe(10);
+    expect(guildQuestBonusFor(aliceCtx, f.alice)).toBeCloseTo(1, 6);
+    expect(f.db.playerDailyQuest.identity.find(f.alice)?.bonus).toBeCloseTo(1, 6);
 
     // Alice steps wrong on Step 6 (index 5, "right"): shatters, spends her 1 daily try, leaves memorial, reveals step 6 -> +2 right away!
     const fall = stepGuildCrossingFor(aliceCtx, 5, "right", f.deps);
@@ -120,11 +121,11 @@ describe("Glass Crossing server logic", () => {
     expect(afterFall.bestStreak).toBe(5);
     expect(afterFall.pointsAwarded).toBe(12);
 
-    // Bonus points credited immediately to guildQuestWeek, Hall Fund, and live bonus — AND the 300-quest pool stays completely full!
+    // Bonus points credited immediately to guildQuestWeek and Hall Fund — AND the 300-quest pool stays completely full, without mid-week stat jump!
     expect(f.db.guildQuestWeek.key.find(`${week}:7`)?.points).toBe(12);
     expect(f.db.guildHall.guildId.find(7n)?.fund).toBe(12);
     expect(guildQuestPool(aliceCtx, 7n).left).toBe(GUILD_WEEK_QUEST_CAP);
-    expect(guildQuestBonusFor(aliceCtx, f.alice)).toBeCloseTo(guildQuestBonus(12), 6);
+    expect(guildQuestBonusFor(aliceCtx, f.alice)).toBeCloseTo(1, 6);
     // Frontier spawn moves forward with the revealed bridge tiles.
     expect(guildCrossingSpawnFor(aliceCtx, guildCrossingMapId(7n)).y).toBeLessThan(2_600);
 
@@ -153,9 +154,14 @@ describe("Glass Crossing server logic", () => {
     expect(done.winner?.name).toBe("Alice");
     expect(done.pointsAwarded).toBe(50);
     expect(f.db.guildQuestWeek.key.find(`${week}:7`)?.points).toBe(50);
-    expect(guildQuestBonusFor(aliceDay2, f.alice)).toBeCloseTo(guildQuestBonus(50), 6);
-    expect(f.db.playerDailyQuest.identity.find(f.alice)?.bonus).toBeCloseTo(guildQuestBonus(50), 6);
+    expect(f.db.playerDailyQuest.identity.find(f.alice)?.guildPoints).toBe(50);
+    expect(guildQuestBonusFor(aliceDay2, f.alice)).toBeCloseTo(1, 6);
     expect(guildCrossingSummaryFor(aliceDay2, f.alice, 7n, 20).completed).toBe(true);
+
+    // Next week: all 50 Glass Crossing points roll into the active guild stat-gain bonus!
+    f.setDay(20_507);
+    const aliceNextWeek = f.ctxFor(f.alice);
+    expect(guildQuestBonusFor(aliceNextWeek, f.alice)).toBeCloseTo(guildQuestBonus(50), 6);
   });
 
   it("gives smaller guilds (1–4 members) 3 tries per day so they can clear within a week", () => {

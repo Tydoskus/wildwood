@@ -1072,10 +1072,4 @@ html.text-outline-shadow .inventory-stack-count { text-shadow: 1px 0 0 #080b08, 
 
 /* A zone's heading across the Cards grid: its name and found count between two hairlines fading out. */
 
-.cooking-fire .cook-choices { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
-.cooking-fire .cook-recipe { display:grid; gap:3px; height:auto; padding:8px 12px; text-transform:none; }
-.cooking-fire .cook-recipe small { font-size:12px; }
-.cooking-fire .cook-cast { display:grid; gap:10px; padding:16px; background:#251e18; border:1px solid #986632; border-radius:8px; }
-.cooking-fire .cook-cast progress { width:100%; height:18px; accent-color:#f1a740; }
-.cooking-fire .cook-clock { font-variant-numeric:tabular-nums; }
-.cooking-fire [hidden] { display:none !important; }
+.cooking-fire [hidden], .cook-sub-sheet [hidden] { display:none !important; }

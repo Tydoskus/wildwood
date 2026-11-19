@@ -1,4 +1,10 @@
 export const RELEASE_NOTES: Record<string, string[]> = {
+  "0.922.2": [
+    "Cooking Fire redesigned with fish pictures, clean modal fit, and separate Recipes and Cooking Skill windows instead of cramming everything into one panel.",
+    "Cooking is now level-locked per fish (Minnow Lv 1 through Golden Koi Lv 90) with an early-level burn chance that drops to 0% as you level Cooking and upgrade your Skillet.",
+    "Cooked fish now stay in your inventory instead of auto-selling: sell them for gold or eat them for temporary combat buffs (+Max HP, +Damage, +Armor, +Regen; 5–30 min scaling by fish tier), shown live on the HUD.",
+    "Glass Crossing still credits Guild Quest Points and Hall Fund right away on every step (+2/step, +20 clear), while the stat-gain multiplier rolls over next week like regular guild quests.",
+  ],
   "0.922.1": [
     "Glass Crossing movement is now click/tap-to-leap: click or tap any solved crystal tile, active 50/50 frontier tile, island, or portal to arc cleanly onto it instead of free-roam running into empty space.",
   ],
@@ -4177,6 +4183,7 @@ const RELEASE_DATES: Record<string, string> = {
 };
 
 export const RELEASE_DAYS: Record<string, string> = {
+  "0.922.2": "2026-11-19",
   "0.922.1": "2026-11-19",
   "0.922": "2026-11-18",
   "0.921": "2026-11-18",

@@ -1,4 +1,5 @@
 import type { CardTotals } from "../../../shared/card-effects";
+import type { FoodBuffFactors } from "../../../shared/cooking";
 import type { ItemLevel } from "../../../shared/items";
 import type { PrestigePerkRanks } from "../../../shared/prestige-perks";
 import type { ResearchRanks } from "../../../shared/research";
@@ -17,6 +18,7 @@ export type PlayerStatsSource = {
   prestige?: () => { level: number } | null | undefined;
   prestigeStatGainInPlay?: () => boolean;
   weeklyQuests?: () => { bonus: number } | null | undefined;
+  activeFoodBuffFactors?: () => FoodBuffFactors | null | undefined;
 };
 
 type WornGear = { equippedHead: string; equippedChest: string; equippedFeet: string; equippedRightHand: string; equippedLeftHand: string };
@@ -49,6 +51,7 @@ export function createPlayerStatsRuntime(deps: {
       attackCap: source?.attackCapInPlay?.(),
       prestigeLevel: source?.prestigeStatGainInPlay?.() === false ? 0 : source?.prestige?.()?.level ?? 0,
       guildBonus: source?.weeklyQuests?.()?.bonus ?? 1,
+      food: source?.activeFoodBuffFactors?.(),
     };
   };
   const inputs = (): PlayerStatInputs => ({ ...coreInputs(), soul: deps.soul?.(), tailwind: deps.tailwind?.() ?? 0, dueling: deps.isDueling?.() ?? false });
@@ -57,10 +60,10 @@ export function createPlayerStatsRuntime(deps: {
     inputs,
     /** Every stat with its sources. */
     stats: () => computePlayerStats(inputs()),
-    /** Gear, Vitality and health cards as one bonus on saved max health (player-health.ts applies it). */
+    /** Gear, Vitality, health cards and active food as one bonus on saved max health (player-health.ts applies it). */
     healthMultiplierBonus: () => {
-      const { gear, research, cards } = playerCoreStats(coreInputs()).factors;
-      return gear.maxHp * research.maxHp * cards.maxHp - 1;
+      const { gear, research, cards, food } = playerCoreStats(coreInputs()).factors;
+      return gear.maxHp * research.maxHp * cards.maxHp * food.maxHp - 1;
     },
     regenerationPerSecond: () => playerCoreStats(coreInputs()).stats.regen,
     moveSpeed,

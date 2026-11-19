@@ -5,6 +5,7 @@ import { GEAR_GRADES, GEAR_GRADE_NAMES } from "./gear-grades";
 import { ARCANE_CRYSTAL, WOOD_IDS } from "./crafting";
 import { WOOD_TREE_KINDS, WOOD_TREES } from "./woodcutting";
 import { ARROW_IDS, ARROW_KINDS, isArrowId } from "./arrows";
+import { COOKED_FISH_IDS, cookedFishSellPrice, fishForCookedId, formatFoodBuffSummary } from "./cooking";
 import { FISH_IDS, fishById } from "./fishing";
 
 /**
@@ -15,8 +16,8 @@ import { FISH_IDS, fishById } from "./fishing";
 
 /** The ores the Smith and the Card Seller list: the grade ores, then the Starshard. */
 export const REFINE_ORE_ORDER: readonly OreId[] = Object.freeze(["copper_ore", "iron_ore", "mithril_ore", "adamant_ore", "starshard"]);
-/** Every stack in the order the bag lists them: the ores, then the crafting wood and crystal, then crafted arrows, then fish. */
-export const ORE_ORDER: readonly OreId[] = Object.freeze([...REFINE_ORE_ORDER, ...WOOD_IDS, ARCANE_CRYSTAL, ...ARROW_IDS, ...FISH_IDS]);
+/** Every stack in the order the bag lists them: the ores, then the crafting wood and crystal, then crafted arrows, then fish and cooked fish. */
+export const ORE_ORDER: readonly OreId[] = Object.freeze([...REFINE_ORE_ORDER, ...WOOD_IDS, ARCANE_CRYSTAL, ...ARROW_IDS, ...FISH_IDS, ...COOKED_FISH_IDS]);
 
 export type OreCounts = Readonly<Partial<Record<OreId, number>>>;
 
@@ -54,8 +55,15 @@ export function bagFullForOres(needed: readonly OreId[]) {
 /** The stack's own lines in the item window: what it is for, and where it comes from. */
 export function oreDescription(oreId: OreId) {
   if (isArrowId(oreId)) return { use: `Nock them for a bow: each shot spends one. ${ARROW_KINDS[oreId].text}.`, from: "Crafted at the Smith from a log and an ore." };
+  const cooked = fishForCookedId(oreId);
+  if (cooked) {
+    return {
+      use: `Eat for ${formatFoodBuffSummary(cooked.id)} (1 food buff active at a time), or sell for ${cookedFishSellPrice(cooked.id)}g each.`,
+      from: `Cooked from ${cooked.name} at a Town campfire (Cooking Lv ${cooked.level}).`,
+    };
+  }
   const fish = fishById(oreId);
-  if (fish) return { use: "Cook at a campfire east or west of the Town fountain to earn gold and Cooking XP.", from: `Caught in the Town's river from Fishing Lv ${fish.level}.` };
+  if (fish) return { use: `Cook at a Town campfire from Cooking Lv ${fish.level} into edible meals you can eat for buffs or sell.`, from: `Caught in the Town's river from Fishing Lv ${fish.level}.` };
   if (oreId === "starshard") return { use: "Refining from ★11 up takes one a try, with the gear's ore.", from: "Every Mysterious rock in the Copper Hills holds one; the rocks are rare." };
   if (oreId === ARCANE_CRYSTAL) return { use: "Crafting staffs and Magic armor takes it.", from: "Mined from crystal rocks in the Copper Hills, east of Town." };
   const tree = WOOD_TREE_KINDS.find(kind => WOOD_TREES[kind].log === oreId);

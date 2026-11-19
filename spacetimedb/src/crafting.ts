@@ -13,20 +13,34 @@ import { TOWN_FEET_OFFSET, TOWN_SCHOOL_POSITIONS, TOWN_SCHOOL_SERVER_REACH, isTo
 import type { OreId } from "../../shared/refine";
 import { isSkillWeapon, mergeSkillRolls, rollWeaponSkills } from "../../shared/weapon-skills";
 import { withinStationReach } from "./door-reach";
-import { oreCount, setRefineLevel, standsAtTheSmith, takeOres } from "./item-refine";
+import { addOres, oreCount, oreCountsFor, setRefineLevel, standsAtTheSmith, takeOres } from "./item-refine";
 import { readPlayerProgress } from "./wide-stats";
-import { collectItem, freeBagSlots, insertKeptCopy, reforgeCopySkills, setFirstCopyRoll } from "./equipment-copies";
+import { collectItem, extraCopiesOf, freeBagSlots, insertKeptCopy, reforgeCopySkills, setFirstCopyRoll } from "./equipment-copies";
 import { activeItemUpgradeEntriesFor } from "./upgrade-bench-slots";
 import { luckInPlay } from "./luck-research";
 import { CRAFT_TOOL, toolBonusYield, toolCraftCost, toolExperience, toolSavedMaterials } from "../../shared/tools";
-import { fishById } from "../../shared/fishing";
-import { COOK_FIRES, FIRE_REACH, COOKING_RECIPES, cookingReward } from "../../shared/cooking";
+import { fishById, type FishId } from "../../shared/fishing";
+import { bagFullForOres, roomForOres } from "../../shared/ore-bag";
+import {
+  COOK_FIRES, FIRE_REACH, COOKING_RECIPES, COOKED_FISH_PROFILES, NO_FOOD_BUFF,
+  canCookFish, cookedFishId, cookedFishSellPrice, cookingReward, cookingSuccessChance,
+  fishCookingLevel, fishForCookedId, foodBuffFactors,
+} from "../../shared/cooking";
 import { addGold } from "./gold";
+import { bagCapacityFor } from "./bag-capacity";
+import { equippedFields } from "./gather-batch";
 import { toolLevelFor } from "./tools";
 
 /** Each craft's experience (shared/crafting.ts), one row per player and craft. Private; read through my_craft_skills. */
 export const cookingAttempt = table({ name: "cooking_attempt", public: false }, {
   identity: t.identity().primaryKey(), fish: t.string(), recipe: t.string(), started: t.timestamp(),
+});
+
+/** Active cooked-fish combat buff for a player (1 active at a time). Private; read through my_food_buff. */
+export const playerFoodBuff = table({ name: "player_food_buff", public: false }, {
+  identity: t.identity().primaryKey(),
+  fishId: t.string(),
+  endsAtMs: t.f64(),
 });
 
 export const playerCraftSkill = table({ name: "player_craft_skill", public: false }, {
@@ -221,8 +235,32 @@ export function mergeCraftSkills(ctx: Ctx, guest: Identity, account: Identity) {
   for (const row of [...ctx.db.playerCraftLevel.identity.filter(guest)]) ctx.db.playerCraftLevel.key.delete(row.key);
 }
 
-/** The craft_grade_item and reforge_weapon reducers (craft_grade_gear for old tabs), and the player's own craft experience. */
+/** Active food-buff combat stat multipliers for a player at ctx.timestamp (1 when none or expired). */
+export function activeFoodBuffFactorsFor(ctx: Ctx, identity: Identity, graceMs = 0) {
+  const row = ctx.db.playerFoodBuff?.identity.find(identity);
+  if (!row || !fishById(row.fishId)) return NO_FOOD_BUFF;
+  const nowMs = Number(ctx.timestamp.microsSinceUnixEpoch / 1000n);
+  return foodBuffFactors({ fishId: row.fishId as FishId, endsAtMs: row.endsAtMs }, nowMs, graceMs);
+}
+
+/** The craft_grade_item, reforge_weapon, cooking, eat_fish and sell_cooked_fish reducers, and craft views. */
 export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: CraftingDeps) {
+  function requireBagRoomForCooked(ctx: Ctx, fishId: FishId, rawCost: number) {
+    const cookedId = cookedFishId(fishId);
+    const ores = oreCountsFor(ctx, ctx.sender);
+    if ((ores[cookedId] ?? 0) > 0) return;
+    const progress = readPlayerProgress(ctx, ctx.sender);
+    const emptied = (ores[fishId] ?? 0) === rawCost ? 1 : 0;
+    const { needed, room } = roomForOres({
+      owned: progress ? deps.inventoryForProgress(progress) : [],
+      equipped: progress ? equippedFields(progress) : [],
+      extraCopies: extraCopiesOf(ctx, ctx.sender).length,
+      ores,
+      capacity: bagCapacityFor(ctx, ctx.sender) + emptied,
+    }, [cookedId]);
+    if (!room) throw new SenderError(bagFullForOres(needed));
+  }
+
   function cooking(ctx: Ctx, args: { fishId: string; recipeId: string }, begin: boolean) {
     const player = deps.requireControllingPlayer(ctx);
     if (!isTownMap(player.mapId) || !COOK_FIRES.some(at => Math.hypot(player.x - at.x, player.y + TOWN_FEET_OFFSET - at.y) <= FIRE_REACH + 20))
@@ -231,10 +269,13 @@ export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: Craf
     const fish = fishById(args.fishId), recipe = COOKING_RECIPES.find(each => each.id === args.recipeId);
     if (!fish || !recipe) throw new SenderError("Unknown fish or recipe.");
     const xp = ctx.db.playerCraftSkill.key.find(craftKey(ctx.sender, "cooking"))?.experience ?? 0n;
-    if (craftLevel(xp) < recipe.level) throw new SenderError(`Reach Cooking Lv ${recipe.level} first.`);
+    const level = craftLevel(xp);
+    if (!canCookFish(fish, level)) throw new SenderError(`Reach Cooking Lv ${fishCookingLevel(fish)} to cook ${fish.name}.`);
+    if (level < recipe.level) throw new SenderError(`Reach Cooking Lv ${recipe.level} first.`);
     const attempt = ctx.db.cookingAttempt.identity;
     if (begin) {
       if (oreCount(ctx, ctx.sender, fish.id) < recipe.fish) throw new SenderError(`You need ${recipe.fish} ${fish.name}.`);
+      requireBagRoomForCooked(ctx, fish.id, recipe.fish);
       const row = { identity: ctx.sender, fish: fish.id, recipe: recipe.id, started: ctx.timestamp };
       if (attempt.find(ctx.sender)) attempt.update(row);
       else ctx.db.cookingAttempt.insert(row);
@@ -249,13 +290,43 @@ export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: Craf
     const skillet = toolLevelFor(ctx, ctx.sender, "skillet");
     const saved = skillet > 0 ? toolBonusYield(skillet, ctx.random()) : 0;
     const cost = Math.max(0, recipe.fish - saved);
+    requireBagRoomForCooked(ctx, fish.id, cost);
     if (cost > 0 && !takeOres(ctx, ctx.sender, { [fish.id]: cost })) throw new SenderError(`You need ${recipe.fish} ${fish.name}.`);
+    const chance = cookingSuccessChance(fish, level, skillet);
+    if (chance < 1 && ctx.random() >= chance) return;
     const reward = cookingReward(fish, recipe, skillet);
-    addGold(ctx, ctx.sender, reward.gold);
+    addOres(ctx, ctx.sender, cookedFishId(fish.id), reward.portions);
     addCraftExperience(ctx, ctx.sender, "cooking", reward.experience);
+  }
+  function eatFishFor(ctx: Ctx, args: { fishId: string }) {
+    deps.requireControllingPlayer(ctx);
+    if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
+    const fish = fishForCookedId(args.fishId) ?? fishById(args.fishId);
+    if (!fish) throw new SenderError("Unknown cooked fish.");
+    const cookedId = cookedFishId(fish.id);
+    if (!takeOres(ctx, ctx.sender, { [cookedId]: 1 })) throw new SenderError(`You have no Cooked ${fish.name}.`);
+    const nowMs = Number(ctx.timestamp.microsSinceUnixEpoch / 1000n);
+    const endsAtMs = nowMs + COOKED_FISH_PROFILES[fish.id].durationSeconds * 1000;
+    const existing = ctx.db.playerFoodBuff.identity.find(ctx.sender);
+    const row = { identity: ctx.sender, fishId: fish.id, endsAtMs };
+    if (existing) ctx.db.playerFoodBuff.identity.update(row);
+    else ctx.db.playerFoodBuff.insert(row);
+  }
+  function sellCookedFishFor(ctx: Ctx, args: { oreId: string; count: number }) {
+    deps.requireControllingPlayer(ctx);
+    if (deps.activeDuelFor(ctx, ctx.sender)) throw new SenderError("Finish your duel first.");
+    const fish = fishForCookedId(args.oreId);
+    if (!fish) throw new SenderError("Only cooked fish can be sold here.");
+    const count = Math.floor(Number(args.count));
+    if (!Number.isFinite(count) || count < 1) throw new SenderError("Choose at least 1 cooked fish to sell.");
+    const cookedId = cookedFishId(fish.id);
+    if (!takeOres(ctx, ctx.sender, { [cookedId]: count })) throw new SenderError("Your cooked fish stack changed. Try again.");
+    addGold(ctx, ctx.sender, cookedFishSellPrice(fish.id) * count);
   }
   const beginCooking = spacetimedb.reducer({ fishId: t.string(), recipeId: t.string() }, (ctx, args) => cooking(ctx, args, true));
   const cookFish = spacetimedb.reducer({ fishId: t.string(), recipeId: t.string() }, (ctx, args) => cooking(ctx, args, false));
+  const eatFish = spacetimedb.reducer({ fishId: t.string() }, (ctx, args) => eatFishFor(ctx, args));
+  const sellCookedFish = spacetimedb.reducer({ oreId: t.string(), count: t.u32() }, (ctx, args) => sellCookedFishFor(ctx, args));
   const craftGradeItem = spacetimedb.reducer({ itemId: t.string(), expectedMaterials: t.string() },
     (ctx: any, args: CraftArgs) => craftGradeItemFor(ctx, args, deps));
   const reforgeWeapon = spacetimedb.reducer({ itemId: t.string(), copyId: t.u64(), expectedMaterials: t.string() },
@@ -265,5 +336,7 @@ export function registerCrafting(spacetimedb: typeof spacetimedbType, deps: Craf
     (ctx: any, args: CraftArgs) => craftGradeGearFor(ctx, args, deps));
   const myCraftSkills = spacetimedb.view({ name: "my_craft_skills", public: true }, t.array(playerCraftSkill.rowType),
     (ctx: any) => [...ctx.db.playerCraftSkill.identity.filter(ctx.sender)]);
-  return { beginCooking, cookFish, craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills };
+  const myFoodBuff = spacetimedb.view({ name: "my_food_buff", public: true }, t.array(playerFoodBuff.rowType),
+    (ctx: any) => { const row = ctx.db.playerFoodBuff.identity.find(ctx.sender); return row ? [row] : []; });
+  return { beginCooking, cookFish, eatFish, sellCookedFish, craftGradeItem, reforgeWeapon, craftGradeGear, myCraftSkills, myFoodBuff };
 }

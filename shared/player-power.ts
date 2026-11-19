@@ -1,6 +1,7 @@
 import { CHALLENGE_ABSOLUTE_MIN_INTERVAL } from "./prestige-challenge";
 import { DEFAULT_ATTACK_INTERVAL, PLAYER_BASE_DAMAGE, PLAYER_BASE_HP, PLAYER_BASE_REGEN } from "./rules";
 import { cardStatFactors, cardTotals, type CardTotals } from "./card-effects";
+import { NO_FOOD_BUFF, type FoodBuffFactors } from "./cooking";
 import {
   bootArmorFactor,
   equipmentDamageFactor,
@@ -91,7 +92,7 @@ export function researchStatFactors(research: PlayerPowerResearch | null | undef
   };
 }
 
-/** What gear, research and active cards each multiply the four core stats by, kept apart for floating-point order. */
+/** What gear, research, active cards and active food each multiply the four core stats by, kept apart for floating-point order. */
 export function playerStatFactors(
   loadout: Omit<PlayerPowerProgress, keyof PlayerPowerStats>,
   research: PlayerPowerResearch | null | undefined = null,
@@ -99,6 +100,8 @@ export function playerStatFactors(
   activeCardTotals?: CardTotals,
   /** The attack cap in play, where the caller knows it (stat-rating.ts attackIntervalWithGear). */
   attackCap?: AttackCapArg,
+  /** Active cooked-fish food buff multipliers (1 when none). */
+  foodBuff?: FoodBuffFactors | null,
 ) {
   const weaponItem = loadout.equippedRightHand || loadout.equippedLeftHand || "";
   const headItem = loadout.equippedHead || "";
@@ -119,18 +122,19 @@ export function playerStatFactors(
   };
   // The active cards; a factor of one without any.
   const cards = cardStatFactors(activeCardTotals ?? cardTotals(loadout.activeCards ?? []));
-  return { gear, research: researchStatFactors(research), cards };
+  const food = foodBuff ?? NO_FOOD_BUFF;
+  return { gear, research: researchStatFactors(research), cards, food };
 }
 
-/** The four core stats from earned ones: base × gear × research × cards. */
+/** The four core stats from earned ones: base × gear × research × cards × food. */
 export function applyPlayerStatFactors(factors: ReturnType<typeof playerStatFactors>, progress: PlayerPowerStats): PlayerPowerStats {
-  const { gear, research, cards } = factors;
+  const { gear, research, cards, food } = factors;
   return {
-    maxHp: progress.maxHp * gear.maxHp * research.maxHp * cards.maxHp,
-    damage: progress.damage * gear.damage * research.damage * cards.damage,
+    maxHp: progress.maxHp * gear.maxHp * research.maxHp * cards.maxHp * food.maxHp,
+    damage: progress.damage * gear.damage * research.damage * cards.damage * food.damage,
     attackRate: Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, attackIntervalWithGear(progress.attackRate, gear.rating.speed, gear.attackCap)),
-    armor: progress.armor * gear.armor * research.armor * cards.armor,
-    regen: progress.regen * gear.regen * research.regen * cards.regen,
+    armor: progress.armor * gear.armor * research.armor * cards.armor * food.armor,
+    regen: progress.regen * gear.regen * research.regen * cards.regen * food.regen,
     // The crit rating with the weapon's; chance and multiplier pass through as given (worked out elsewhere).
     ...(progress.critRating !== undefined || gear.rating.crit > 0 ? { critRating: cleanRating((progress.critRating ?? 0) + gear.rating.crit) } : {}),
     ...(progress.critChance !== undefined ? { critChance: progress.critChance } : {}),
@@ -146,8 +150,9 @@ export function preparePlayerPowerStats(
   /** The active cards added up, when the caller has them; otherwise the loadout's activeCards. */
   activeCardTotals?: CardTotals,
   attackCap?: AttackCapArg,
+  foodBuff?: FoodBuffFactors | null,
 ): (progress: PlayerPowerStats) => PlayerPowerStats {
-  const factors = playerStatFactors(loadout, research, itemUpgradeLevel, activeCardTotals, attackCap);
+  const factors = playerStatFactors(loadout, research, itemUpgradeLevel, activeCardTotals, attackCap, foodBuff);
   return progress => applyPlayerStatFactors(factors, progress);
 }
 

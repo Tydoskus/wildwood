@@ -504,6 +504,11 @@
       "lastCatchAt:timestamp",
       "lastFish:string"
     ],
+    "my_food_buff": [
+      "identity:identity",
+      "fishId:string",
+      "endsAtMs:f64"
+    ],
     "my_gear_slots": [
       "key:string",
       "identity:identity",

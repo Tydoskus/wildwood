@@ -462,6 +462,10 @@ export function installGameShell(doc: Document = document) {
   if (!doc.getElementById("hudArrowChip")) {
     doc.getElementById("hudGoldWallet")?.insertAdjacentHTML("afterend", `<button id="hudArrowChip" class="hud-gem-wallet hud-arrow-chip" type="button" aria-label="Nocked arrow" hidden><img class="hud-gem-icon" alt="" aria-hidden="true" draggable="false"><strong class="hud-gem-balance">0</strong></button>`);
   }
+  // Active cooked-fish combat buff chip beside gold/arrows (hud-food-chip.ts).
+  if (!doc.getElementById("hudFoodChip")) {
+    doc.getElementById("hudArrowChip")?.insertAdjacentHTML("afterend", `<button id="hudFoodChip" class="hud-gem-wallet hud-food-chip" type="button" aria-label="Active food buff" hidden><img class="hud-gem-icon" alt="" aria-hidden="true" draggable="false"><strong class="hud-gem-balance"></strong></button>`);
+  }
   const toolbar = doc.getElementById("toolbar");
   for (const [id, label, icon] of [
     ["guildBtn", "Guilds", "Icon_Guild.svg"],

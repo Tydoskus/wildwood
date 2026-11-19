@@ -13,6 +13,8 @@ import { armorDamageReduction } from "../../shared/combat";
 import { attackIntervalWithGear } from "../../shared/stat-rating";
 import { criticalDamageMultiplier } from "../../shared/critical-damage";
 import { cardStatFactors, type CardTotals } from "../../shared/card-effects";
+import { FOOD_BUFF_REPORT_GRACE_MS } from "../../shared/cooking";
+import { activeFoodBuffFactorsFor } from "./crafting";
 import { serverBoostRewardMultiplier } from "./server-boost-tables";
 import { luckInPlay } from "./luck-research";
 import { questStandingFor } from "./daily-quests";
@@ -196,7 +198,8 @@ export function createCombatReport(deps: CombatReportDeps) {
       const ranks = profile.ranks;
       const minInterval = profile.minInterval;
       const earned = saved ? createEnemyRewardAccumulator(saved, statMultiplier, minInterval) : null;
-      const statsFor = saved ? preparePlayerPowerStats(saved, research, loadout?.levelFor, cards, minInterval) : null;
+      const foodBuff = activeFoodBuffFactorsFor(ctx, ctx.sender, FOOD_BUFF_REPORT_GRACE_MS);
+      const statsFor = saved ? preparePlayerPowerStats(saved, research, loadout?.levelFor, cards, minInterval, foodBuff) : null;
       // Armor rewards can change the nonlinear reduction inside a report.
       // Calculate it once per distinct effective armor, never reuse a stale value.
       const armorFactors = new Map<number, { reduction: number; preArmor: number }>();

@@ -123,6 +123,7 @@ import DevTeleportEndlessReducer from "./dev_teleport_endless_reducer";
 import DevUpdatePlayerSaveReducer from "./dev_update_player_save_reducer";
 import DevWarnPlayerReducer from "./dev_warn_player_reducer";
 import DisconnectPatreonReducer from "./disconnect_patreon_reducer";
+import EatFishReducer from "./eat_fish_reducer";
 import EnterWorldReducer from "./enter_world_reducer";
 import EnterWorldWithTutorialReducer from "./enter_world_with_tutorial_reducer";
 import FallIntoWellReducer from "./fall_into_well_reducer";
@@ -178,6 +179,7 @@ import SaveBuildReducer from "./save_build_reducer";
 import SavePlayerProgressReducer from "./save_player_progress_reducer";
 import SeedTemporaryGuildReducer from "./seed_temporary_guild_reducer";
 import SelectEquipmentCopyReducer from "./select_equipment_copy_reducer";
+import SellCookedFishReducer from "./sell_cooked_fish_reducer";
 import SellGradedItemReducer from "./sell_graded_item_reducer";
 import SendChatMessageReducer from "./send_chat_message_reducer";
 import SendChatReplyReducer from "./send_chat_reply_reducer";
@@ -333,6 +335,7 @@ import MyExchangeCollectRow from "./my_exchange_collect_table";
 import MyExchangeListingsRow from "./my_exchange_listings_table";
 import MyExchangeOffersRow from "./my_exchange_offers_table";
 import MyFishingRow from "./my_fishing_table";
+import MyFoodBuffRow from "./my_food_buff_table";
 import MyGearSlotsRow from "./my_gear_slots_table";
 import MyGemPurchasesRow from "./my_gem_purchases_table";
 import MyGemWalletRow from "./my_gem_wallet_table";
@@ -1597,6 +1600,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyFishingRow),
+  myFoodBuff: __table({
+    name: 'my_food_buff',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyFoodBuffRow),
   myGearSlots: __table({
     name: 'my_gear_slots',
     indexes: [
@@ -2026,6 +2036,7 @@ const reducersSchema = __reducers(
   __reducerSchema("dev_update_player_save", DevUpdatePlayerSaveReducer),
   __reducerSchema("dev_warn_player", DevWarnPlayerReducer),
   __reducerSchema("disconnect_patreon", DisconnectPatreonReducer),
+  __reducerSchema("eat_fish", EatFishReducer),
   __reducerSchema("enter_world", EnterWorldReducer),
   __reducerSchema("enter_world_with_tutorial", EnterWorldWithTutorialReducer),
   __reducerSchema("fall_into_well", FallIntoWellReducer),
@@ -2081,6 +2092,7 @@ const reducersSchema = __reducers(
   __reducerSchema("save_player_progress", SavePlayerProgressReducer),
   __reducerSchema("seed_temporary_guild", SeedTemporaryGuildReducer),
   __reducerSchema("select_equipment_copy", SelectEquipmentCopyReducer),
+  __reducerSchema("sell_cooked_fish", SellCookedFishReducer),
   __reducerSchema("sell_graded_item", SellGradedItemReducer),
   __reducerSchema("send_chat_message", SendChatMessageReducer),
   __reducerSchema("send_chat_reply", SendChatReplyReducer),

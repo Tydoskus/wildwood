@@ -33,7 +33,10 @@ import { itemInspectionButtonLabel } from "./item-inspection-controller";
 import { oreKindsHeld } from "../../shared/ore-bag";
 import { toolArtSource } from "../game/runtime/town/tool-sprites";
 import type { ToolId } from "../../shared/tools";
-import { fishById } from "../../shared/fishing";
+import { fishById, type FishId } from "../../shared/fishing";
+import {
+  cookedFishSellPrice, fishForCookedId, formatFoodBuffSummary, type CookedFishId,
+} from "../../shared/cooking";
 import { isArrowId, type ArrowId } from "../../shared/arrows";
 
 type InventoryLocation = EquipmentSlot | "BAG" | "";
@@ -69,6 +72,10 @@ type InventoryDependencies = {
   /** The arrow kind the bow has nocked (shared/arrows.ts), and nocking one, or none for plain arrows. */
   nockedArrow?: () => ArrowId | null;
   nockArrow?: (arrowId: ArrowId | null) => Promise<Result>;
+  /** Eating a cooked fish for its temporary combat buff, or selling cooked fish for gold. */
+  eatFish?: (fishId: FishId) => Promise<Result>;
+  sellCookedFish?: (oreId: CookedFishId, count: number) => Promise<Result>;
+  afterFoodChanged?: () => void;
   equipBest?: () => boolean;
   equipmentLocked?: (itemId: string, copyId?: bigint) => boolean;
   setEquipmentLocked?: (itemId: string, locked: boolean, copyId?: bigint) => Promise<Result>;
@@ -261,8 +268,8 @@ export function createInventoryController(dependencies: InventoryDependencies) {
     // A nocked arrow kind run out still opens, so it can be unnocked.
     if (!(count > 0) && dependencies.nockedArrow?.() !== oreId) return;
     clearInventorySelection(dependencies.inventory);
-    dependencies.itemInspection.openOre?.({ oreId, count, actions: [...nockActions(oreId), ...dependencies.destroyOre ? [{
-      label: fishById(oreId) ? "Discard fish stack" : "Destroy ore",
+    dependencies.itemInspection.openOre?.({ oreId, count, actions: [...nockActions(oreId), ...cookedFishActions(oreId, count), ...dependencies.destroyOre ? [{
+      label: fishById(oreId) || fishForCookedId(oreId) ? "Discard fish stack" : "Destroy ore",
       kind: "DESTROY",
       onActivate: async () => {
         if (!await ask(confirmDestroy, {
@@ -279,6 +286,60 @@ export function createInventoryController(dependencies: InventoryDependencies) {
         } else dependencies.showMessage(result?.error ?? "NOT CONNECTED", "#ff9b91");
       },
     } satisfies ItemInspectionAction] : []] });
+  }
+
+  /** Eat and Sell actions for a cooked fish stack in the bag. */
+  function cookedFishActions(oreId: OreId, count: number): ItemInspectionAction[] {
+    const cooked = fishForCookedId(oreId);
+    if (!cooked || count <= 0) return [];
+    const actions: ItemInspectionAction[] = [];
+    const unitPrice = cookedFishSellPrice(cooked.id);
+    if (dependencies.eatFish) {
+      actions.push({
+        label: "Eat",
+        kind: "PRIMARY",
+        onActivate: async () => {
+          const result = await dependencies.eatFish!(cooked.id);
+          if (result?.ok) {
+            dependencies.afterFoodChanged?.();
+            dependencies.showMessage(`Ate Cooked ${cooked.name} · ${formatFoodBuffSummary(cooked.id)}`, "#ffd75e");
+          } else {
+            dependencies.showMessage(result?.error ?? "Not Connected", "#ff9b91");
+          }
+          render();
+          const left = dependencies.ores?.()[oreId] ?? 0;
+          if (left > 0 && dependencies.itemInspection.isOpen?.()) inspectOre(oreId);
+          else dependencies.itemInspection.close();
+        },
+      });
+    }
+    if (dependencies.sellCookedFish) {
+      const sell = async (qty: number) => {
+        const result = await dependencies.sellCookedFish!(oreId as CookedFishId, qty);
+        if (result?.ok) {
+          dependencies.showMessage(`Sold ${qty.toLocaleString()} Cooked ${cooked.name} · +${(unitPrice * qty).toLocaleString()}g`, "#ffd75e");
+        } else {
+          dependencies.showMessage(result?.error ?? "Not Connected", "#ff9b91");
+        }
+        render();
+        const left = dependencies.ores?.()[oreId] ?? 0;
+        if (left > 0 && dependencies.itemInspection.isOpen?.()) inspectOre(oreId);
+        else dependencies.itemInspection.close();
+      };
+      actions.push({
+        label: `Sell 1 (+${unitPrice.toLocaleString()}g)`,
+        kind: "SECONDARY",
+        onActivate: () => sell(1),
+      });
+      if (count > 1) {
+        actions.push({
+          label: `Sell All (+${(unitPrice * count).toLocaleString()}g)`,
+          kind: "SECONDARY",
+          onActivate: () => sell(count),
+        });
+      }
+    }
+    return actions;
   }
 
   /** An arrow stack's Nock, or Unnock on the kind nocked; the window then shows the new state. */

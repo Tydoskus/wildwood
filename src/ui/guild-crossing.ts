@@ -322,7 +322,7 @@ export function createGuildCrossingView(
         el("summary", "How Glass Crossing works"),
         el("p", "Pick Left or Right on the active glass pair. Safe tiles keep your daily try so you can chain a streak!"),
         el("p", "Fragile glass shatters, spends 1 try, marks your memorial on the tile, and reveals the safe side for your whole guild."),
-        el("p", "Daily tries reset at 00:00 UTC (1/day for 11–20 members, 2/day for 5–10, 3/day for 1–4). Every step awards +2 pts right away (+20 on clear, 50 total) on top of the 300-quest pool and boosts your guild bonus immediately."),
+        el("p", "Daily tries reset at 00:00 UTC (1/day for 11–20 members, 2/day for 5–10, 3/day for 1–4). Every step awards +2 guild points right away (+20 on clear, 50 total) on top of the 300-quest pool toward next week's guild bonus."),
       );
       body.append(rules);
 

@@ -7,6 +7,7 @@ import { armorMoveSpeedFactor, armorSkillChanceFactor } from "./armor-class-perk
 import { bowCritChanceBonus } from "./bow-skills";
 import { cardChance, cardValue, NO_CARDS, type CardTotals } from "./card-effects";
 import { armorDamageReduction } from "./combat";
+import { NO_FOOD_BUFF, type FoodBuffFactors } from "./cooking";
 import { criticalDamage } from "./critical-damage";
 import {
   BLACK_BOOTS, BLACK_BOOTS_SPEED_BONUS, bootMoveSpeedFactor, bootSkillChanceFactor, classSetDamageMultiplier,
@@ -49,6 +50,8 @@ export type PlayerStatInputs = {
   guildBonus?: number;
   /** The Gold Luck research rank (stored as gearLuck). */
   goldLuckRank?: number;
+  /** Active cooked-fish food buff multipliers (none when omitted). */
+  food?: FoodBuffFactors | null;
   /** Live combat only: Swordplay's Tailwind share now. */
   tailwind?: number;
   /** Duels keep their own footing: Black Boots do not count. */
@@ -89,11 +92,11 @@ export const critChanceFor = (research: Partial<ResearchRanks> | null | undefine
 export const procChance = (perkChance: number, cards: CardTotals, effect: "doubleStrike" | "splitShot" | "reflect") =>
   perkChance + cardChance(cards, effect) / 100;
 
-/** Max health, damage, armor and regen: base × gear × research × cards (player-power.ts). */
+/** Max health, damage, armor and regen: base × gear × research × cards × food (player-power.ts). */
 export function playerCoreStats(inputs: PlayerStatInputs) {
   const { base, loadout } = inputs;
   const factors = playerStatFactors({ equippedHead: loadout.head, equippedChest: loadout.chest, equippedFeet: loadout.feet,
-    equippedRightHand: loadout.rightHand, equippedLeftHand: loadout.leftHand }, inputs.research, levelOf(inputs), inputs.cards ?? NO_CARDS, inputs.attackCap);
+    equippedRightHand: loadout.rightHand, equippedLeftHand: loadout.leftHand }, inputs.research, levelOf(inputs), inputs.cards ?? NO_CARDS, inputs.attackCap, inputs.food ?? NO_FOOD_BUFF);
   return { factors, stats: applyPlayerStatFactors(factors, { ...base, attackRate: base.attackInterval }) };
 }
 
@@ -125,7 +128,7 @@ export function computePlayerStats(inputs: PlayerStatInputs) {
   const ranks = ranksOf(inputs), perks = inputs.perks ?? null, cardTotals = inputs.cards ?? NO_CARDS;
   const itemLevel = levelOf(inputs), weapon = weaponOf(loadout), soul = cleanSoulStats(inputs.soul);
   const { factors, stats: core } = playerCoreStats(inputs);
-  const { gear, research, cards } = factors;
+  const { gear, research, cards, food } = factors;
   const capInterval = attackCapInterval(inputs.attackCap);
   // Attack speed and crit with the weapon's rating (player-power.ts applyPlayerStatFactors).
   const attackInterval = Math.max(CHALLENGE_ABSOLUTE_MIN_INTERVAL, capInterval, core.attackRate);
@@ -161,10 +164,10 @@ export function computePlayerStats(inputs: PlayerStatInputs) {
     statGain,
     /** What each base stat ends up multiplied by. */
     multipliers: {
-      maxHp: research.maxHp * gear.maxHp * cards.maxHp,
-      damage: research.damage * gear.damage * cards.damage,
-      armor: research.armor * gear.armor * cards.armor,
-      regen: research.regen * gear.regen * cards.regen,
+      maxHp: research.maxHp * gear.maxHp * cards.maxHp * food.maxHp,
+      damage: research.damage * gear.damage * cards.damage * food.damage,
+      armor: research.armor * gear.armor * cards.armor * food.armor,
+      regen: research.regen * gear.regen * cards.regen * food.regen,
       moveSpeed: moveSpeed / Math.max(1, base.moveSpeed),
     },
     sources: { ...statSources(inputs, ranks, soul, factors, critDamage),
@@ -194,10 +197,10 @@ function statSources(inputs: PlayerStatInputs, ranks: ResearchRanks, soul: SoulS
   const damage = gearParts(level => equipmentDamageMultiplierBonus(weapon, head, chest, level(weapon), level(head), level(chest)));
   const regen = gearParts(level => equipmentRegenerationMultiplierBonus(head, chest, level(head), level(chest)));
   return {
-    maxHp: { soul: soul.maxHp, techPercent: ranks.vitality * 2, ...health, cards: cards.maxHp },
-    damage: { soul: soul.damage, techPercent: ranks.warcraft * 2, ...damage, classSet: classSetDamageMultiplier(weapon, head, chest), cards: cards.damage },
-    armor: { soul: soul.armor, techPercent: ranks.precision * 2, boots: factors.gear.armor, cards: cards.armor },
-    regen: { soul: soul.regen, techPercent: ranks.regeneration * 2, ...regen, cards: cards.regen },
+    maxHp: { soul: soul.maxHp, techPercent: ranks.vitality * 2, ...health, cards: cards.maxHp, food: factors.food.maxHp },
+    damage: { soul: soul.damage, techPercent: ranks.warcraft * 2, ...damage, classSet: classSetDamageMultiplier(weapon, head, chest), cards: cards.damage, food: factors.food.damage },
+    armor: { soul: soul.armor, techPercent: ranks.precision * 2, boots: factors.gear.armor, cards: cards.armor, food: factors.food.armor },
+    regen: { soul: soul.regen, techPercent: ranks.regeneration * 2, ...regen, cards: cards.regen, food: factors.food.regen },
     /** Inside the saved range already: Utility research and Long Shot. */
     range: { tech: Math.min(5, Math.max(0, ranks.utilityAttackRange ?? 0)) * 10, prestige: prestigePerkValue(perks, "longShot") },
     moveSpeed: {

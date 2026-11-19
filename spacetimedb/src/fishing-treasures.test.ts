@@ -49,21 +49,54 @@ describe("treasure on the line", () => {
   });
 });
 
-it("cooks actual fish for gold and saved Cooking XP, and charges nothing for a rejected recipe", () => {
+it("level-locks fish, can burn at early levels, keeps cooked fish in inventory to sell or eat for temporary combat buffs", () => {
   const f = crystalFixture(), who = f.ctx.sender;
-  f.transaction(() => addOres(f.ctx, who, "minnow", 1));
-  const cook = (recipeId: string) => f.run(server.cookFish, { fishId: "minnow", recipeId });
-  expect(() => cook("skewer")).toThrow(/cooking fire/);
+  f.transaction(() => { addOres(f.ctx, who, "minnow", 3); addOres(f.ctx, who, "trout", 1); });
+  const cook = (fishId: string, recipeId: string) => f.run(server.cookFish, { fishId, recipeId });
+  expect(() => cook("minnow", "skewer")).toThrow(/cooking fire/);
   f.patch("player", { mapId: "town", x: COOK_FIRES[0].x, y: COOK_FIRES[0].y - TOWN_FEET_OFFSET });
-  expect(() => cook("chowder")).toThrow(/Cooking Lv 12/);
+  // Fish level lock: Trout requires Cooking Lv 21.
+  expect(() => f.run(server.beginCooking, { fishId: "trout", recipeId: "skewer" })).toThrow(/Cooking Lv 21/);
+  expect(() => cook("minnow", "chowder")).toThrow(/Cooking Lv 12/);
+
+  // Early-level burn: high roll (> 0.78) burns the Minnow (consumes raw fish, 0 cooked, 0 XP, 0 gold).
+  const fixedRoll = (value: number) => Object.assign(() => value, { integerInRange: (min: number) => min });
+  f.ctx.random = fixedRoll(0.99);
   f.run(server.beginCooking, { fishId: "minnow", recipeId: "skewer" });
-  expect(() => cook("skewer")).toThrow(/still cooking/);
-  expect(oreCount(f.ctx, who, "minnow")).toBe(1);
+  expect(() => cook("minnow", "skewer")).toThrow(/still cooking/);
+  expect(oreCount(f.ctx, who, "minnow")).toBe(3);
   f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 3_000_000n);
-  cook("skewer");
-  expect(() => cook("skewer")).toThrow(/Start a dish/);
-  expect(oreCount(f.ctx, who, "minnow")).toBe(0);
-  expect(goldFor(f.ctx, who)).toBe(1n);
+  cook("minnow", "skewer");
+  expect(oreCount(f.ctx, who, "minnow")).toBe(2);
+  expect(oreCount(f.ctx, who, "cooked_minnow")).toBe(0);
+  expect(goldFor(f.ctx, who)).toBe(0n);
+
+  // Successful cook: low roll puts Cooked Minnow in inventory + grants Cooking XP (no instant gold).
+  f.ctx.random = fixedRoll(0.01);
+  f.run(server.beginCooking, { fishId: "minnow", recipeId: "skewer" });
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 3_000_000n);
+  cook("minnow", "skewer");
+  expect(() => cook("minnow", "skewer")).toThrow(/Start a dish/);
+  expect(oreCount(f.ctx, who, "minnow")).toBe(1);
+  expect(oreCount(f.ctx, who, "cooked_minnow")).toBe(1);
+  expect(goldFor(f.ctx, who)).toBe(0n);
   expect([...f.db.playerCraftSkill.iter()][0]).toMatchObject({ skill: "cooking", experience: 2n });
-  expect([...f.db.playerCraftLevel.iter()][0]).toMatchObject({ skill: "cooking", level: 3 });
+
+  // Cook a second Minnow so we can both eat one and sell one.
+  f.run(server.beginCooking, { fishId: "minnow", recipeId: "skewer" });
+  f.ctx.timestamp = new Timestamp(f.ctx.timestamp.microsSinceUnixEpoch + 3_000_000n);
+  cook("minnow", "skewer");
+  expect(oreCount(f.ctx, who, "cooked_minnow")).toBe(2);
+
+  // Eat one: activates a temporary Max HP buff (+5% for 5 min) and consumes 1 Cooked Minnow.
+  f.run(server.eatFish, { fishId: "minnow" });
+  expect(oreCount(f.ctx, who, "cooked_minnow")).toBe(1);
+  const buff = f.db.playerFoodBuff.identity.find(who);
+  expect(buff?.fishId).toBe("minnow");
+  expect(buff?.endsAtMs).toBeGreaterThan(Number(f.ctx.timestamp.microsSinceUnixEpoch / 1000n));
+
+  // Sell the remaining Cooked Minnow for gold (2g each).
+  f.run(server.sellCookedFish, { oreId: "cooked_minnow", count: 1 });
+  expect(oreCount(f.ctx, who, "cooked_minnow")).toBe(0);
+  expect(goldFor(f.ctx, who)).toBe(2n);
 });
