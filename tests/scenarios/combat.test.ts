@@ -310,7 +310,7 @@ describe("combat in the booted game", { timeout: 60_000 }, () => {
     const corrected: string[] = [];
     world.onCommit(commit => {
       if (commit.reducer !== "updateMovementState" || commit.error) return;
-      const sent = commit.args as { x: number; y: number }, row = ann.row("player")!;
+      const sent = commit.args as { x: number; y: number }, row = ann.row("playerMotion") ?? ann.row("player")!;
       if (Math.hypot(row.x - sent.x, row.y - sent.y) > .01) corrected.push(`${sent.x},${sent.y} -> ${row.x},${row.y}`);
     });
     if (!ann.row("playerMultiplayerPreference")?.enabled) tab.tap("playerVisibilityToggle");
